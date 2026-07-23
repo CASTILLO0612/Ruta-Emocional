@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Ruta Emocional",
+    "slug": "ruta-emocional",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A2463"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rutaemocional.app",
+      "config": {
+        "googleMapsApiKey": "PLACEHOLDER_GOOGLE_MAPS_API_KEY"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      },
+      "package": "com.rutaemocional.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "PLACEHOLDER_GOOGLE_MAPS_API_KEY"
+        }
+      }
+    },
+    "plugins": []
+  }
+}
