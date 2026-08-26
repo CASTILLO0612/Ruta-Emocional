@@ -1,0 +1,34 @@
+# Documentación técnica de Ruta Emocional
+
+Este directorio es la fuente de verdad para las decisiones funcionales y técnicas del MVP. Si el comportamiento del código contradice estos documentos, debe corregirse el código o registrarse una nueva decisión arquitectónica antes de cambiar la regla.
+
+## Orden de lectura
+
+1. [Definición del MVP](product/mvp-definition.md)
+2. [Reglas de negocio](domain/business-rules.md)
+3. [Máquinas de estado](domain/state-machines.md)
+4. [Matriz de autorización](security/authorization-matrix.md)
+5. [Arquitectura de seguridad y privacidad](security/security-and-privacy.md)
+6. [Modelo de amenazas](security/threat-model.md)
+7. [Convenciones de API](api/api-guidelines.md)
+8. [Requisitos no funcionales](operations/non-functional-requirements.md)
+9. [Plan de ejecución del MVP](roadmap/mvp-execution-plan.md)
+
+## Decisiones vigentes
+
+- PostgreSQL y PostGIS son la fuente de verdad transaccional.
+- El esquema debe cumplir al menos tercera forma normal.
+- La aplicación se implementa como monolito modular con límites de dominio explícitos.
+- El backend es la única autoridad para identidad, permisos, precios, estados y acceso clínico.
+- El frontend actual se conserva y se integra por flujos verticales.
+- MongoDB solo puede existir durante una migración controlada y reversible.
+- La información clínica y de triaje se considera altamente sensible.
+- MENTA orienta y deriva; no diagnostica, prescribe ni sustituye atención profesional o de emergencia.
+
+## Estado documental
+
+Los documentos distinguen entre:
+
+- **MVP obligatorio**: debe existir antes de una prueba con usuarios reales.
+- **Posterior al MVP**: se diseña ahora, pero no bloquea el primer lanzamiento.
+- **Puerta de salida**: decisión que debe resolverse antes de producción, como jurisdicción, proveedor de pagos o proveedor de llamadas.

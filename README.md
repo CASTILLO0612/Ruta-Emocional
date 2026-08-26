@@ -1,6 +1,6 @@
 # Ruta Emocional
 
-Ruta Emocional es una plataforma móvil orientada a conectar de manera directa y en tiempo real a pacientes que requieren atención psicológica con profesionales de la salud mental verificados. La solución integra un sistema de subasta inversa (bidding), geolocalización en tiempo real, triaje asistido por inteligencia artificial y canales de consulta multimodal (chat, llamada de voz, videollamada y consulta presencial).
+Ruta Emocional es una aplicación móvil en evolución para conectar pacientes con profesionales de psicología verificados. El repositorio contiene un prototipo funcional y la base de una nueva arquitectura productiva sobre PostgreSQL. Las funciones clínicas, pagos, MENTA y llamadas permanecen sujetas a las puertas de seguridad descritas en [`docs/`](docs/README.md).
 
 ---
 
@@ -24,28 +24,31 @@ El objetivo de Ruta Emocional es democratizar y agilizar el acceso a servicios d
 
 ---
 
-## Características Principales
+## Estado de capacidades
 
-### Para Pacientes
-- **Triaje Emocional con IA (MENTA)**: Asistente conversacional fundamentado en modelos de lenguaje (Google Gemini API) que analiza el estado emocional del usuario y sugiere modalidades de atención e intervalos presupuestarios recomendados.
-- **Radar de Geolocalización en Tiempo Real**: Visualización interactiva de psicólogos disponibles cercanos sobre un mapa con marcadores personalizados.
-- **Sistema de Subasta Inversa (Bidding)**: Envío de solicitudes definiendo modalidad, horario (inmediato o fecha de calendario) y propuesta económica inicial, recibiendo contraofertas en tiempo real.
-- **Sala de Consulta Multimodal**: Espacio virtual seguro que permite alternar entre chat de texto, llamada de audio y videollamada con contador de duración e indicador de cifrado.
-- **Seguimiento de Ruta Presencial**: Mapa satelital interactivo con tiempo estimado de llegada (ETA) para consultas a domicilio.
-- **Perfil y Métodos de Pago**: Configuración de PIN de seguridad, administración de tarjetas de pago, historial terapéutico y soporte técnico.
+| Capacidad | Prototipo actual | Objetivo MVP |
+|---|---|---|
+| Identidad | flujo básico heredado | sesiones revocables PostgreSQL; primer flujo v1 implementado |
+| Directorio/geolocalización | demostración y datos fallback | solo profesionales verificados, PostGIS y privacidad de ubicación |
+| Solicitudes/ofertas | REST/Socket.IO heredado | transacciones, autorización por objeto, idempotencia y outbox |
+| Mensajería | demostración | conversación autorizada, persistencia previa al evento y cursores |
+| Agenda | interfaz parcial | disponibilidad, citas y no solapamiento PostgreSQL |
+| Historia clínica | no disponible en UI | expediente mínimo versionado y auditado |
+| MENTA | demostración sin protocolo clínico completo | orientación con salvaguardas y revisión clínica |
+| Pagos | simulación | deshabilitados hasta elegir proveedor y webhooks firmados |
+| Audio/video | señalización visual, no media RTC real | deshabilitado hasta proveedor/arquitectura aprobados |
 
-### Para Psicólogos
-- **Panel de Solicitudes (Dashboard)**: Monitoreo en tiempo real de peticiones entrantes de pacientes dentro del radio de atención.
-- **Gestión de Tarifas**: Aceptación directa del presupuesto propuesto o emisión de contraofertas personalizadas.
-- **Métricas de Rendimiento**: Resumen de ganancias acumuladas, conteo de sesiones realizadas y calificación promedio.
+No deben presentarse las simulaciones como servicios reales o clínicamente validados.
 
 ---
 
 ## Arquitectura y Tecnologías
 
-La aplicación está construida bajo una arquitectura modular desacoplada utilizando el patrón Repository y Zustand para la gestión de estado global.
+La aplicación está construida bajo una arquitectura modular desacoplada utilizando el patrón Repository, Zustand para la gestión de estado global y comunicación bidireccional en tiempo real mediante WebSockets.
 
-- **Framework Móvil**: React Native con Expo (v54)
+### Frontend (App Móvil)
+- **Framework Móvil actual**: React Native con Expo SDK 54
+- **Objetivo de migración**: Expo SDK 57 en una fase aislada y verificable
 - **Lenguaje**: TypeScript
 - **Gestión de Estado**: Zustand
 - **Navegación**: React Navigation (Native Stack & Bottom Tabs)
@@ -54,8 +57,16 @@ La aplicación está construida bajo una arquitectura modular desacoplada utiliz
   - Gorhom Bottom Sheet
   - Expo Vector Icons
 - **Servicios de Mapas**: React Native Maps (Google Maps Provider & Web iframe Fallback)
-- **Backend y Base de Datos**: Firebase (Authentication, Firestore / Realtime Database)
-- **Inteligencia Artificial**: Google Gemini API (`gemini-1.5-flash`)
+- **Comunicación en Tiempo Real**: Socket.io Client (eventos bidireccionales con autenticación JWT)
+
+### Backend (API REST + WebSockets)
+- **Runtime**: Node.js con Express
+- **Base de datos objetivo**: PostgreSQL en tercera forma normal con PostGIS
+- **Acceso a datos objetivo**: Prisma y SQL versionado para capacidades avanzadas
+- **Base heredada temporal**: MongoDB Atlas, conservada solo mientras se migra
+- **Autenticación v1**: access token corto, refresh token opaco y rotativo, sesiones PostgreSQL y scrypt; bcrypt se admite solo para rehash de datos heredados
+- **Tiempo Real**: Socket.io Server (señalización de llamadas, bidding, chat, geolocalización)
+- **Inteligencia Artificial**: Google Gemini API (`gemini-1.5-flash`) procesada de forma segura desde el servidor
 
 ---
 
@@ -63,31 +74,24 @@ La aplicación está construida bajo una arquitectura modular desacoplada utiliz
 
 ```text
 Ruta Emocional/
-├── assets/                  # Recursos gráficos (íconos, splash screens)
-├── src/
-│   ├── components/          # Componentes reutilizables
-│   │   ├── common/          # Botones, alertas, mapas, calificaciones
-│   │   ├── patient/         # Selectores de presupuesto, modalidad y tarjetas de oferta
-│   │   └── psychologist/    # Tarjetas de solicitudes entrantes
-│   ├── models/              # Interfaces y modelos de dominio (User, Offer, ActiveRequest, Psychologist)
-│   ├── navigation/          # Configuración de rutas y navegadores
-│   ├── repositories/        # Capa de acceso a datos y repositorios de Firebase
-│   ├── screens/             # Pantallas divididas por flujo
-│   │   ├── auth/            # Inicios de sesión y registro por rol
-│   │   ├── patient/         # Inicio (Home) y Radar de búsqueda
-│   │   ├── psychologist/    # Dashboard de solicitudes y recepción de ofertas
-│   │   └── shared/          # MENTA AI, Consulta, Historial, Mensajería y Perfil
-│   ├── scripts/             # Scripts utilitarios y sembrado de datos de prueba
-│   ├── services/            # Clientes de servicios externos (AuthService, GeminiService)
-│   ├── store/               # Tiendas de estado global (Zustand)
-│   ├── theme/               # Sistema de diseño (colores, tipografía, espaciados)
-│   └── utils/               # Funciones auxiliares y formateadores
-├── App.tsx                  # Punto de entrada de React Native
-├── app.json                 # Configuración de Expo
-├── babel.config.js          # Configuración de Babel
-├── firebase.config.ts       # Inicialización de servicios Firebase
-├── index.ts                 # Registro del componente principal
-└── package.json             # Manifest de dependencias y scripts
+├── frontend/                # Aplicación React Native/Expo
+├── backend/                 # API REST, Socket.IO y migración PostgreSQL
+│   ├── prisma/
+│   │   ├── schema.prisma    # Modelo relacional canónico
+│   │   └── migrations/      # Migraciones SQL inmutables
+│   ├── tests/               # Pruebas unitarias e integración PostgreSQL
+│   └── src/                 # Monolito modular TypeScript
+├── docs/
+│   ├── product/             # Alcance y puertas del MVP
+│   ├── domain/              # Reglas y máquinas de estado
+│   ├── security/            # Autorización, privacidad y amenazas
+│   ├── api/                 # Contratos HTTP/WebSocket y OpenAPI
+│   ├── operations/          # Rendimiento y confiabilidad
+│   ├── roadmap/             # Ejecución incremental
+│   ├── architecture/        # ADR y decisiones técnicas
+│   └── database/            # Evidencia y reglas de normalización
+├── compose.yaml             # PostgreSQL/PostGIS local
+└── package.json             # Scripts de coordinación del monorepo
 ```
 
 ---
@@ -96,8 +100,9 @@ Ruta Emocional/
 
 Asegúrese de contar con los siguientes entornos en su sistema antes de continuar:
 
-- **Node.js**: v18.0.0 o superior
-- **npm**: v9.0.0 o superior
+- **Node.js**: v22.13.0 o superior, requerido por el objetivo Expo SDK 57
+- **npm**: compatible con la versión instalada de Node.js
+- **PostgreSQL/PostGIS**: disponible localmente o mediante Docker
 - **Expo CLI**: Incluido en la ejecución mediante `npx`
 - **Dispositivo Físico o Emulador**:
   - Expo Go (Android / iOS)
@@ -117,46 +122,59 @@ Asegúrese de contar con los siguientes entornos en su sistema antes de continua
 2. **Instalar dependencias:**
 
    ```bash
-   npm install
+   npm --prefix frontend ci
+   npm --prefix backend ci
+   ```
+
+3. **Preparar PostgreSQL:**
+
+   ```bash
+   docker compose up -d postgres
+   npm run db:migrate:deploy
    ```
 
 ---
 
 ## Variables de Entorno
 
-Cree un archivo `.env` en la raíz del proyecto basado en el siguiente esquema:
+Cree `.env` a partir de `.env.example` en la raíz y en `backend/`. Los
+archivos reales no deben confirmarse en Git.
 
 ```env
-# Configuración de Firebase
-FIREBASE_API_KEY=tu_firebase_api_key
-FIREBASE_AUTH_DOMAIN=tu_proyecto.firebaseapp.com
-FIREBASE_PROJECT_ID=tu_proyecto_id
-FIREBASE_STORAGE_BUCKET=tu_proyecto.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=tu_messaging_sender_id
-FIREBASE_APP_ID=tu_app_id
-
-# Configuración de Google Gemini API
-GEMINI_API_KEY=tu_gemini_api_key
-
-# Configuración de Google Maps (Android / iOS)
-GOOGLE_MAPS_API_KEY=tu_google_maps_api_key
+DATABASE_URL=postgresql://usuario:password@localhost:5432/ruta_emocional?schema=public
+JWT_ACCESS_SECRET=<secreto-aleatorio>
+PASSWORD_PEPPER=<otro-secreto-aleatorio>
+JWT_ACCESS_TTL_SECONDS=900
+JWT_REFRESH_TTL_DAYS=30
+GEMINI_API_KEY=<api-key>
+ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006
 ```
 
 ---
 
 ## Ejecución
 
-Para iniciar el servidor de desarrollo de Expo:
+Para iniciar cada aplicación desde la raíz:
 
 ```bash
-npm start
+npm run start:backend
+npm run start:frontend
 ```
 
-### Opciones de ejecución:
+Para comprobar el modelo PostgreSQL:
 
-- **Android**: Ejecute `npm run android` o presione `a` en la consola de Expo.
-- **iOS**: Ejecute `npm run ios` o presione `i` en la consola de Expo (requiere macOS).
-- **Web**: Ejecute `npm run web` o presione `w` en la consola de Expo.
+```bash
+npm run db:validate
+```
+
+Para verificar el primer flujo de identidad:
+
+```bash
+npm --prefix backend test
+TEST_DATABASE_URL=<url-postgresql-de-pruebas> npm --prefix backend run test:integration
+```
+
+La documentación normativa comienza en [`docs/README.md`](docs/README.md). La arquitectura base está en [`ADR-001`](docs/architecture/ADR-001-postgresql-clean-architecture.md) y la evidencia de normalización en [`normalization-3nf.md`](docs/database/normalization-3nf.md).
 
 ---
 
