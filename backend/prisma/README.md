@@ -1,0 +1,43 @@
+# PostgreSQL y Prisma
+
+El modelo canónico está en `schema.prisma`. PostgreSQL es la fuente de verdad y
+las migraciones SQL versionadas son la autoridad sobre la estructura desplegada.
+
+## Requisitos
+
+- Node.js compatible con Expo SDK 57.
+- PostgreSQL con PostGIS; `compose.yaml` usa la imagen oficial mantenida por el
+  proyecto Docker PostGIS.
+- Una variable `DATABASE_URL` válida.
+
+## Flujo local
+
+1. Copiar `.env.example` como `.env` en la raíz y en `backend/`.
+2. Definir contraseñas locales no reutilizadas.
+3. Iniciar PostgreSQL con `docker compose up -d postgres`.
+4. Instalar dependencias del backend.
+5. Ejecutar `npm run db:validate`.
+6. Ejecutar `npm run db:migrate:dev` para crear o aplicar una migración local.
+
+## Reglas de migración
+
+- Una migración aplicada nunca se edita; se crea otra migración correctiva.
+- `db push` no se usa en ambientes compartidos o productivos.
+- Los cambios destructivos necesitan migración expand/contract y respaldo.
+- Las restricciones PostGIS, parciales o de exclusión se escriben en SQL cuando
+  Prisma no pueda expresarlas.
+- Toda migración debe justificar el cumplimiento de 3FN en
+  `docs/database/normalization-3nf.md`.
+
+## Estado actual
+
+- Extensiones `postgis`, `btree_gist` y `pgcrypto` habilitadas.
+- Esquema inicial y restricciones relacionales aplicadas.
+- Invariantes cruzadas protegidas por triggers diferibles.
+- Solapamiento de citas protegido por restricciones de exclusión.
+- Defaults y triggers de `updated_at` aplicados.
+- Cliente Prisma generado y flujo de identidad v1 probado contra PostgreSQL.
+
+La aplicación debe usar un rol con privilegios mínimos. El superusuario
+`postgres` solo se utiliza para administración local, extensiones y preparación
+de roles; no es una credencial de runtime.
