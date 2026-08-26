@@ -12,6 +12,7 @@ import { LoginScreen, RegisterScreen } from '../screens/auth/AuthScreens';
 import { HomeScreen } from '../screens/patient/HomeScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
+import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
 import { MentaScreen } from '../screens/shared/MentaScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { HistoryScreen } from '../screens/shared/HistoryScreen';
@@ -173,9 +174,14 @@ function PsychologistTabs() {
 }
 
 export const AppNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading, role } = useAuthStore();
+  const { isAuthenticated, isLoading, role, userProfile, initializeSession } = useAuthStore();
+  const canUsePsychologistWorkspace = userProfile?.capabilities.includes(
+    'service_request:read:eligible'
+  ) ?? false;
 
-
+  useEffect(() => {
+    void initializeSession();
+  }, [initializeSession]);
 
   if (isLoading) {
     return (
@@ -193,13 +199,15 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
           </>
-        ) : role === 'psychologist' ? (
+        ) : role === 'psychologist' && canUsePsychologistWorkspace ? (
           <>
             <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />
             <Stack.Screen name="Consultation" component={ConsultationScreen} />
             <Stack.Screen name="Route" component={RouteTrackingScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
+        ) : role === 'psychologist' ? (
+          <Stack.Screen name="PsychologistVerification" component={VerificationScreen} />
         ) : (
           <>
             <Stack.Screen name="PatientMain" component={PatientTabs} />

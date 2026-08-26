@@ -23,7 +23,7 @@ import { CustomAlert } from '../../components/common/CustomAlert';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useRequestStore } from '../../store/useRequestStore';
 import { useCallStore } from '../../store/useCallStore';
-import { storageHelper } from '../../services/storageHelper';
+import { transientStorage } from '../../services/transientStorage';
 import { getSocket, joinRoom, leaveRoom } from '../../services/socketClient';
 import { IncomingCallOverlay } from './components/IncomingCallOverlay';
 import { OutgoingCallScreen } from './components/OutgoingCallScreen';
@@ -74,11 +74,11 @@ export const ConsultationScreen: React.FC = () => {
 
   const paramReqId = route.params?.requestId;
   const storeReqId = activeRequest?.id;
-  const savedReqId = storageHelper.getItem(CHAT_REQ_KEY);
+  const savedReqId = transientStorage.getItem(CHAT_REQ_KEY);
 
   const requestId = paramReqId || storeReqId || savedReqId || 'demo_request';
 
-  const savedName = storageHelper.getItem(CHAT_NAME_KEY);
+  const savedName = transientStorage.getItem(CHAT_NAME_KEY);
   const psychologistName = route.params?.psychologistName || savedName || 'Dra. Maria Elena Castillo';
   const psychologistPhotoURL = route.params?.psychologistPhotoURL;
 
@@ -92,13 +92,13 @@ export const ConsultationScreen: React.FC = () => {
   // Persistir IDs para resistir recarga de pÃ¡gina
   useEffect(() => {
     if (requestId && requestId !== 'demo_request') {
-      storageHelper.setItem(CHAT_REQ_KEY, requestId);
+      transientStorage.setItem(CHAT_REQ_KEY, requestId);
     }
   }, [requestId]);
 
   useEffect(() => {
     if (route.params?.psychologistName) {
-      storageHelper.setItem(CHAT_NAME_KEY, route.params.psychologistName);
+      transientStorage.setItem(CHAT_NAME_KEY, route.params.psychologistName);
     }
   }, [route.params?.psychologistName]);
 
@@ -134,8 +134,8 @@ export const ConsultationScreen: React.FC = () => {
 
   const handleConfirmEndSession = () => {
     setEndSessionAlertVisible(false);
-    storageHelper.removeItem(CHAT_REQ_KEY);
-    storageHelper.removeItem(CHAT_NAME_KEY);
+    transientStorage.removeItem(CHAT_REQ_KEY);
+    transientStorage.removeItem(CHAT_NAME_KEY);
     destroyCallListeners();
     navigation.goBack();
   };

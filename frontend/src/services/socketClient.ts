@@ -1,13 +1,10 @@
-import { Platform } from 'react-native';
 import { io, Socket } from 'socket.io-client';
+import { getApiOrigin } from '../config/runtimeConfig';
 import { getAuthToken } from './apiClient';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración de conexión
 // ─────────────────────────────────────────────────────────────────────────────
-
-const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') ?? 'http://10.0.2.2:5000';
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Singleton de Socket.io con autenticación JWT y reconexión automática
@@ -27,7 +24,7 @@ export function getSocket(): Socket {
 
   const token = getAuthToken();
 
-  socketInstance = io(SOCKET_URL, {
+  socketInstance = io(getApiOrigin(), {
     transports: ['websocket'],
     autoConnect: true,
     reconnection: true,

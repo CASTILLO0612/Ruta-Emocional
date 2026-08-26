@@ -1,52 +1,181 @@
-import { Platform } from 'react-native';
-import { storageHelper } from './storageHelper';
+import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
-export const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api`;
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-const TOKEN_KEY = 'ruta_emocional_auth_token';
+export interface ProblemFieldError {
+  readonly field?: string;
+  readonly code: string;
+  readonly message: string;
+}
+
+export interface ProblemDetails {
+  readonly type?: string;
+  readonly title?: string;
+  readonly status?: number;
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code?: string;
+  readonly requestId?: string;
+  readonly errors?: readonly ProblemFieldError[];
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly requestId?: string;
+  readonly fieldErrors: readonly ProblemFieldError[];
+
+  constructor(options: {
+    readonly status: number;
+    readonly code: string;
+    readonly message: string;
+    readonly requestId?: string;
+    readonly fieldErrors?: readonly ProblemFieldError[];
+    readonly cause?: unknown;
+  }) {
+    super(options.message, options.cause === undefined ? undefined : { cause: options.cause });
+    this.name = 'ApiError';
+    this.status = options.status;
+    this.code = options.code;
+    this.requestId = options.requestId;
+    this.fieldErrors = options.fieldErrors ?? [];
+  }
+}
+
+export interface ApiRequestOptions {
+  readonly authenticated?: boolean;
+  readonly retryUnauthorized?: boolean;
+  readonly signal?: AbortSignal;
+}
+
+type RefreshAccessToken = () => Promise<string | null>;
+
+let accessToken: string | null = null;
+let refreshAccessToken: RefreshAccessToken | null = null;
 
 export function setAuthToken(token: string | null): void {
-  if (token) {
-    storageHelper.setItem(TOKEN_KEY, token);
-  } else {
-    storageHelper.removeItem(TOKEN_KEY);
-  }
+  accessToken = token;
 }
 
 export function getAuthToken(): string | null {
-  return storageHelper.getItem(TOKEN_KEY);
+  return accessToken;
 }
 
-export async function apiRequest<T>(
-  endpoint: string,
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
-  body?: any
-): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+export function configureAuthRefresh(handler: RefreshAccessToken): void {
+  refreshAccessToken = handler;
+}
 
-  const userToken = getAuthToken();
-  if (userToken) {
-    headers['Authorization'] = `Bearer ${userToken}`;
+function validateEndpoint(endpoint: string): void {
+  if (!endpoint.startsWith('/') || endpoint.includes('://')) {
+    throw new ApiError({
+      status: 0,
+      code: 'INVALID_API_ENDPOINT',
+      message: 'La ruta solicitada no es válida.',
+    });
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function readResponsePayload(response: Response): Promise<unknown> {
+  if (response.status === 204) return undefined;
+  const responseText = await response.text();
+  if (!responseText) return undefined;
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    return JSON.parse(responseText) as unknown;
+  } catch {
+    if (response.ok) {
+      throw new ApiError({
+        status: response.status,
+        code: 'INVALID_API_RESPONSE',
+        message: 'El servidor devolvió una respuesta que no pudimos interpretar.',
+      });
+    }
+    return undefined;
+  }
+}
+
+function toApiError(response: Response, payload: unknown): ApiError {
+  const problem = isRecord(payload) ? payload as ProblemDetails : undefined;
+  return new ApiError({
+    status: response.status,
+    code: typeof problem?.code === 'string' ? problem.code : `HTTP_${response.status}`,
+    message: typeof problem?.detail === 'string'
+      ? problem.detail
+      : 'No pudimos completar la operación solicitada.',
+    requestId: typeof problem?.requestId === 'string' ? problem.requestId : undefined,
+    fieldErrors: Array.isArray(problem?.errors) ? problem.errors : undefined,
+  });
+}
+
+async function executeRequest<T>(
+  baseUrl: string,
+  endpoint: string,
+  method: HttpMethod,
+  body: unknown,
+  options: ApiRequestOptions
+): Promise<T> {
+  validateEndpoint(endpoint);
+
+  const authenticated = options.authenticated !== false;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (authenticated && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${endpoint}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: options.signal,
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || `Error en API (${response.status})`);
-    }
-
-    return data as T;
-  } catch (error: any) {
-    console.error(`[API Error ${method} ${endpoint}]:`, error);
-    throw error;
+  } catch (cause) {
+    throw new ApiError({
+      status: 0,
+      code: 'NETWORK_ERROR',
+      message: 'No pudimos conectarnos con Ruta Emocional. Revisa tu conexión.',
+      cause,
+    });
   }
+
+  if (
+    response.status === 401
+    && authenticated
+    && options.retryUnauthorized !== false
+    && refreshAccessToken
+  ) {
+    const nextAccessToken = await refreshAccessToken();
+    if (nextAccessToken) {
+      return executeRequest<T>(baseUrl, endpoint, method, body, {
+        ...options,
+        retryUnauthorized: false,
+      });
+    }
+  }
+
+  const payload = await readResponsePayload(response);
+  if (!response.ok) throw toApiError(response, payload);
+  return payload as T;
+}
+
+export function apiRequest<T>(
+  endpoint: string,
+  method: HttpMethod = 'GET',
+  body?: unknown,
+  options: ApiRequestOptions = {}
+): Promise<T> {
+  return executeRequest<T>(getLegacyApiBaseUrl(), endpoint, method, body, options);
+}
+
+export function apiV1Request<T>(
+  endpoint: string,
+  method: HttpMethod = 'GET',
+  body?: unknown,
+  options: ApiRequestOptions = {}
+): Promise<T> {
+  return executeRequest<T>(getVersionOneApiBaseUrl(), endpoint, method, body, options);
 }

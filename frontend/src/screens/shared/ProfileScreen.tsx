@@ -18,34 +18,33 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { useAuthStore } from '../../store/useAuthStore';
-import { signOutUser } from '../../services/AuthService';
 import { CustomAlert } from '../../components/common/CustomAlert';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { userProfile, setUserProfile, clearAuth } = useAuthStore();
+  const { userProfile, setUserProfile, signOut } = useAuthStore();
   const isPsychologist = userProfile?.role === 'psychologist';
 
   const [logoutAlertVisible, setLogoutAlertVisible] = useState(false);
   const [saveSuccessAlertVisible, setSaveSuccessAlertVisible] = useState(false);
   const [activePanel, setActivePanel] = useState<'datos' | 'profesional' | 'seguridad' | 'pagos' | 'notificaciones' | 'soporte' | null>(null);
 
-  const [name, setName] = useState(userProfile?.displayName ?? (isPsychologist ? 'Dra. Diana Castillo' : 'Ángel Flores'));
-  const [email, setEmail] = useState(userProfile?.email ?? (isPsychologist ? 'doene120280@gmail.com' : 'angel@rutaemocional.ni'));
-  const [phone, setPhone] = useState(userProfile?.phone ?? '+505 8888-8888');
-  const [photoURL, setPhotoURL] = useState(userProfile?.photoURL ?? 'https://i.pravatar.cc/150?img=47');
+  const [name, setName] = useState(userProfile?.displayName ?? '');
+  const [email, setEmail] = useState(userProfile?.email ?? '');
+  const [phone, setPhone] = useState(userProfile?.phone ?? '');
+  const [photoURL, setPhotoURL] = useState(userProfile?.photoURL ?? '');
 
   // Campos profesionales para psicólogo
-  const [specialty, setSpecialty] = useState(userProfile?.specialty ?? 'Psicología Clínica y Terapia Cognitivo Conductual');
-  const [bio, setBio] = useState(userProfile?.bio ?? 'Especialista con más de 8 años de experiencia en gestión de ansiedad, estrés y acompañamiento emocional.');
+  const [specialty, setSpecialty] = useState(userProfile?.specialty ?? '');
+  const [bio, setBio] = useState(userProfile?.bio ?? '');
   const [isAvailable, setIsAvailable] = useState(true);
 
-  const [pin, setPin] = useState('1234');
+  const [pin, setPin] = useState('');
   const [newPin, setNewPin] = useState('');
   
-  const [cardNumber, setCardNumber] = useState('**** **** **** 4321');
+  const [cardNumber, setCardNumber] = useState('');
   const [cardHolder, setCardHolder] = useState(name.toUpperCase());
-  const [cardExpiry, setCardExpiry] = useState('12/29');
+  const [cardExpiry, setCardExpiry] = useState('');
   
   const [notifChat, setNotifChat] = useState(true);
   const [notifOffers, setNotifOffers] = useState(true);
@@ -60,10 +59,9 @@ export const ProfileScreen: React.FC = () => {
   const handleConfirmSignOut = async () => {
     setLogoutAlertVisible(false);
     try {
-      await signOutUser();
-      clearAuth();
-    } catch (error) {
-      console.warn('[Profile] Error signing out', error);
+      await signOut();
+    } catch {
+      console.warn('[Profile] No se pudo revocar la sesión remota; la sesión local fue eliminada.');
     }
   };
 

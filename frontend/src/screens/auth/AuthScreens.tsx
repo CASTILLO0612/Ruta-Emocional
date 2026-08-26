@@ -18,9 +18,13 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { registerUser, signIn } from '../../services/AuthService';
+import { PSYCHOLOGIST_LICENSE_AUTHORITY } from '../../services/AuthService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Toast, useToast } from '../../components/common/Toast';
+
+const MINIMUM_PASSWORD_LENGTH = 12;
+const MINIMUM_LICENSE_NUMBER_LENGTH = 4;
+const MAXIMUM_LICENSE_NUMBER_LENGTH = 80;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared sub-components
@@ -129,7 +133,7 @@ const fieldStyles = StyleSheet.create({
 
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { setUserProfile } = useAuthStore();
+  const authenticate = useAuthStore((state) => state.authenticate);
   const { toastConfig, showToast, hideToast } = useToast();
 
   const [email, setEmail] = useState('');
@@ -161,8 +165,7 @@ export const LoginScreen: React.FC = () => {
     setPassError(false);
     setIsLoading(true);
     try {
-      const user = await signIn(email.trim(), password);
-      setUserProfile(user);
+      await authenticate(email.trim(), password);
     } catch (error: any) {
       const msg = error?.message || 'No pudimos iniciar sesión. Verifica tus credenciales.';
       showToast(msg, 'error');
@@ -284,7 +287,7 @@ export const LoginScreen: React.FC = () => {
 
 export const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { setUserProfile } = useAuthStore();
+  const registerAccount = useAuthStore((state) => state.registerAccount);
   const { toastConfig, showToast, hideToast } = useToast();
 
   const [name, setName] = useState('');
@@ -310,29 +313,42 @@ export const RegisterScreen: React.FC = () => {
 
   const handleRegister = async () => {
     let valid = true;
+    const normalizedLicenseNumber = licenseNumber.trim();
+    const licenseIsInvalid = role === 'psychologist' && (
+      normalizedLicenseNumber.length < MINIMUM_LICENSE_NUMBER_LENGTH
+      || normalizedLicenseNumber.length > MAXIMUM_LICENSE_NUMBER_LENGTH
+    );
+
     if (!name.trim()) { setNameError(true); valid = false; }
     if (!email.trim()) { setEmailError(true); valid = false; }
-    if (password.length < 12) { setPassError(true); valid = false; }
-    if (role === 'psychologist') {
-      const licensePattern = /^(MINSA-)?[A-Za-z0-9]{4,}$/;
-      if (!licenseNumber.trim() || !licensePattern.test(licenseNumber.trim())) {
-        setLicenseError(true);
-        valid = false;
-      }
+    if (password.length < MINIMUM_PASSWORD_LENGTH) { setPassError(true); valid = false; }
+    if (licenseIsInvalid) {
+      setLicenseError(true);
+      valid = false;
     }
     if (!valid) {
-      const msg = role === 'psychologist' && licenseError
-        ? 'Formato de colegiatura MINSA inválido. Usa el formato MINSA-XXXX.'
-        : 'Completa todos los campos. La contraseña debe tener al menos 12 caracteres.';
+      const msg = licenseIsInvalid
+        ? 'La colegiatura debe contener entre 4 y 80 caracteres.'
+        : `Completa todos los campos. La contraseña debe tener al menos ${MINIMUM_PASSWORD_LENGTH} caracteres.`;
       showToast(msg, 'warning');
       return;
     }
     setIsLoading(true);
     try {
-      const user = await registerUser(email.trim(), password, name.trim(), role,
-        role === 'psychologist' ? licenseNumber.trim() : undefined
-      );
-      setUserProfile(user);
+      await registerAccount({
+        email: email.trim(),
+        password,
+        displayName: name.trim(),
+        role,
+        ...(role === 'psychologist'
+          ? {
+              license: {
+                authority: PSYCHOLOGIST_LICENSE_AUTHORITY,
+                number: normalizedLicenseNumber,
+              },
+            }
+          : {}),
+      });
     } catch (error: any) {
       const msg = error?.message || 'No pudimos crear tu cuenta. Intenta nuevamente.';
       showToast(msg, 'error');
@@ -420,7 +436,7 @@ export const RegisterScreen: React.FC = () => {
               />
               <Field
                 icon="lock-outline"
-                placeholder="Contraseña (mín. 12 caracteres)"
+                placeholder={`Contraseña (mín. ${MINIMUM_PASSWORD_LENGTH} caracteres)`}
                 value={password}
                 onChangeText={(v) => { setPassword(v); setPassError(false); }}
                 secureTextEntry

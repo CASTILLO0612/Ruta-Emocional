@@ -28,7 +28,7 @@ El objetivo de Ruta Emocional es democratizar y agilizar el acceso a servicios d
 
 | Capacidad | Prototipo actual | Objetivo MVP |
 |---|---|---|
-| Identidad | flujo básico heredado | sesiones revocables PostgreSQL; primer flujo v1 implementado |
+| Identidad | registro, acceso y cierre de sesión conectados a PostgreSQL | completar recuperación de cuenta, MFA administrativo y verificación documental |
 | Directorio/geolocalización | demostración y datos fallback | solo profesionales verificados, PostGIS y privacidad de ubicación |
 | Solicitudes/ofertas | REST/Socket.IO heredado | transacciones, autorización por objeto, idempotencia y outbox |
 | Mensajería | demostración | conversación autorizada, persistencia previa al evento y cursores |
@@ -47,8 +47,7 @@ No deben presentarse las simulaciones como servicios reales o clínicamente vali
 La aplicación está construida bajo una arquitectura modular desacoplada utilizando el patrón Repository, Zustand para la gestión de estado global y comunicación bidireccional en tiempo real mediante WebSockets.
 
 ### Frontend (App Móvil)
-- **Framework Móvil actual**: React Native con Expo SDK 54
-- **Objetivo de migración**: Expo SDK 57 en una fase aislada y verificable
+- **Framework Móvil actual**: React Native 0.86 con Expo SDK 57
 - **Lenguaje**: TypeScript
 - **Gestión de Estado**: Zustand
 - **Navegación**: React Navigation (Native Stack & Bottom Tabs)
@@ -58,6 +57,7 @@ La aplicación está construida bajo una arquitectura modular desacoplada utiliz
   - Expo Vector Icons
 - **Servicios de Mapas**: React Native Maps (Google Maps Provider & Web iframe Fallback)
 - **Comunicación en Tiempo Real**: Socket.io Client (eventos bidireccionales con autenticación JWT)
+- **Sesión**: access token solo en memoria y refresh token en `expo-secure-store` en Android/iOS; la sesión web se mantiene únicamente en memoria
 
 ### Backend (API REST + WebSockets)
 - **Runtime**: Node.js con Express
@@ -137,8 +137,11 @@ Asegúrese de contar con los siguientes entornos en su sistema antes de continua
 
 ## Variables de Entorno
 
-Cree `.env` a partir de `.env.example` en la raíz y en `backend/`. Los
-archivos reales no deben confirmarse en Git.
+Cree `.env` a partir de `.env.example` en la raíz y en `backend/`. Cree
+`frontend/.env.local` a partir de `frontend/.env.example`. Los archivos reales
+no deben confirmarse en Git.
+
+Backend:
 
 ```env
 DATABASE_URL=postgresql://usuario:password@localhost:5432/ruta_emocional?schema=public
@@ -148,6 +151,12 @@ JWT_ACCESS_TTL_SECONDS=900
 JWT_REFRESH_TTL_DAYS=30
 GEMINI_API_KEY=<api-key>
 ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006
+```
+
+Frontend; indique únicamente el origen, sin agregar `/api`:
+
+```env
+EXPO_PUBLIC_API_URL=http://localhost:5000
 ```
 
 ---
@@ -165,6 +174,13 @@ Para comprobar el modelo PostgreSQL:
 
 ```bash
 npm run db:validate
+```
+
+Para validar el cliente Expo:
+
+```bash
+npm --prefix frontend run typecheck
+npx expo-doctor@latest
 ```
 
 Para verificar el primer flujo de identidad:
