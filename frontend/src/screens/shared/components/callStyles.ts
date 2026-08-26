@@ -1,0 +1,246 @@
+import { StyleSheet } from 'react-native';
+import { Colors } from '../../../theme/colors';
+import { BorderRadius, Shadow, Spacing } from '../../../theme/spacing';
+
+export const callStyles = StyleSheet.create({
+  // Incoming overlay
+  incomingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 36, 99, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  incomingCard: {
+    alignItems: 'center',
+    gap: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    width: '100%',
+  },
+  incomingSubtitle: {
+    fontSize: 15,
+    color: Colors.accent,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  incomingTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  incomingAvatarWrapper: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  incomingAvatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.textInverse,
+    textAlign: 'center',
+  },
+  incomingRole: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+  },
+  incomingActions: {
+    flexDirection: 'row',
+    gap: 60,
+    marginTop: Spacing.xl,
+  },
+  rejectBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.lg,
+  },
+  acceptBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#22C55E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.lg,
+  },
+
+  // Outgoing call
+  outgoingRoot: {
+    flex: 1,
+    backgroundColor: '#0A2463',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outgoingInner: {
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  outgoingAvatarWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  outgoingName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.textInverse,
+  },
+  outgoingStatus: {
+    fontSize: 15,
+    color: Colors.accent,
+    fontWeight: '600',
+  },
+  cancelCallBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.xxxl,
+    ...Shadow.lg,
+  },
+  cancelCallLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+  },
+
+  // Active call
+  activeRoot: {
+    flex: 1,
+    backgroundColor: '#0A2463',
+  },
+  activeRemote: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeAvatarWrapper: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+    borderColor: Colors.accent,
+  },
+  activeAudioAvatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeVideoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  activeVideoLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  activeName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.textInverse,
+  },
+  activeTimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+  },
+  activeLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accent,
+  },
+  activeTimer: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textInverse,
+    letterSpacing: 2,
+  },
+  activeSelfPreview: {
+    position: 'absolute',
+    top: 60,
+    right: Spacing.base,
+    width: 90,
+    height: 120,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    zIndex: 10,
+  },
+  activeSelfLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+  },
+  activeControls: {
+    paddingBottom: Spacing.xl,
+  },
+  activeControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xl,
+    paddingVertical: Spacing.lg,
+  },
+  activeControlCol: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  activeBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeBtnOff: {
+    backgroundColor: 'rgba(239,68,68,0.25)',
+  },
+  activeEndBtn: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.lg,
+  },
+  activeBtnLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+  },
+});
