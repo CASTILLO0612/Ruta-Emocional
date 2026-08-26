@@ -5,7 +5,7 @@ import { BorderRadius, Shadow, Spacing } from '../../../theme/spacing';
 export const callStyles = StyleSheet.create({
   // Incoming overlay
   incomingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(10, 36, 99, 0.96)',
     alignItems: 'center',
     justifyContent: 'center',

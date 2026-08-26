@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A2463"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rutaemocional.app",
@@ -30,6 +25,19 @@
         }
       }
     },
-    "plugins": []
+    "plugins": [
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A2463"
+        }
+      ]
+    ]
   }
 }
