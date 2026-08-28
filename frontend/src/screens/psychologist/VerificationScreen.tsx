@@ -29,6 +29,8 @@ import {
 import { showAlert } from '../../utils/alert';
 
 const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as const;
+const PROFESSIONAL_BIO_MIN_LENGTH = 20;
+const PROFESSIONAL_BIO_MAX_LENGTH = 3000;
 
 export const VerificationScreen: React.FC = () => {
   const userProfile = useAuthStore((state) => state.userProfile);
@@ -102,6 +104,8 @@ export const VerificationScreen: React.FC = () => {
   };
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const normalizedBioLength = bio.trim().length;
+  const bioIsValid = normalizedBioLength >= PROFESSIONAL_BIO_MIN_LENGTH;
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -156,15 +160,31 @@ export const VerificationScreen: React.FC = () => {
                 onChangeText={setBio}
                 placeholder="Describe tu enfoque, experiencia y población atendida"
                 multiline
-                maxLength={3000}
+                maxLength={PROFESSIONAL_BIO_MAX_LENGTH}
+                accessibilityLabel="Presentación profesional"
               />
+              <View style={styles.fieldGuidanceRow}>
+                <Text style={[
+                  styles.helperText,
+                  styles.fieldGuidanceText,
+                  bio.length > 0 && !bioIsValid && styles.validationText,
+                ]}>
+                  Mínimo {PROFESSIONAL_BIO_MIN_LENGTH} caracteres. Describe brevemente tu experiencia y enfoque.
+                </Text>
+                <Text style={styles.characterCounter}>
+                  {normalizedBioLength}/{PROFESSIONAL_BIO_MAX_LENGTH}
+                </Text>
+              </View>
               <TouchableOpacity
-                style={styles.saveButton}
-                disabled={isSaving || bio.trim().length < 20}
+                style={[styles.saveButton, (isSaving || !bioIsValid) && styles.disabledButton]}
+                disabled={isSaving || !bioIsValid}
                 onPress={() => void saveSection(
                   () => updateProfessionalBio(bio.trim()),
                   'Tu presentación profesional fue actualizada.'
                 )}
+                accessibilityRole="button"
+                accessibilityLabel="Guardar presentación"
+                accessibilityState={{ disabled: isSaving || !bioIsValid }}
               >
                 <Text style={styles.saveButtonText}>Guardar presentación</Text>
               </TouchableOpacity>
@@ -189,12 +209,15 @@ export const VerificationScreen: React.FC = () => {
                 <Text style={styles.helperText}>El catálogo aún no contiene especialidades activas.</Text>
               ) : null}
               <TouchableOpacity
-                style={styles.saveButton}
+                style={[styles.saveButton, (isSaving || !specialtyCode) && styles.disabledButton]}
                 disabled={isSaving || !specialtyCode}
                 onPress={() => void saveSection(
                   () => replaceProfessionalSpecialties([specialtyCode], specialtyCode),
                   'Tu especialidad principal fue actualizada.'
                 )}
+                accessibilityRole="button"
+                accessibilityLabel="Guardar especialidad"
+                accessibilityState={{ disabled: isSaving || !specialtyCode }}
               >
                 <Text style={styles.saveButtonText}>Guardar especialidad</Text>
               </TouchableOpacity>
@@ -421,6 +444,23 @@ const styles = StyleSheet.create({
   helperText: {
     ...Typography.bodySmall,
     color: Colors.textSecondary,
+  },
+  fieldGuidanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  fieldGuidanceText: {
+    flex: 1,
+  },
+  validationText: {
+    color: Colors.error,
+    flex: 1,
+  },
+  characterCounter: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
   },
   rowInputs: {
     flexDirection: 'row',

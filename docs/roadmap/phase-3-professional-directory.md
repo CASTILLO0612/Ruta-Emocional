@@ -85,6 +85,11 @@ está en [`../database/normalization-3nf.md`](../database/normalization-3nf.md).
 - Migración funcional: `20260827000000_professional_directory`.
 - Corrección de restricción portable: `20260827001000_fix_evidence_key_constraint`.
 - Corrección 3FN: `20260827002000_normalize_verification_submission`.
+- Catálogo inicial explícito de especialidades: `20260828003000_initial_specialty_catalog`.
+
+El catálogo inicial es información de referencia versionada y administrable. No
+se carga durante una consulta, no oculta errores de PostgreSQL y no reemplaza las
+decisiones posteriores de activación o desactivación tomadas por administración.
 
 Nunca se modificó una migración ya aplicada; cada hallazgo posterior a su
 aplicación produjo una migración correctiva nueva.
