@@ -2,98 +2,143 @@ import { io, Socket } from 'socket.io-client';
 import { getApiOrigin } from '../config/runtimeConfig';
 import { getAuthToken } from './apiClient';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Configuración de conexión
-// ─────────────────────────────────────────────────────────────────────────────
+interface MessageCreatedEvent {
+  readonly conversationId: string;
+  readonly message: unknown;
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Singleton de Socket.io con autenticación JWT y reconexión automática
-// ─────────────────────────────────────────────────────────────────────────────
+interface ServerEvents {
+  'message.created': (event: MessageCreatedEvent) => void;
+}
 
-let socketInstance: Socket | null = null;
-let currentRooms: Set<string> = new Set();
+interface SubscriptionAck {
+  readonly ok: boolean;
+  readonly code?: string;
+}
 
-/**
- * Obtiene (o crea) la instancia singleton del socket con JWT.
- * Automáticamente envía el token en el handshake de autenticación.
- */
-export function getSocket(): Socket {
-  if (socketInstance && socketInstance.connected) {
-    return socketInstance;
-  }
+interface ClientEvents {
+  'conversation.subscribe': (
+    payload: { readonly conversationId: string },
+    acknowledge: (result: SubscriptionAck) => void
+  ) => void;
+  'conversation.unsubscribe': (payload: { readonly conversationId: string }) => void;
+}
 
+type RefreshAccessToken = () => Promise<string | null>;
+export type RealtimeConnectionState = 'connecting' | 'connected' | 'disconnected';
+
+let socketInstance: Socket<ServerEvents, ClientEvents> | null = null;
+let refreshAccessToken: RefreshAccessToken | null = null;
+let refreshInFlight: Promise<void> | null = null;
+const subscriptionCounts = new Map<string, number>();
+
+export function configureSocketAuthRefresh(handler: RefreshAccessToken): void {
+  refreshAccessToken = handler;
+}
+
+function updateSocketToken(socket: Socket<ServerEvents, ClientEvents>): boolean {
   const token = getAuthToken();
+  socket.auth = { token: token ?? undefined };
+  return Boolean(token);
+}
 
-  socketInstance = io(getApiOrigin(), {
+function subscribe(socket: Socket<ServerEvents, ClientEvents>, conversationId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    socket.timeout(5000).emit(
+      'conversation.subscribe',
+      { conversationId },
+      (timeoutError: Error | null, result?: SubscriptionAck) => {
+        if (timeoutError) return reject(timeoutError);
+        if (!result?.ok) return reject(new Error(result?.code ?? 'SUBSCRIPTION_FAILED'));
+        resolve();
+      }
+    );
+  });
+}
+
+function createSocket(): Socket<ServerEvents, ClientEvents> {
+  const socket = io(getApiOrigin(), {
     transports: ['websocket'],
-    autoConnect: true,
+    autoConnect: false,
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    auth: {
-      token: token || undefined,
-    },
   });
 
-  socketInstance.on('connect', () => {
-    console.log(`[SocketClient] Conectado: ${socketInstance?.id}`);
-    // Rejoin rooms after reconnection
-    currentRooms.forEach((roomId) => {
-      socketInstance?.emit('join_room', roomId);
-      console.log(`[SocketClient] Re-unido a sala: ${roomId}`);
-    });
+  socket.on('connect_error', (error) => {
+    if (error.message !== 'UNAUTHORIZED' || !refreshAccessToken || refreshInFlight) return;
+    refreshInFlight = refreshAccessToken()
+      .then((token) => {
+        if (!token) return;
+        updateSocketToken(socket);
+        socket.connect();
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
   });
+  socket.io.on('reconnect_attempt', () => updateSocketToken(socket));
+  updateSocketToken(socket);
+  socket.connect();
+  return socket;
+}
 
-  socketInstance.on('disconnect', (reason: string) => {
-    console.log(`[SocketClient] Desconectado: ${reason}`);
-  });
-
-  socketInstance.on('connect_error', (err: Error) => {
-    console.warn(`[SocketClient] Error de conexión:`, err.message);
-  });
-
+function getSocket(): Socket<ServerEvents, ClientEvents> {
+  if (!socketInstance) socketInstance = createSocket();
+  if (!socketInstance.connected && !socketInstance.active && updateSocketToken(socketInstance)) {
+    socketInstance.connect();
+  }
   return socketInstance;
 }
 
-/**
- * Unirse a una sala (request room, session room, etc.)
- */
-export function joinRoom(roomId: string): void {
+export function subscribeToConversation(options: {
+  readonly conversationId: string;
+  readonly onMessage: (event: MessageCreatedEvent) => void;
+  readonly onStateChange?: (state: RealtimeConnectionState) => void;
+  readonly onError?: (error: Error) => void;
+}): () => void {
   const socket = getSocket();
-  currentRooms.add(roomId);
-  socket.emit('join_room', roomId);
-  console.log(`[SocketClient] Unido a sala: ${roomId}`);
+  subscriptionCounts.set(
+    options.conversationId,
+    (subscriptionCounts.get(options.conversationId) ?? 0) + 1
+  );
+
+  const onConnect = () => {
+    options.onStateChange?.('connected');
+    void subscribe(socket, options.conversationId).catch((error: unknown) => {
+      options.onError?.(error instanceof Error ? error : new Error('SUBSCRIPTION_FAILED'));
+    });
+  };
+  const onDisconnect = () => options.onStateChange?.('disconnected');
+  const onMessage = (event: MessageCreatedEvent) => {
+    if (event.conversationId === options.conversationId) options.onMessage(event);
+  };
+
+  socket.on('connect', onConnect);
+  socket.on('disconnect', onDisconnect);
+  socket.on('message.created', onMessage);
+  options.onStateChange?.(socket.connected ? 'connected' : 'connecting');
+  if (socket.connected) onConnect();
+
+  return () => {
+    socket.off('connect', onConnect);
+    socket.off('disconnect', onDisconnect);
+    socket.off('message.created', onMessage);
+    const remainingSubscriptions = (subscriptionCounts.get(options.conversationId) ?? 1) - 1;
+    if (remainingSubscriptions <= 0) {
+      subscriptionCounts.delete(options.conversationId);
+      socket.emit('conversation.unsubscribe', { conversationId: options.conversationId });
+    } else {
+      subscriptionCounts.set(options.conversationId, remainingSubscriptions);
+    }
+  };
 }
 
-/**
- * Salir de una sala
- */
-export function leaveRoom(roomId: string): void {
-  const socket = getSocket();
-  currentRooms.delete(roomId);
-  socket.emit('leave_room', roomId);
-  console.log(`[SocketClient] Salido de sala: ${roomId}`);
-}
-
-/**
- * Desconecta completamente el socket y limpia el singleton.
- * Usar al cerrar sesión.
- */
 export function disconnectSocket(): void {
-  if (socketInstance) {
-    socketInstance.removeAllListeners();
-    socketInstance.disconnect();
-    socketInstance = null;
-    currentRooms.clear();
-    console.log('[SocketClient] Socket desconectado y limpiado');
-  }
-}
-
-/**
- * Reconecta con un nuevo token (por ej. después de login).
- */
-export function reconnectWithToken(): void {
-  disconnectSocket();
-  getSocket();
+  subscriptionCounts.clear();
+  if (!socketInstance) return;
+  socketInstance.removeAllListeners();
+  socketInstance.disconnect();
+  socketInstance = null;
 }

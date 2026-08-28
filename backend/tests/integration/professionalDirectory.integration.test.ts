@@ -7,6 +7,7 @@ import { buildApplicationServices } from '../../src/compositionRoot';
 import { AppConfig } from '../../src/config/env';
 import { PrismaClient } from '../../src/generated/prisma/client';
 import { createLogger } from '../../src/shared/infrastructure/logging/logger';
+import { createTestConfig } from '../support/testConfig';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -89,6 +90,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
       serializableRetryBaseDelayMs: 5,
       supportedCurrencies: ['NIO'],
     },
+    messaging: createTestConfig(databaseUrl, 'directory-integration').messaging,
   };
 
   const app = createApp({

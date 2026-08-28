@@ -185,25 +185,7 @@ export const RadarScreen: React.FC = () => {
     try {
       const result = await acceptIncomingOffer(selectedOffer.id);
       bottomSheetRef.current?.dismiss();
-      const acceptedOffer = result.offer;
-      const selectedModality = activeRequest?.modality ?? 'chat';
-      const targetRequestId = activeRequest?.id || activeRequestId || acceptedOffer.requestId;
-      if (selectedModality === 'in-person') {
-        navigation.replace('Route', {
-          requestId: targetRequestId,
-          psychologistName: acceptedOffer.psychologistName,
-          psychologistPhotoURL: acceptedOffer.psychologistPhotoURL,
-          amount: acceptedOffer.amount,
-        });
-      } else {
-        navigation.replace('Consultation', {
-          requestId: targetRequestId,
-          psychologistName: acceptedOffer.psychologistName,
-          psychologistPhotoURL: acceptedOffer.psychologistPhotoURL,
-          modality: selectedModality,
-          amount: acceptedOffer.amount,
-        });
-      }
+      navigation.replace('Consultation', { conversationId: result.conversationId });
     } catch (acceptanceError) {
       clearError();
       showAlert(

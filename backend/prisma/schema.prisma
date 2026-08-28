@@ -700,13 +700,15 @@ model Message {
   id                        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   legacyId                  String?                 @unique @map("legacy_id")
   conversationParticipantId String                  @map("conversation_participant_id") @db.Uuid
+  clientMessageId           String                  @map("client_message_id") @db.Uuid
   type                      MessageType             @default(TEXT)
   content                   String                  @db.Text
   sentAt                    DateTime                @default(now()) @map("sent_at") @db.Timestamptz(3)
   editedAt                  DateTime?               @map("edited_at") @db.Timestamptz(3)
   participant               ConversationParticipant @relation(fields: [conversationParticipantId], references: [id], onDelete: Restrict)
 
-  @@index([conversationParticipantId, sentAt])
+  @@unique([conversationParticipantId, clientMessageId])
+  @@index([conversationParticipantId, sentAt, id])
   @@map("messages")
 }
 
@@ -802,17 +804,21 @@ model AuditEvent {
 }
 
 model OutboxEvent {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  aggregateType String    @map("aggregate_type") @db.VarChar(100)
-  aggregateId   String    @map("aggregate_id") @db.Uuid
-  eventType     String    @map("event_type") @db.VarChar(160)
-  payload       Json
-  occurredAt    DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
-  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
-  attempts      Int       @default(0)
-  lastError     String?   @map("last_error") @db.Text
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aggregateType  String    @map("aggregate_type") @db.VarChar(100)
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  eventType      String    @map("event_type") @db.VarChar(160)
+  payload        Json
+  occurredAt     DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)
+  availableAt    DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  claimedAt      DateTime? @map("claimed_at") @db.Timestamptz(3)
+  claimToken     String?   @map("claim_token") @db.Uuid
+  deadLetteredAt DateTime? @map("dead_lettered_at") @db.Timestamptz(3)
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error") @db.Text
 
-  @@index([publishedAt, occurredAt])
+  @@index([eventType, publishedAt, deadLetteredAt, availableAt, occurredAt])
   @@map("outbox_events")
 }
 

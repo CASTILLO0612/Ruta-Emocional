@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Ruta Emocional API
   version: 1.0.0-draft
-  description: Contrato ejecutable de identidad, directorio profesional, verificación, solicitudes y ofertas.
+  description: Contrato ejecutable de identidad, directorio profesional, verificación, solicitudes, ofertas y mensajería segura.
 servers:
   - url: http://localhost:5000/api/v1
     description: Desarrollo local
@@ -14,6 +14,7 @@ tags:
   - name: Professional profile
   - name: Professional verification
   - name: Service requests
+  - name: Messaging
 paths:
   /health/live:
     get:
@@ -622,6 +623,98 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /conversations/policy:
+    get:
+      tags: [Messaging]
+      operationId: getMessagingPolicy
+      responses:
+        '200':
+          description: Límites de mensajería que debe aplicar el cliente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessagingPolicyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /conversations:
+    get:
+      tags: [Messaging]
+      operationId: listOwnConversations
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Conversaciones activas o pausadas donde participa la sesión actual.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationPageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /conversations/{conversationId}:
+    get:
+      tags: [Messaging]
+      operationId: getOwnConversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Conversación visible para el participante autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /conversations/{conversationId}/messages:
+    get:
+      tags: [Messaging]
+      operationId: listConversationMessages
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: direction
+          in: query
+          required: false
+          schema: { type: string, enum: [before, after], default: before }
+      responses:
+        '200':
+          description: Página cronológica de mensajes de texto autorizados.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessagePageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [Messaging]
+      operationId: sendConversationMessage
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+      responses:
+        '200':
+          description: Repetición idempotente del mismo mensaje.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SendMessageResponse' }
+        '201':
+          description: Mensaje persistido, auditado y encolado para entrega.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SendMessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 components:
   securitySchemes:
     bearerAuth:
@@ -639,6 +732,21 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, minLength: 1 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200 }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1236,11 +1344,123 @@ components:
         data:
           type: object
           additionalProperties: false
-          required: [request, acceptedOffer, careRelationshipId, replayed]
+          required: [request, acceptedOffer, careRelationshipId, conversationId, replayed]
           properties:
             request: { $ref: '#/components/schemas/ServiceRequest' }
             acceptedOffer: { $ref: '#/components/schemas/ServiceOffer' }
             careRelationshipId: { type: string, format: uuid }
+            conversationId: { type: string, format: uuid }
+            replayed: { type: boolean }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    MessagingPolicy:
+      type: object
+      additionalProperties: false
+      required: [maximumTextLength]
+      properties:
+        maximumTextLength: { type: integer, minimum: 1, maximum: 4000 }
+    MessagingPolicyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MessagingPolicy' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ConversationCounterpart:
+      type: object
+      additionalProperties: false
+      required: [userId, displayName, photoUrl, role]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        photoUrl: { type: [string, 'null'], format: uri }
+        role: { type: string, enum: [patient, psychologist] }
+    ConversationLastMessage:
+      type: object
+      additionalProperties: false
+      required: [id, text, sentAt, isOwn]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        sentAt: { type: string, format: date-time }
+        isOwn: { type: boolean }
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [id, serviceRequestId, careRelationshipId, modality, counterpart, canSend, createdAt, activityAt, lastMessage]
+      properties:
+        id: { type: string, format: uuid }
+        serviceRequestId: { type: string, format: uuid }
+        careRelationshipId: { type: string, format: uuid }
+        modality: { type: string, enum: [CHAT, CALL, IN_PERSON] }
+        counterpart: { $ref: '#/components/schemas/ConversationCounterpart' }
+        canSend: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        activityAt: { type: string, format: date-time }
+        lastMessage:
+          oneOf:
+            - { $ref: '#/components/schemas/ConversationLastMessage' }
+            - { type: 'null' }
+    ConversationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Conversation' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [nextCursor, hasMore]
+      properties:
+        nextCursor: { type: [string, 'null'] }
+        hasMore: { type: boolean }
+    ConversationPageResponse:
+      type: object
+      required: [data, page, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Conversation' }
+        page: { $ref: '#/components/schemas/PageInfo' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Message:
+      type: object
+      additionalProperties: false
+      required: [id, conversationId, clientMessageId, type, text, sentAt, sender, isOwn]
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        clientMessageId: { type: string, format: uuid }
+        type: { type: string, enum: [TEXT] }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        sentAt: { type: string, format: date-time }
+        sender: { $ref: '#/components/schemas/ConversationCounterpart' }
+        isOwn: { type: boolean }
+    MessagePageResponse:
+      type: object
+      required: [data, page, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+        page: { $ref: '#/components/schemas/PageInfo' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    SendMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [clientMessageId, type, text]
+      properties:
+        clientMessageId: { type: string, format: uuid }
+        type: { type: string, enum: [TEXT] }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+    SendMessageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [message, replayed]
+          properties:
+            message: { $ref: '#/components/schemas/Message' }
             replayed: { type: boolean }
         meta: { $ref: '#/components/schemas/ResponseMeta' }
     HealthResponse:

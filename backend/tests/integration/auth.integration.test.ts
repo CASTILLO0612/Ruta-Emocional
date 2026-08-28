@@ -7,6 +7,7 @@ import { buildApplicationServices } from '../../src/compositionRoot';
 import { AppConfig } from '../../src/config/env';
 import { PrismaClient } from '../../src/generated/prisma/client';
 import { createLogger } from '../../src/shared/infrastructure/logging/logger';
+import { createTestConfig } from '../support/testConfig';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -67,6 +68,7 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       serializableRetryBaseDelayMs: 5,
       supportedCurrencies: ['NIO'],
     },
+    messaging: createTestConfig(databaseUrl, 'auth-integration').messaging,
   };
 
   const logger = createLogger('test');

@@ -1,289 +1,269 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+import type { AppNavigation } from '../../navigation/navigationTypes';
+import {
+  Conversation,
+  fetchUserConversations,
+} from '../../repositories/ChatRepository';
+import { BorderRadius, Spacing } from '../../theme/spacing';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { BorderRadius, Spacing } from '../../theme/spacing';
-import { useAuthStore } from '../../store/useAuthStore';
-import { fetchUserConversations } from '../../repositories/ChatRepository';
-import { Toast, useToast } from '../../components/common/Toast';
-import type { AppNavigation } from '../../navigation/navigationTypes';
 
-interface ChatItem {
-  id: string;
-  displayName: string;
-  photoURL?: string;
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-  requestId?: string;
+function displayActivity(isoDate: string): string {
+  const date = new Date(isoDate);
+  const today = new Date();
+  const sameDay = date.getFullYear() === today.getFullYear()
+    && date.getMonth() === today.getMonth()
+    && date.getDate() === today.getDate();
+  return new Intl.DateTimeFormat('es-NI', sameDay
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { day: '2-digit', month: 'short' }
+  ).format(date);
+}
+
+function roleLabel(role: Conversation['counterpart']['role']): string {
+  return role === 'psychologist' ? 'Profesional de psicología' : 'Paciente';
 }
 
 export const InboxScreen: React.FC = () => {
   const navigation = useNavigation<AppNavigation>();
-  const { userProfile } = useAuthStore();
-  const { toastConfig, showToast, hideToast } = useToast();
-  const [chats, setChats] = useState<ChatItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isSubscribed = true;
+  const loadFirstPage = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setError(null);
+      const page = await fetchUserConversations(undefined, signal);
+      setConversations([...page.data]);
+      setNextCursor(page.page.nextCursor);
+    } catch (loadError) {
+      if (loadError instanceof Error && loadError.name === 'AbortError') return;
+      setError(loadError instanceof Error
+        ? loadError.message
+        : 'No pudimos cargar tus conversaciones.');
+    } finally {
+      if (!signal?.aborted) setIsLoading(false);
+    }
+  }, []);
 
-    const loadConversations = async () => {
-      try {
-        if (userProfile?.id) {
-          const convs = await fetchUserConversations(userProfile.id);
-          if (convs && convs.length > 0) {
-            const isPatient = userProfile.role === 'patient';
-            const mapped: ChatItem[] = convs.map((c, idx) => ({
-              id: c.requestId || idx.toString(),
-              displayName: isPatient
-                ? c.psychologistName || 'Psicólogo'
-                : c.patientName || 'Paciente',
-              photoURL: isPatient ? c.psychologistPhotoURL : c.patientPhotoURL,
-              lastMessage: c.lastMessage || 'Sesión iniciada',
-              time: c.updatedAt
-                ? new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : '',
-              unread: false,
-              requestId: c.requestId,
-            }));
-            if (isSubscribed) {
-              setChats(mapped);
-              setLoading(false);
-              return;
-            }
-          }
-        }
-        if (isSubscribed) {
-          setChats([]);
-          setLoading(false);
-        }
-      } catch {
-        if (isSubscribed) {
-          setLoading(false);
-          showToast('No se pudieron cargar los mensajes. Verifica tu conexión.', 'error');
-        }
-      }
-    };
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    void loadFirstPage(controller.signal);
+    return () => controller.abort();
+  }, [loadFirstPage]));
 
-    void loadConversations();
-    return () => {
-      isSubscribed = false;
-    };
-  }, [userProfile?.id, userProfile?.role]);
+  const refresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadFirstPage();
+    setIsRefreshing(false);
+  }, [loadFirstPage]);
 
-  const handleOpenChat = (chat: ChatItem) => {
-    navigation.navigate('Consultation', {
-      requestId: chat.requestId || chat.id,
-      psychologistName: chat.displayName,
-      psychologistPhotoURL: chat.photoURL,
-      modality: 'chat',
-    });
-  };
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const page = await fetchUserConversations(nextCursor);
+      setConversations((current) => {
+        const knownIds = new Set(current.map(({ id }) => id));
+        return [...current, ...page.data.filter(({ id }) => !knownIds.has(id))];
+      });
+      setNextCursor(page.page.nextCursor);
+    } catch (loadError) {
+      setError(loadError instanceof Error
+        ? loadError.message
+        : 'No pudimos cargar más conversaciones.');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, nextCursor]);
 
-  const renderItem = ({ item, index }: { item: ChatItem; index: number }) => {
-    const isLast = index === chats.length - 1;
+  if (isLoading) {
     return (
-      <TouchableOpacity
-        style={[styles.row, isLast && styles.rowLast]}
-        onPress={() => handleOpenChat(item)}
-        activeOpacity={0.6}
-        accessibilityLabel={`Abrir chat con ${item.displayName}`}
-        accessibilityRole="button"
-      >
-        {/* Avatar */}
-        <View style={styles.avatarWrapper}>
-          {item.photoURL ? (
-            <Image source={{ uri: item.photoURL }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>
-                {item.displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Contenido */}
-        <View style={styles.info}>
-          <View style={styles.infoTop}>
-            <Text style={[styles.name, item.unread && styles.nameUnread]} numberOfLines={1}>
-              {item.displayName}
-            </Text>
-            <Text style={[styles.time, item.unread && styles.timeUnread]}>{item.time}</Text>
-          </View>
-          <View style={styles.infoBottom}>
-            <Text
-              style={[styles.lastMsg, item.unread && styles.lastMsgUnread]}
-              numberOfLines={1}
-            >
-              {item.lastMessage}
-            </Text>
-            {item.unread && <View style={styles.unreadBadge} />}
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderSkeleton = () => (
-    <View style={styles.skeletonContainer}>
-      {[1, 2, 3].map((i) => (
-        <View key={i} style={styles.skeletonRow}>
-          <View style={styles.skeletonAvatar} />
-          <View style={styles.skeletonLines}>
-            <View style={[styles.skeletonLine, { width: '55%' }]} />
-            <View style={[styles.skeletonLine, { width: '80%', opacity: 0.5 }]} />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-
-  const renderEmpty = () => (
-    <View style={styles.emptyState}>
-      <MaterialIcons name="chat-bubble-outline" size={40} color={Colors.textDisabled} />
-      <Text style={styles.emptyTitle}>Sin conversaciones activas</Text>
-      <Text style={styles.emptySub}>
-        Inicia una solicitud en el Radar para conectarte con un psicólogo.
-      </Text>
-    </View>
-  );
-
-  return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
-
-      <SafeAreaView style={styles.headerSafe}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Mensajes</Text>
-            {!loading && chats.length > 0 && (
-              <Text style={styles.headerSub}>{chats.length} conversación{chats.length !== 1 ? 'es' : ''} activa{chats.length !== 1 ? 's' : ''}</Text>
-            )}
-          </View>
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centered}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+          <Text style={styles.supportingText}>Cargando conversaciones</Text>
         </View>
       </SafeAreaView>
+    );
+  }
 
-      {loading ? (
-        renderSkeleton()
-      ) : chats.length > 0 ? (
-        <FlatList
-          data={chats}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => (
-            <View style={styles.separator} />
-          )}
-        />
-      ) : (
-        renderEmpty()
-      )}
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Mensajes</Text>
+        <Text style={styles.subtitle}>Conversaciones vinculadas a tu atención</Text>
+      </View>
 
-      <Toast {...toastConfig} onHide={hideToast} />
-    </View>
+      {error ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void refresh()}
+          style={styles.errorBanner}
+        >
+          <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+          <View style={styles.errorCopy}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retryText}>Toca para intentar nuevamente</Text>
+          </View>
+        </Pressable>
+      ) : null}
+
+      <FlatList
+        data={conversations}
+        keyExtractor={({ id }) => id}
+        contentContainerStyle={conversations.length === 0 ? styles.emptyList : styles.list}
+        refreshControl={(
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void refresh()}
+            tintColor={Colors.primary}
+          />
+        )}
+        renderItem={({ item }) => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir conversación con ${item.counterpart.displayName}`}
+            onPress={() => navigation.navigate('Consultation', { conversationId: item.id })}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            {item.counterpart.photoUrl ? (
+              <Image source={{ uri: item.counterpart.photoUrl }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <MaterialIcons name="person-outline" size={24} color={Colors.primary} />
+              </View>
+            )}
+            <View style={styles.content}>
+              <View style={styles.rowHeader}>
+                <Text numberOfLines={1} style={styles.name}>
+                  {item.counterpart.displayName}
+                </Text>
+                <Text style={styles.time}>{displayActivity(item.activityAt)}</Text>
+              </View>
+              <Text style={styles.role}>{roleLabel(item.counterpart.role)}</Text>
+              <Text numberOfLines={1} style={styles.preview}>
+                {item.lastMessage
+                  ? `${item.lastMessage.isOwn ? 'Tú: ' : ''}${item.lastMessage.text}`
+                  : 'Inicia una conversación segura'}
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color={Colors.textTertiary} />
+          </Pressable>
+        )}
+        ListEmptyComponent={(
+          <View style={styles.centered}>
+            <View style={styles.emptyIcon}>
+              <MaterialIcons name="forum" size={30} color={Colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>Aún no hay conversaciones</Text>
+            <Text style={styles.emptyText}>
+              Aparecerán aquí después de aceptar una oferta y establecer la relación de atención.
+            </Text>
+          </View>
+        )}
+        ListFooterComponent={isLoadingMore
+          ? <ActivityIndicator style={styles.footer} color={Colors.primary} />
+          : null}
+        onEndReached={() => void loadMore()}
+        onEndReachedThreshold={0.35}
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
-
-  headerSafe: {
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
-  },
+  screen: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.base,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.divider,
   },
-  headerTitle: { ...Typography.h1, color: Colors.textPrimary },
-  headerSub: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: 1 },
-  livePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    backgroundColor: Colors.accentFaded,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-  },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent },
-  liveText: { ...Typography.caption, color: Colors.accentDark, fontWeight: '700', textTransform: 'uppercase' },
-
-  listContent: { paddingVertical: Spacing.xs, backgroundColor: Colors.surface },
-
+  title: { ...Typography.h1, color: Colors.textPrimary },
+  subtitle: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xs },
+  list: { paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm },
+  emptyList: { flexGrow: 1 },
   row: {
+    minHeight: 88,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.base,
-    backgroundColor: Colors.surface,
     gap: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.divider,
   },
-  rowLast: {},
-  separator: {
-    height: 1,
-    backgroundColor: Colors.borderSubtle,
-    marginLeft: Spacing.base + 56,
-  },
-
-  avatarWrapper: { position: 'relative', flexShrink: 0 },
-  avatar: { width: 52, height: 52, borderRadius: 18, backgroundColor: Colors.surfaceMuted },
-  avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: Colors.primaryFaded,
+  rowPressed: { backgroundColor: Colors.surfaceMuted },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.surfaceMuted },
+  avatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
   },
-  avatarInitial: { ...Typography.h3, color: Colors.primary },
-
-  info: { flex: 1, gap: 4 },
-  infoTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
+  content: { flex: 1, minWidth: 0 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   name: { ...Typography.h4, color: Colors.textPrimary, flex: 1 },
-  nameUnread: { fontWeight: '700' },
   time: { ...Typography.caption, color: Colors.textTertiary },
-  timeUnread: { color: Colors.primary, fontWeight: '600' },
-
-  infoBottom: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  lastMsg: { ...Typography.body, color: Colors.textSecondary, flex: 1 },
-  lastMsgUnread: { color: Colors.textPrimary, fontWeight: '500' },
-  unreadBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, flexShrink: 0 },
-
-  // Skeleton loading
-  skeletonContainer: { padding: Spacing.base, gap: Spacing.base, backgroundColor: Colors.surface },
-  skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  skeletonAvatar: { width: 52, height: 52, borderRadius: 18, backgroundColor: Colors.surfaceMuted },
-  skeletonLines: { flex: 1, gap: Spacing.sm },
-  skeletonLine: { height: 12, backgroundColor: Colors.surfaceMuted, borderRadius: BorderRadius.full },
-
-  // Empty state
-  emptyState: {
+  role: { ...Typography.caption, color: Colors.primary, marginTop: Spacing.xxs },
+  preview: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xs },
+  centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.xxl,
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
   },
-  emptyTitle: { ...Typography.h3, color: Colors.textPrimary },
-  emptySub: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  supportingText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
+    marginBottom: Spacing.base,
+  },
+  emptyTitle: { ...Typography.h3, color: Colors.textPrimary, textAlign: 'center' },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorCopy: { flex: 1 },
+  errorText: { ...Typography.bodySmall, color: Colors.error },
+  retryText: { ...Typography.caption, color: Colors.textSecondary, marginTop: Spacing.xxs },
+  footer: { marginVertical: Spacing.lg },
 });

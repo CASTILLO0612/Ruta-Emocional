@@ -1,6 +1,6 @@
 import { ApiError, apiV1Request, configureAuthRefresh, setAuthToken } from './apiClient';
 import { deleteRefreshToken, readRefreshToken, writeRefreshToken } from './secureSessionStorage';
-import { disconnectSocket } from './socketClient';
+import { configureSocketAuthRefresh, disconnectSocket } from './socketClient';
 
 export type UserRole = 'patient' | 'psychologist';
 export type RoleCode = UserRole | 'administrator' | 'clinical_auditor';
@@ -314,3 +314,4 @@ export function signOutAllSessions(): Promise<void> {
 }
 
 configureAuthRefresh(refreshAccessToken);
+configureSocketAuthRefresh(refreshAccessToken);

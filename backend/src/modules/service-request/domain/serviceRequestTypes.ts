@@ -100,6 +100,7 @@ export interface AcceptanceResult {
   readonly request: ServiceRequestView;
   readonly acceptedOffer: ServiceOfferView;
   readonly careRelationshipId: string;
+  readonly conversationId: string;
   readonly replayed: boolean;
 }
 

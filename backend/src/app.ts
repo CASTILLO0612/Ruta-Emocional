@@ -4,7 +4,6 @@ import { AppConfig } from './config/env';
 import { Prisma, PrismaClient } from './generated/prisma/client';
 import { ApplicationServices } from './compositionRoot';
 import psychologistRoutes from './routes/psychologistRoutes';
-import chatRoutes from './routes/chatRoutes';
 import mentaRoutes from './routes/mentaRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import { createIdentityRouter, createLegacyIdentityRouter } from './modules/identity/presentation/identityRoutes';
@@ -17,12 +16,18 @@ import { securityHeaders } from './shared/presentation/http/securityHeaders';
 import { asyncHandler } from './shared/presentation/http/asyncHandler';
 import { createProfessionalDirectoryRouter } from './modules/professional-directory/presentation/professionalDirectoryRoutes';
 import { createServiceRequestRouter } from './modules/service-request/presentation/serviceRequestRoutes';
+import { createMessagingRouter } from './modules/messaging/presentation/messagingRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
   readonly prisma: PrismaClient;
   readonly services: ApplicationServices;
   readonly logger: Logger;
+}
+
+interface OutboxReadinessRow {
+  readonly deadLettered: boolean;
+  readonly lagging: boolean;
 }
 
 async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
@@ -58,10 +63,41 @@ export function createApp(dependencies: AppDependencies): Express {
 
   app.get('/api/v1/health/ready', asyncHandler(async (_request, response) => {
     try {
-      await withTimeout(prisma.$queryRaw(Prisma.sql`SELECT 1 AS ok`), 2_000);
-      response.json({ status: 'ok', checks: { database: 'ok' } });
+      const lagCutoff = new Date(
+        Date.now() - config.messaging.outboxReadinessMaximumLagSeconds * 1000
+      );
+      const [outbox] = await withTimeout(prisma.$queryRaw<OutboxReadinessRow[]>(Prisma.sql`
+        SELECT
+          EXISTS (
+            SELECT 1
+              FROM "outbox_events"
+             WHERE "event_type" = 'message.created'
+               AND "dead_lettered_at" IS NOT NULL
+          ) AS "deadLettered",
+          EXISTS (
+            SELECT 1
+              FROM "outbox_events"
+             WHERE "event_type" = 'message.created'
+               AND "published_at" IS NULL
+               AND "dead_lettered_at" IS NULL
+               AND "occurred_at" < ${lagCutoff}
+          ) AS "lagging"
+      `), 2_000);
+      const messagingOutbox = outbox?.deadLettered
+        ? 'dead-lettered-events'
+        : outbox?.lagging
+          ? 'lagging'
+          : 'ok';
+      const status = messagingOutbox === 'ok' ? 'ok' : 'degraded';
+      response.status(status === 'ok' ? 200 : 503).json({
+        status,
+        checks: { database: 'ok', messagingOutbox },
+      });
     } catch {
-      response.status(503).json({ status: 'degraded', checks: { database: 'unavailable' } });
+      response.status(503).json({
+        status: 'degraded',
+        checks: { database: 'unavailable', messagingOutbox: 'unknown' },
+      });
     }
   }));
 
@@ -80,6 +116,10 @@ export function createApp(dependencies: AppDependencies): Express {
   );
   app.use(
     '/api/v1',
+    createMessagingRouter(services.identity, services.messaging, config.messaging)
+  );
+  app.use(
+    '/api/v1',
     createServiceRequestRouter(
       services.identity,
       services.serviceRequests,
@@ -90,7 +130,6 @@ export function createApp(dependencies: AppDependencies): Express {
 
   if (config.legacyMongo.enabled) {
     app.use('/api/psychologists', psychologistRoutes);
-    app.use('/api/chat', chatRoutes);
     app.use('/api/menta', mentaRoutes);
     app.use('/api/payments', paymentRoutes);
   }

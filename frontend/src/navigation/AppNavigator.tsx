@@ -18,10 +18,7 @@ import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { HistoryScreen } from '../screens/shared/HistoryScreen';
 import { PsychologistProfileScreen } from '../screens/shared/PsychologistProfileScreen';
 import { InboxScreen } from '../screens/shared/InboxScreen';
-import {
-  ConsultationScreen,
-  RouteTrackingScreen,
-} from '../screens/shared/ConsultationAndRoute';
+import { ConversationScreen } from '../screens/shared/ConversationScreen';
 import type {
   AppStackParamList,
   PatientTabParamList,
@@ -208,8 +205,7 @@ export const AppNavigator: React.FC = () => {
         ) : role === 'psychologist' && canUsePsychologistWorkspace ? (
           <>
             <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />
-            <Stack.Screen name="Consultation" component={ConsultationScreen} />
-            <Stack.Screen name="Route" component={RouteTrackingScreen} />
+            <Stack.Screen name="Consultation" component={ConversationScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : role === 'psychologist' ? (
@@ -218,8 +214,7 @@ export const AppNavigator: React.FC = () => {
           <>
             <Stack.Screen name="PatientMain" component={PatientTabs} />
             <Stack.Screen name="Radar" component={RadarScreen} />
-            <Stack.Screen name="Consultation" component={ConsultationScreen} />
-            <Stack.Screen name="Route" component={RouteTrackingScreen} />
+            <Stack.Screen name="Consultation" component={ConversationScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />
           </>

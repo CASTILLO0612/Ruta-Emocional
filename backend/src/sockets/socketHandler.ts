@@ -1,152 +1,153 @@
 import { Server, Socket } from 'socket.io';
-import { IdentityService } from '../modules/identity/application/identityService';
-import { RoleCode } from '../modules/identity/domain/identityTypes';
+import type { AppConfig } from '../config/env';
+import type { AuthenticatedActor, IdentityService } from '../modules/identity/application/identityService';
+import type { MessagingService } from '../modules/messaging/application/messagingService';
+import type { MessageView } from '../modules/messaging/domain/messagingTypes';
+import type { Logger } from '../shared/infrastructure/logging/logger';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tipos de eventos tipados para comunicación bidireccional
-// ─────────────────────────────────────────────────────────────────────────────
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-interface AuthenticatedSocket extends Socket {
-  userId?: string;
-  userEmail?: string;
-  userRoles?: readonly RoleCode[];
+interface SocketData {
+  token: string;
+  actor: AuthenticatedActor;
+  conversationIds: Set<string>;
+  revalidationTimer?: NodeJS.Timeout;
 }
 
-interface ChatMessageData {
-  roomId: string;
-  message: {
-    id?: string;
-    sender: string;
-    senderName: string;
-    senderRole: 'patient' | 'psychologist';
-    text: string;
-    type?: 'text' | 'image' | 'audio' | 'system';
-    createdAt?: string;
-  };
+interface SocketAck {
+  readonly ok: boolean;
+  readonly code?: string;
 }
 
-interface CallData {
-  roomId: string;
-  callerName: string;
-  callType: 'voice' | 'video';
+export interface RealtimePublisher {
+  publishMessageCreated(message: MessageView): Promise<void>;
 }
 
-interface LocationData {
-  roomId: string;
-  userId: string;
-  latitude: number;
-  longitude: number;
-  heading?: number;
+function roomName(conversationId: string): string {
+  return `conversation:${conversationId}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Autenticación JWT en el handshake de Socket.io
-// ─────────────────────────────────────────────────────────────────────────────
-
-function authenticateSocket(
-  identity: IdentityService,
-  socket: AuthenticatedSocket,
-  next: (error?: Error) => void
-): void {
+function readHandshakeToken(socket: Socket): string | null {
   const handshakeToken = socket.handshake.auth?.token;
-  const authorization = socket.handshake.headers?.authorization;
-  const token = typeof handshakeToken === 'string'
-    ? handshakeToken
-    : typeof authorization === 'string' && authorization.startsWith('Bearer ')
-      ? authorization.slice('Bearer '.length)
-      : undefined;
-
-  if (!token) {
-    next(new Error('UNAUTHORIZED'));
-    return;
+  const authorization = socket.handshake.headers.authorization;
+  if (typeof handshakeToken === 'string' && handshakeToken.trim()) return handshakeToken.trim();
+  if (typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
+    return authorization.slice('Bearer '.length).trim();
   }
-
-  void identity.authenticateAccessToken(token)
-    .then(({ user }) => {
-      socket.userId = user.id;
-      socket.userEmail = user.email;
-      socket.userRoles = user.roles;
-      next();
-    })
-    .catch(() => next(new Error('UNAUTHORIZED')));
+  return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Setup principal de WebSockets
-// ─────────────────────────────────────────────────────────────────────────────
+function readConversationId(payload: unknown): string | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const conversationId = (payload as Record<string, unknown>).conversationId;
+  return typeof conversationId === 'string' && UUID_PATTERN.test(conversationId)
+    ? conversationId.toLowerCase()
+    : null;
+}
 
-export function setupSockets(io: Server, identity: IdentityService): void {
-  // Middleware de autenticación
-  io.use((socket, next) => authenticateSocket(identity, socket as AuthenticatedSocket, next));
+export function setupSockets(
+  io: Server,
+  identity: IdentityService,
+  messaging: MessagingService,
+  logger: Logger,
+  config: AppConfig['messaging']
+): RealtimePublisher {
+  io.use((socket, next) => {
+    const token = readHandshakeToken(socket);
+    if (!token) return next(new Error('UNAUTHORIZED'));
+    void identity.authenticateAccessToken(token)
+      .then((actor) => {
+        socket.data = { token, actor, conversationIds: new Set<string>() } satisfies SocketData;
+        next();
+      })
+      .catch(() => next(new Error('UNAUTHORIZED')));
+  });
 
-  io.on('connection', (rawSocket: Socket) => {
-    const socket = rawSocket as AuthenticatedSocket;
-    const userLabel = socket.userEmail || `anon-${socket.id}`;
-    console.log(`[Socket.io] Cliente conectado: ${userLabel} (${socket.id})`);
+  io.on('connection', (socket) => {
+    const data = socket.data as SocketData;
+    logger.info('realtime.socket.connected', { socketId: socket.id, userId: data.actor.user.id });
 
-    // ── Gestión de salas ──────────────────────────────────────────────────
+    const revalidate = async (): Promise<void> => {
+      try {
+        data.actor = await identity.authenticateAccessToken(data.token);
+        for (const conversationId of [...data.conversationIds]) {
+          try {
+            await messaging.authorizeSubscription(data.actor, conversationId);
+          } catch {
+            data.conversationIds.delete(conversationId);
+            await socket.leave(roomName(conversationId));
+            logger.warn('realtime.subscription.revoked', {
+              socketId: socket.id,
+              userId: data.actor.user.id,
+              conversationId,
+            });
+          }
+        }
+      } catch {
+        socket.disconnect(true);
+      }
+    };
+    data.revalidationTimer = setInterval(
+      () => void revalidate(),
+      config.socketAuthRevalidationSeconds * 1000
+    );
+    data.revalidationTimer.unref();
 
-    socket.on('join_room', (roomId: string) => {
-      if (!roomId) return;
-      const roomStr = String(roomId);
-      socket.join(roomStr);
-      console.log(`[Socket.io] ${userLabel} se unió a sala: ${roomStr}`);
+    socket.on('conversation.subscribe', async (
+      payload: unknown,
+      acknowledge?: (result: SocketAck) => void
+    ) => {
+      const conversationId = readConversationId(payload);
+      if (!conversationId) {
+        acknowledge?.({ ok: false, code: 'INVALID_CONVERSATION_ID' });
+        return;
+      }
+      if (
+        !data.conversationIds.has(conversationId)
+        && data.conversationIds.size >= config.maximumSocketSubscriptions
+      ) {
+        acknowledge?.({ ok: false, code: 'SUBSCRIPTION_LIMIT_REACHED' });
+        return;
+      }
+      try {
+        data.actor = await identity.authenticateAccessToken(data.token);
+        await messaging.authorizeSubscription(data.actor, conversationId);
+        await socket.join(roomName(conversationId));
+        data.conversationIds.add(conversationId);
+        acknowledge?.({ ok: true });
+      } catch {
+        logger.warn('realtime.subscription.denied', {
+          socketId: socket.id,
+          userId: data.actor.user.id,
+          conversationId,
+        });
+        acknowledge?.({ ok: false, code: 'CONVERSATION_ACCESS_DENIED' });
+      }
     });
 
-    socket.on('leave_room', (roomId: string) => {
-      if (!roomId) return;
-      const roomStr = String(roomId);
-      socket.leave(roomStr);
-      console.log(`[Socket.io] ${userLabel} salió de sala: ${roomStr}`);
+    socket.on('conversation.unsubscribe', async (payload: unknown) => {
+      const conversationId = readConversationId(payload);
+      if (!conversationId) return;
+      data.conversationIds.delete(conversationId);
+      await socket.leave(roomName(conversationId));
     });
 
-    // ── Eventos de Chat en Tiempo Real ────────────────────────────────────
-
-    socket.on('send_message', (data: ChatMessageData) => {
-      if (!data?.roomId || !data?.message?.text) return;
-      console.log(`[Socket.io Chat] Mensaje en sala ${data.roomId}: "${data.message.text.substring(0, 50)}..."`);
-      // Emitir a todos en la sala (incluido el emisor para confirmación)
-      io.to(data.roomId).emit('receive_message', data.message);
-    });
-
-    // ── Señalización de Llamadas (Voz / Video) ───────────────────────────
-
-    socket.on('start_call', (data: CallData) => {
-      if (!data?.roomId) return;
-      console.log(`[Socket.io Call] ${data.callerName} inicia ${data.callType} en sala: ${data.roomId}`);
-      socket.to(data.roomId).emit('incoming_call', data);
-    });
-
-    socket.on('accept_call', (data: { roomId: string }) => {
-      if (!data?.roomId) return;
-      console.log(`[Socket.io Call] Llamada aceptada en sala: ${data.roomId}`);
-      io.to(data.roomId).emit('call_accepted', data);
-    });
-
-    socket.on('end_call', (data: { roomId: string }) => {
-      if (!data?.roomId) return;
-      console.log(`[Socket.io Call] Llamada finalizada en sala: ${data.roomId}`);
-      io.to(data.roomId).emit('call_ended', data);
-    });
-
-    // ── Eventos de Geolocalización en Tiempo Real ─────────────────────────
-
-    socket.on('location_update', (data: LocationData) => {
-      if (!data?.roomId || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return;
-      // Emitir actualización de posición a la sala (para tracking presencial)
-      socket.to(data.roomId).emit('receive_location_update', {
-        userId: data.userId || socket.userId,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        heading: data.heading,
-        timestamp: new Date().toISOString(),
+    socket.on('disconnect', (reason) => {
+      if (data.revalidationTimer) clearInterval(data.revalidationTimer);
+      logger.info('realtime.socket.disconnected', {
+        socketId: socket.id,
+        userId: data.actor.user.id,
+        reason,
       });
     });
-
-    // ── Desconexión ───────────────────────────────────────────────────────
-
-    socket.on('disconnect', (reason: string) => {
-      console.log(`[Socket.io] Desconectado: ${userLabel} (${socket.id}) — Razón: ${reason}`);
-    });
   });
+
+  return {
+    async publishMessageCreated(message: MessageView): Promise<void> {
+      io.to(roomName(message.conversationId)).emit('message.created', {
+        conversationId: message.conversationId,
+        message,
+      });
+    },
+  };
 }

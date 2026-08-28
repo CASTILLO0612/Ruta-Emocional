@@ -32,6 +32,7 @@ interface AcceptanceResponse {
   readonly request: { readonly id: string; readonly status: 'ACCEPTED' };
   readonly acceptedOffer: ApiServiceOffer;
   readonly careRelationshipId: string;
+  readonly conversationId: string;
   readonly replayed: boolean;
 }
 
@@ -48,6 +49,7 @@ export interface SubmitOfferPayload {
 export interface AcceptedOfferResult {
   readonly offer: Offer;
   readonly careRelationshipId: string;
+  readonly conversationId: string;
   readonly replayed: boolean;
 }
 
@@ -120,6 +122,7 @@ export async function acceptOffer(
   return {
     offer: toOffer(response.data.acceptedOffer),
     careRelationshipId: response.data.careRelationshipId,
+    conversationId: response.data.conversationId,
     replayed: response.data.replayed,
   };
 }

@@ -58,6 +58,20 @@ export interface AppConfig {
     readonly serializableRetryBaseDelayMs: number;
     readonly supportedCurrencies: readonly string[];
   };
+  readonly messaging: {
+    readonly maximumTextLength: number;
+    readonly defaultPageSize: number;
+    readonly maximumPageSize: number;
+    readonly messagesPerMinute: number;
+    readonly maximumSocketSubscriptions: number;
+    readonly socketAuthRevalidationSeconds: number;
+    readonly outboxPollIntervalMs: number;
+    readonly outboxBatchSize: number;
+    readonly outboxClaimTtlSeconds: number;
+    readonly outboxMaximumAttempts: number;
+    readonly outboxRetryBaseDelayMs: number;
+    readonly outboxReadinessMaximumLagSeconds: number;
+  };
 }
 
 export class ConfigurationError extends Error {
@@ -349,6 +363,40 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       ),
       supportedCurrencies,
     },
+    messaging: {
+      maximumTextLength: readRequiredInteger(source, 'MESSAGE_MAXIMUM_TEXT_LENGTH', 1, 4000),
+      defaultPageSize: readRequiredInteger(source, 'MESSAGE_DEFAULT_PAGE_SIZE', 1, 100),
+      maximumPageSize: readRequiredInteger(source, 'MESSAGE_MAXIMUM_PAGE_SIZE', 1, 200),
+      messagesPerMinute: readRequiredInteger(source, 'MESSAGE_MUTATIONS_PER_MINUTE', 1, 600),
+      maximumSocketSubscriptions: readRequiredInteger(
+        source,
+        'MESSAGE_MAXIMUM_SOCKET_SUBSCRIPTIONS',
+        1,
+        200
+      ),
+      socketAuthRevalidationSeconds: readRequiredInteger(
+        source,
+        'SOCKET_AUTH_REVALIDATION_SECONDS',
+        15,
+        300
+      ),
+      outboxPollIntervalMs: readRequiredInteger(source, 'OUTBOX_POLL_INTERVAL_MS', 50, 60_000),
+      outboxBatchSize: readRequiredInteger(source, 'OUTBOX_BATCH_SIZE', 1, 500),
+      outboxClaimTtlSeconds: readRequiredInteger(source, 'OUTBOX_CLAIM_TTL_SECONDS', 5, 600),
+      outboxMaximumAttempts: readRequiredInteger(source, 'OUTBOX_MAXIMUM_ATTEMPTS', 1, 100),
+      outboxRetryBaseDelayMs: readRequiredInteger(
+        source,
+        'OUTBOX_RETRY_BASE_DELAY_MS',
+        10,
+        60_000
+      ),
+      outboxReadinessMaximumLagSeconds: readRequiredInteger(
+        source,
+        'OUTBOX_READINESS_MAXIMUM_LAG_SECONDS',
+        30,
+        86_400
+      ),
+    },
   };
 
   if (config.requestFlow.scheduledOfferCutoffMinutes >= config.requestFlow.scheduledLeadMinutes) {
@@ -359,6 +407,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (config.requestFlow.defaultPageSize > config.requestFlow.maximumPageSize) {
     throw new ConfigurationError(
       'REQUEST_DEFAULT_PAGE_SIZE cannot exceed REQUEST_MAXIMUM_PAGE_SIZE'
+    );
+  }
+  if (config.messaging.defaultPageSize > config.messaging.maximumPageSize) {
+    throw new ConfigurationError(
+      'MESSAGE_DEFAULT_PAGE_SIZE cannot exceed MESSAGE_MAXIMUM_PAGE_SIZE'
+    );
+  }
+  if (config.messaging.outboxClaimTtlSeconds * 1000 <= config.messaging.outboxPollIntervalMs) {
+    throw new ConfigurationError(
+      'OUTBOX_CLAIM_TTL_SECONDS must exceed OUTBOX_POLL_INTERVAL_MS'
     );
   }
 

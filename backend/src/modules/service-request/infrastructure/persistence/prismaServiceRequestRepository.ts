@@ -656,7 +656,11 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
 
       const offer = await transaction.offer.findFirst({
         where: { id: offerId, requestId, status: OfferStatus.PENDING },
-        select: { id: true, psychologistProfileId: true },
+        select: {
+          id: true,
+          psychologistProfileId: true,
+          psychologistProfile: { select: { userId: true } },
+        },
       });
       if (!offer) throw AppError.notFound('OFFER_NOT_FOUND');
 
@@ -680,6 +684,18 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
         },
         select: { id: true },
       });
+      const conversation = await transaction.conversation.create({
+        data: {
+          requestLink: { create: { serviceRequestId: requestId } },
+          participants: {
+            create: [
+              { userId },
+              { userId: offer.psychologistProfile.userId },
+            ],
+          },
+        },
+        select: { id: true },
+      });
       await transaction.idempotencyRecord.create({
         data: {
           actorUserId: userId,
@@ -693,6 +709,7 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       await this.writeAudit(transaction, audit, 'offer.accepted', 'offer', offerId, {
         requestId,
         careRelationshipId: relationship.id,
+        conversationId: conversation.id,
       });
       await transaction.outboxEvent.create({
         data: {
@@ -704,6 +721,7 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
             offerId,
             psychologistProfileId: offer.psychologistProfileId,
             careRelationshipId: relationship.id,
+            conversationId: conversation.id,
           },
         },
       });
@@ -819,13 +837,18 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       where: { serviceRequestId: offer.requestId },
       select: { careRelationshipId: true },
     });
-    if (!request || !source) {
+    const conversation = await transaction.requestConversation.findUnique({
+      where: { serviceRequestId: offer.requestId },
+      select: { conversationId: true },
+    });
+    if (!request || !source || !conversation) {
       throw AppError.conflict('ACCEPTANCE_RESULT_INCOMPLETE', 'La aceptación no está completa.');
     }
     return {
       request: requestView(request),
       acceptedOffer: (await this.offerViews(transaction, [offer]))[0],
       careRelationshipId: source.careRelationshipId,
+      conversationId: conversation.conversationId,
       replayed,
     };
   }

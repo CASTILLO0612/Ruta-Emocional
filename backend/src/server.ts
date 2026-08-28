@@ -7,6 +7,7 @@ import { loadConfig, loadEnvironmentFile } from './config/env';
 import { getPrismaClient } from './shared/infrastructure/database/prismaClient';
 import { createLogger } from './shared/infrastructure/logging/logger';
 import { setupSockets } from './sockets/socketHandler';
+import { MessageOutboxDispatcher } from './modules/messaging/infrastructure/outbox/messageOutboxDispatcher';
 
 export async function startServer(): Promise<void> {
   loadEnvironmentFile();
@@ -26,22 +27,34 @@ export async function startServer(): Promise<void> {
   const app = createApp({ config, prisma, services, logger });
   const server = http.createServer(app);
 
-  if (config.legacyMongo.enabled) {
-    const io = new SocketServer(server, {
-      cors: {
-        origin: [...config.allowedOrigins],
-        methods: ['GET', 'POST'],
-      },
-      maxHttpBufferSize: 256 * 1024,
-    });
-    setupSockets(io, services.identity);
-    logger.warn('realtime.legacy_socket_enabled', { productionAllowed: false });
-  }
+  const io = new SocketServer(server, {
+    cors: {
+      origin: [...config.allowedOrigins],
+      methods: ['GET', 'POST'],
+    },
+    maxHttpBufferSize: 16 * 1024,
+    serveClient: false,
+  });
+  const realtimePublisher = setupSockets(
+    io,
+    services.identity,
+    services.messaging,
+    logger,
+    config.messaging
+  );
+  const messageOutbox = new MessageOutboxDispatcher(
+    prisma,
+    services.messaging,
+    realtimePublisher,
+    logger,
+    config.messaging
+  );
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
     server.listen(config.port, () => resolve());
   });
+  messageOutbox.start();
   logger.info('server.started', { port: config.port });
 
   let shuttingDown = false;
@@ -49,6 +62,7 @@ export async function startServer(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info('server.shutdown_started', { signal });
+    messageOutbox.stop();
 
     const forceExit = setTimeout(() => {
       logger.error('server.shutdown_timed_out');
@@ -56,7 +70,10 @@ export async function startServer(): Promise<void> {
     }, 10_000);
     forceExit.unref();
 
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => io.close(() => resolve()));
+    if (server.listening) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
     await Promise.allSettled([prisma.$disconnect(), disconnectLegacyMongo()]);
     clearTimeout(forceExit);
     logger.info('server.shutdown_completed');

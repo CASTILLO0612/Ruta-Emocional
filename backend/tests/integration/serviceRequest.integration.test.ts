@@ -12,6 +12,8 @@ import {
 } from '../../src/generated/prisma/client';
 import { createLogger } from '../../src/shared/infrastructure/logging/logger';
 import { createTestConfig } from '../support/testConfig';
+import { MessageOutboxDispatcher } from '../../src/modules/messaging/infrastructure/outbox/messageOutboxDispatcher';
+import { MessageView } from '../../src/modules/messaging/domain/messagingTypes';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -49,6 +51,7 @@ interface AcceptanceResponse {
     readonly request: { readonly id: string; readonly status: string };
     readonly acceptedOffer: OfferResponse['data'];
     readonly careRelationshipId: string;
+    readonly conversationId: string;
     readonly replayed: boolean;
   };
 }
@@ -369,6 +372,112 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
     const replayedAcceptance = await readJson<AcceptanceResponse>(acceptanceReplay);
     assert.equal(replayedAcceptance.data.replayed, true);
     assert.equal(replayedAcceptance.data.careRelationshipId, winner.data.careRelationshipId);
+    assert.equal(replayedAcceptance.data.conversationId, winner.data.conversationId);
+
+    const outsiderConversation = await fetch(
+      `${baseUrl}/conversations/${winner.data.conversationId}`,
+      { headers: authenticatedHeaders(otherPatient.accessToken) }
+    );
+    assert.equal(outsiderConversation.status, 404);
+
+    const ownerConversations = await fetch(`${baseUrl}/conversations`, {
+      headers: authenticatedHeaders(patient.accessToken),
+    });
+    assert.equal(ownerConversations.status, 200);
+    const ownerConversationBody = await readJson<{
+      readonly data: readonly { readonly id: string; readonly counterpart: { readonly userId: string } }[];
+    }>(ownerConversations);
+    const ownerConversation = ownerConversationBody.data.find(({ id }) => id === winner.data.conversationId);
+    assert.ok(ownerConversation);
+    assert.equal(ownerConversation.counterpart.userId, offerInputs[winnerIndex].professional.userId);
+
+    const clientMessageId = randomUUID();
+    const sendMessage = await fetch(
+      `${baseUrl}/conversations/${winner.data.conversationId}/messages`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken),
+        body: JSON.stringify({
+          clientMessageId,
+          type: 'TEXT',
+          text: 'Mensaje persistido antes de su entrega.',
+        }),
+      }
+    );
+    assert.equal(sendMessage.status, 201);
+    const sent = await readJson<{
+      readonly data: { readonly message: { readonly id: string }; readonly replayed: boolean };
+    }>(sendMessage);
+    assert.equal(sent.data.replayed, false);
+
+    const messageReplay = await fetch(
+      `${baseUrl}/conversations/${winner.data.conversationId}/messages`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken),
+        body: JSON.stringify({
+          clientMessageId,
+          type: 'TEXT',
+          text: 'Mensaje persistido antes de su entrega.',
+        }),
+      }
+    );
+    assert.equal(messageReplay.status, 200);
+    assert.equal((await readJson<typeof sent>(messageReplay)).data.message.id, sent.data.message.id);
+
+    const changedMessageReplay = await fetch(
+      `${baseUrl}/conversations/${winner.data.conversationId}/messages`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken),
+        body: JSON.stringify({ clientMessageId, type: 'TEXT', text: 'Contenido distinto.' }),
+      }
+    );
+    assert.equal(changedMessageReplay.status, 409);
+
+    const forgedMessage = await fetch(
+      `${baseUrl}/conversations/${winner.data.conversationId}/messages`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken),
+        body: JSON.stringify({
+          clientMessageId: randomUUID(),
+          type: 'TEXT',
+          text: 'Intento de suplantación.',
+          senderId: otherPatient.userId,
+        }),
+      }
+    );
+    assert.equal(forgedMessage.status, 422);
+
+    const professionalMessages = await fetch(
+      `${baseUrl}/conversations/${winner.data.conversationId}/messages?limit=1`,
+      { headers: authenticatedHeaders(offerInputs[winnerIndex].professional.accessToken) }
+    );
+    assert.equal(professionalMessages.status, 200);
+    const messages = await readJson<{
+      readonly data: readonly {
+        readonly id: string;
+        readonly sender: { readonly userId: string };
+        readonly isOwn: boolean;
+      }[];
+    }>(professionalMessages);
+    assert.equal(messages.data[0].sender.userId, patient.userId);
+    assert.equal(messages.data[0].isOwn, false);
+
+    const deliveredMessages: MessageView[] = [];
+    const dispatcher = new MessageOutboxDispatcher(
+      prisma,
+      buildApplicationServices(config, prisma).messaging,
+      { publishMessageCreated: async (message) => { deliveredMessages.push(message); } },
+      createLogger('test'),
+      config.messaging
+    );
+    assert.equal(await dispatcher.drainOnce(), 1);
+    assert.equal(deliveredMessages[0].id, sent.data.message.id);
+    assert.equal(await prisma.outboxEvent.count({
+      where: { eventType: 'message.created', publishedAt: { not: null } },
+    }), 1);
 
     const persistedOffers = await prisma.offer.findMany({
       where: { requestId: createdRequest.data.id },
@@ -391,6 +500,22 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
           select: { id: true },
         });
         const allRequestIds = requests.map(({ id }) => id);
+        const conversationLinks = await transaction.requestConversation.findMany({
+          where: { serviceRequestId: { in: allRequestIds } },
+          select: { conversationId: true },
+        });
+        const conversationIds = conversationLinks.map(({ conversationId }) => conversationId);
+        const participantIds = (await transaction.conversationParticipant.findMany({
+          where: { conversationId: { in: conversationIds } },
+          select: { id: true },
+        })).map(({ id }) => id);
+        await transaction.message.deleteMany({
+          where: { conversationParticipantId: { in: participantIds } },
+        });
+        await transaction.outboxEvent.deleteMany({
+          where: { aggregateId: { in: conversationIds } },
+        });
+        await transaction.conversation.deleteMany({ where: { id: { in: conversationIds } } });
         const sources = await transaction.careRelationshipSource.findMany({
           where: { serviceRequestId: { in: allRequestIds } },
           select: { careRelationshipId: true },

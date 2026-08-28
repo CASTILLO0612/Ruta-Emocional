@@ -279,6 +279,7 @@ export class IdentityService {
       capabilities.add('offer:read:self');
       capabilities.add('appointment:read:self');
       capabilities.add('conversation:read:self');
+      capabilities.add('conversation:send:self');
     }
 
     if (user.roles.includes('psychologist')) {
@@ -290,6 +291,8 @@ export class IdentityService {
         capabilities.add('availability:manage:self');
         capabilities.add('appointment:manage:self');
         capabilities.add('clinical:write:authorized');
+        capabilities.add('conversation:read:self');
+        capabilities.add('conversation:send:self');
       }
     }
 

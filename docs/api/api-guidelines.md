@@ -223,6 +223,7 @@ No se expone `PATCH /appointments/{id}/status`; cada transición tiene intenció
 ## 10. Conversaciones
 
 ```text
+GET  /api/v1/conversations/policy
 GET  /api/v1/conversations
 GET  /api/v1/conversations/{conversationId}
 GET  /api/v1/conversations/{conversationId}/messages
@@ -240,6 +241,17 @@ Enviar mensaje incluye:
 ```
 
 No incluye sender, senderRole, senderName ni roomId. El servidor deriva identidad y conversación.
+
+La lectura usa cursor opaco y dirección `before` o `after`. El envío responde
+`201` al crear y `200` al reproducir idempotentemente el mismo
+`clientMessageId`. Usar el mismo identificador con otro texto responde `409`.
+Archivos y audio no forman parte de este contrato mientras no exista
+almacenamiento privado con cuarentena y análisis antimalware.
+
+Socket.IO solo expone `conversation.subscribe`, `conversation.unsubscribe` y
+`message.created`. La suscripción recibe `conversationId`, pero la sala se deriva
+en el servidor. El cliente reconcilia por HTTP al conectar o reconectar porque el
+socket es entrega, no fuente de verdad.
 
 ## 11. Historia clínica
 

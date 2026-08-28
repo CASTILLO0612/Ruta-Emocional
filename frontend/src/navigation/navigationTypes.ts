@@ -6,8 +6,6 @@ import type {
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import type { Modality } from '../models/Psychologist';
-
 export type PatientTabParamList = {
   Home: undefined;
   Menta: undefined;
@@ -24,14 +22,6 @@ export type PsychologistTabParamList = {
   Profile: undefined;
 };
 
-type SessionRouteParams = {
-  requestId?: string;
-  psychologistName?: string;
-  psychologistPhotoURL?: string;
-  modality?: Modality;
-  amount?: number;
-};
-
 export type AppStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -39,8 +29,7 @@ export type AppStackParamList = {
   PsychologistMain: NavigatorScreenParams<PsychologistTabParamList> | undefined;
   PsychologistVerification: undefined;
   Radar: undefined;
-  Consultation: SessionRouteParams | undefined;
-  Route: SessionRouteParams | undefined;
+  Consultation: { conversationId: string };
   Profile: undefined;
   PsychologistProfile: {
     psychologistId: string;

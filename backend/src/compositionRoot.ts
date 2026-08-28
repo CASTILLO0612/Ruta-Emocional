@@ -10,11 +10,14 @@ import { ProfessionalDirectoryService } from './modules/professional-directory/a
 import { PrismaProfessionalDirectoryRepository } from './modules/professional-directory/infrastructure/persistence/prismaProfessionalDirectoryRepository';
 import { ServiceRequestService } from './modules/service-request/application/serviceRequestService';
 import { PrismaServiceRequestRepository } from './modules/service-request/infrastructure/persistence/prismaServiceRequestRepository';
+import { MessagingService } from './modules/messaging/application/messagingService';
+import { PrismaMessagingRepository } from './modules/messaging/infrastructure/persistence/prismaMessagingRepository';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
   readonly professionalDirectory: ProfessionalDirectoryService;
   readonly serviceRequests: ServiceRequestService;
+  readonly messaging: MessagingService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -53,5 +56,6 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       new SystemClock(),
       config.requestFlow
     ),
+    messaging: new MessagingService(new PrismaMessagingRepository(prisma), config.messaging),
   };
 }

@@ -39,7 +39,9 @@ evitar modelar relaciones o atributos clínicos.
 | `clinical_records` | `id -> patient_profile_id, opened_at, status` |
 | `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, appointment_id` |
 | `clinical_note_versions` | `(clinical_note_id, version_number) -> content, author_user_id, created_at` |
-| `messages` | `id -> conversation_participant_id, content, type, sent_at` |
+| `request_conversations` | `service_request_id -> conversation_id` y `conversation_id -> service_request_id` |
+| `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
+| `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
 | `payments` | `id -> offer_id, amount, currency_code, status` |
 
 ## Duplicaciones eliminadas respecto a MongoDB
@@ -125,6 +127,25 @@ No se almacenarán como fuente primaria:
 
 Las optimizaciones desnormalizadas futuras necesitarán un ADR, una fuente de
 verdad definida y un mecanismo comprobable de reconstrucción.
+
+## Decisión de normalización de la Fase 5
+
+- `request_conversations` representa el contexto uno a uno sin guardar
+  `service_request_id` dentro de `conversations`;
+- el participante depende de conversación y usuario; su fila conserva las fechas
+  de pertenencia sin duplicar nombre, rol o perfil;
+- el mensaje referencia al participante. Conversación, usuario y rol se derivan
+  por claves foráneas y no se repiten;
+- `client_message_id` depende del intento del participante y forma una clave
+  candidata compuesta, por lo que la idempotencia no necesita una columna
+  derivada o un documento embebido;
+- el último mensaje y la actividad de bandeja son proyecciones calculadas, no
+  atributos almacenados en `conversations`;
+- el evento outbox conserva solo identificadores de entrega y no se convierte en
+  fuente canónica del contenido.
+
+Estas dependencias evitan grupos repetidos, dependencias parciales y
+dependencias transitivas; el módulo cumple al menos 3FN.
 
 ## Verificación en revisiones
 

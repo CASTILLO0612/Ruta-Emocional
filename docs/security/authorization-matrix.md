@@ -125,6 +125,20 @@ La proyección para psicólogos no incluye nombre completo, contacto, ubicación
 
 La posesión de un `conversationId`, `requestId` o `roomId` no constituye autorización.
 
+### Contrato implementado para mensajería
+
+- `conversation:read:self` lista, consulta, pagina y suscribe únicamente cuando
+  el usuario es participante persistido y la relación está activa o pausada.
+- `conversation:send:self` vuelve a exigir relación activa dentro de la
+  transacción; una relación pausada queda en solo lectura.
+- El paciente y el profesional verificado reciben capacidades de conversación;
+  un profesional pendiente no las recibe.
+- Un identificador ajeno devuelve recurso no encontrado y no revela existencia.
+- El handshake autentica, cada suscripción autoriza y la sesión se revalida
+  periódicamente; el nombre real de la sala es interno al servidor.
+- El worker outbox es el único publicador de `message.created`; el comando y su
+  confirmación primaria permanecen en HTTP.
+
 ## 8. Historia clínica
 
 | Operación | Paciente | Psic. autor/vinculado | Psic. ajeno | Admin | Auditor clínico | Sistema |

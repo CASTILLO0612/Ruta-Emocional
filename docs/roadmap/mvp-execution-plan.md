@@ -142,6 +142,9 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 
 ### Fase 5 — Tiempo real y mensajería
 
+**Estado:** completada el 28 de agosto de 2026. Evidencia técnica y decisiones en
+[`phase-5-secure-messaging.md`](phase-5-secure-messaging.md).
+
 **Trabajo**
 
 - handshake autenticado;
@@ -159,6 +162,16 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 - mensaje reintentado no se duplica;
 - pérdida de socket no pierde estado;
 - no hay contenido en logs.
+
+**Resultado verificado**
+
+- conversación y participantes se crean atómicamente al aceptar una oferta;
+- PostgreSQL conserva mensajes idempotentes y paginados como fuente de verdad;
+- el outbox entrega por Socket.IO con lease, retry, backoff y dead letter;
+- handshake, revalidación y suscripción validan sesión y relación asistencial;
+- el frontend reconcilia por HTTP, deduplica y no fabrica actor o sala;
+- chat, llamadas y ubicación heredados fueron retirados de este flujo;
+- pruebas unitarias, Socket, integración HTTP real y typechecks están en verde.
 
 ### Fase 6 — Agenda
 
@@ -319,8 +332,9 @@ El trabajo de ingeniería puede avanzar con adaptadores y feature flags, pero ni
 
 ## 6. Prioridad inmediata
 
-El siguiente incremento funcional es la Fase 5: tiempo real y mensajería
-persistida. En paralelo, antes de cualquier despliegue productivo deben cerrarse
-los gates de almacenamiento privado de evidencia, rol PostgreSQL de aplicación,
-gestión externa de secretos y rotación de las credenciales compartidas. Ninguno
-de esos gates se considera resuelto por usar valores locales de desarrollo.
+El siguiente incremento funcional es la Fase 6: agenda y sustitución de citas e
+historial simulados. En paralelo, antes de cualquier despliegue productivo deben
+cerrarse los gates de almacenamiento privado de evidencia, rol PostgreSQL de
+aplicación, gestión externa de secretos, rotación de credenciales, backup/restore
+y alertas externas. Ninguno se considera resuelto por usar valores locales de
+desarrollo.

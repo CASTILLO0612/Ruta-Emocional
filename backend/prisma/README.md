@@ -37,6 +37,8 @@ las migraciones SQL versionadas son la autoridad sobre la estructura desplegada.
 - Solapamiento de citas protegido por restricciones de exclusión.
 - Defaults y triggers de `updated_at` aplicados.
 - Cliente Prisma generado y flujo de identidad v1 probado contra PostgreSQL.
+- Solicitudes, ofertas, relaciones, conversaciones y mensajes de texto migrados
+  a PostgreSQL con idempotencia y outbox transaccional.
 
 La aplicación debe usar un rol con privilegios mínimos. El superusuario
 `postgres` solo se utiliza para administración local, extensiones y preparación

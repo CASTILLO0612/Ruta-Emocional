@@ -53,5 +53,19 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       serializableRetryBaseDelayMs: 5,
       supportedCurrencies: ['NIO'],
     },
+    messaging: {
+      maximumTextLength: 4000,
+      defaultPageSize: 50,
+      maximumPageSize: 100,
+      messagesPerMinute: 60,
+      maximumSocketSubscriptions: 10,
+      socketAuthRevalidationSeconds: 60,
+      outboxPollIntervalMs: 50,
+      outboxBatchSize: 20,
+      outboxClaimTtlSeconds: 10,
+      outboxMaximumAttempts: 3,
+      outboxRetryBaseDelayMs: 10,
+      outboxReadinessMaximumLagSeconds: 120,
+    },
   };
 }
