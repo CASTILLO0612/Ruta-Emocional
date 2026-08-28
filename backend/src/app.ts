@@ -4,8 +4,6 @@ import { AppConfig } from './config/env';
 import { Prisma, PrismaClient } from './generated/prisma/client';
 import { ApplicationServices } from './compositionRoot';
 import psychologistRoutes from './routes/psychologistRoutes';
-import requestRoutes from './routes/requestRoutes';
-import offerRoutes from './routes/offerRoutes';
 import chatRoutes from './routes/chatRoutes';
 import mentaRoutes from './routes/mentaRoutes';
 import paymentRoutes from './routes/paymentRoutes';
@@ -18,6 +16,7 @@ import { requestLogger } from './shared/presentation/http/requestLogger';
 import { securityHeaders } from './shared/presentation/http/securityHeaders';
 import { asyncHandler } from './shared/presentation/http/asyncHandler';
 import { createProfessionalDirectoryRouter } from './modules/professional-directory/presentation/professionalDirectoryRoutes';
+import { createServiceRequestRouter } from './modules/service-request/presentation/serviceRequestRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -79,12 +78,18 @@ export function createApp(dependencies: AppDependencies): Express {
       config.professionalDirectory
     )
   );
+  app.use(
+    '/api/v1',
+    createServiceRequestRouter(
+      services.identity,
+      services.serviceRequests,
+      config.requestFlow
+    )
+  );
   app.use('/api/auth', createLegacyIdentityRouter(services.identity));
 
   if (config.legacyMongo.enabled) {
     app.use('/api/psychologists', psychologistRoutes);
-    app.use('/api/requests', requestRoutes);
-    app.use('/api/offers', offerRoutes);
     app.use('/api/chat', chatRoutes);
     app.use('/api/menta', mentaRoutes);
     app.use('/api/payments', paymentRoutes);

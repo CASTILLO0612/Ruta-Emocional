@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Ruta Emocional API
   version: 1.0.0-draft
-  description: Contrato ejecutable de identidad, directorio profesional y verificación.
+  description: Contrato ejecutable de identidad, directorio profesional, verificación, solicitudes y ofertas.
 servers:
   - url: http://localhost:5000/api/v1
     description: Desarrollo local
@@ -13,6 +13,7 @@ tags:
   - name: Directory
   - name: Professional profile
   - name: Professional verification
+  - name: Service requests
 paths:
   /health/live:
     get:
@@ -460,12 +461,189 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /service-requests:
+    post:
+      tags: [Service requests]
+      operationId: createServiceRequest
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateServiceRequestRequest' }
+      responses:
+        '201':
+          description: Solicitud creada o resultado idempotente recuperado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceRequestResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /service-requests/me:
+    get:
+      tags: [Service requests]
+      operationId: listOwnServiceRequests
+      parameters:
+        - { name: cursor, in: query, schema: { type: string, maxLength: 500 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ServiceRequestStatus' } }
+      responses:
+        '200':
+          description: Página de solicitudes del paciente autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceRequestPageResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /service-requests/policy:
+    get:
+      tags: [Service requests]
+      operationId: getServiceRequestPolicy
+      responses:
+        '200':
+          description: Límites públicos del flujo para el cliente autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceRequestPolicyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /service-requests/eligible:
+    get:
+      tags: [Service requests]
+      operationId: listEligibleServiceRequests
+      parameters:
+        - { name: cursor, in: query, schema: { type: string, maxLength: 500 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, BIDDING] } }
+      responses:
+        '200':
+          description: Proyección minimizada de solicitudes abiertas compatibles.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EligibleServiceRequestPageResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /service-requests/{requestId}:
+    get:
+      tags: [Service requests]
+      operationId: getServiceRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Solicitud visible por propiedad, oferta propia o elegibilidad actual.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceRequestResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /service-requests/{requestId}/cancel:
+    post:
+      tags: [Service requests]
+      operationId: cancelServiceRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Solicitud propia cancelada; no admite cuerpo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceRequestResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /service-requests/{requestId}/offers:
+    post:
+      tags: [Service requests]
+      operationId: createOwnServiceOffer
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateServiceOfferRequest' }
+      responses:
+        '201':
+          description: Oferta única atribuida al profesional autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceOfferResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [Service requests]
+      operationId: listServiceRequestOffers
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Ofertas visibles únicamente para el paciente propietario.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceOfferListResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /service-requests/{requestId}/offers/{offerId}/withdraw:
+    post:
+      tags: [Service requests]
+      operationId: withdrawOwnServiceOffer
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/OfferId'
+      responses:
+        '200':
+          description: Oferta propia pendiente retirada; no admite cuerpo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceOfferResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /service-requests/{requestId}/offers/{offerId}/accept:
+    post:
+      tags: [Service requests]
+      operationId: acceptServiceOffer
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/OfferId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Oferta aceptada, competidoras rechazadas y relación creada atómicamente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptanceResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    OfferId:
+      name: offerId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
   schemas:
     RegisterPatientRequest:
       type: object
@@ -864,6 +1042,207 @@ components:
               required: [nextCursor]
               properties:
                 nextCursor: { type: [string, 'null'] }
+    MoneyInput:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    ServiceRequestStatus:
+      type: string
+      enum: [PENDING, BIDDING, ACCEPTED, IN_SESSION, COMPLETED, CANCELLED, EXPIRED]
+    CreateServiceRequestRequest:
+      type: object
+      additionalProperties: false
+      required: [modality, proposedBudget, timing]
+      properties:
+        modality: { $ref: '#/components/schemas/Modality' }
+        primaryNeed: { type: string, minLength: 1, maxLength: 240 }
+        description: { type: string, minLength: 1, maxLength: 5000 }
+        proposedBudget: { $ref: '#/components/schemas/MoneyInput' }
+        timing:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind]
+              properties:
+                kind: { type: string, const: IMMEDIATE }
+            - type: object
+              additionalProperties: false
+              required: [kind, scheduledFor]
+              properties:
+                kind: { type: string, const: SCHEDULED }
+                scheduledFor: { type: string, format: date-time }
+        location:
+          type: object
+          additionalProperties: false
+          required: [latitude, longitude]
+          properties:
+            latitude: { type: number, minimum: -90, maximum: 90 }
+            longitude: { type: number, minimum: -180, maximum: 180 }
+    AcceptedOfferSummary:
+      type: object
+      additionalProperties: false
+      required: [id, psychologistProfileId, price]
+      properties:
+        id: { type: string, format: uuid }
+        psychologistProfileId: { type: string, format: uuid }
+        price: { $ref: '#/components/schemas/Money' }
+    ServiceRequest:
+      type: object
+      additionalProperties: false
+      required: [id, modality, primaryNeed, description, proposedBudget, status, scheduledFor, expiresAt, createdAt, updatedAt, acceptedOffer]
+      properties:
+        id: { type: string, format: uuid }
+        modality: { $ref: '#/components/schemas/Modality' }
+        primaryNeed: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        proposedBudget: { $ref: '#/components/schemas/Money' }
+        status: { $ref: '#/components/schemas/ServiceRequestStatus' }
+        scheduledFor: { type: [string, 'null'], format: date-time }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        acceptedOffer:
+          oneOf:
+            - { $ref: '#/components/schemas/AcceptedOfferSummary' }
+            - { type: 'null' }
+    EligibleServiceRequest:
+      type: object
+      additionalProperties: false
+      description: No contiene identidad ni ubicación exacta del paciente.
+      required: [id, modality, primaryNeed, description, proposedBudget, status, scheduledFor, expiresAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        modality: { $ref: '#/components/schemas/Modality' }
+        primaryNeed: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        proposedBudget: { $ref: '#/components/schemas/Money' }
+        status: { type: string, enum: [PENDING, BIDDING] }
+        scheduledFor: { type: [string, 'null'], format: date-time }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    ServiceRequestResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ServiceRequest' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ServiceRequestPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ServiceRequest' }
+        meta:
+          allOf:
+            - { $ref: '#/components/schemas/ResponseMeta' }
+            - type: object
+              required: [nextCursor]
+              properties: { nextCursor: { type: [string, 'null'] } }
+    EligibleServiceRequestPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EligibleServiceRequest' }
+        meta:
+          allOf:
+            - { $ref: '#/components/schemas/ResponseMeta' }
+            - type: object
+              required: [nextCursor]
+              properties: { nextCursor: { type: [string, 'null'] } }
+    ServiceRequestPolicy:
+      type: object
+      additionalProperties: false
+      required: [minimumAmount, maximumAmount, supportedCurrencies, immediateTtlMinutes, scheduledLeadMinutes, maximumScheduleDays, maximumDescriptionLength, maximumPrimaryNeedLength, maximumOfferMessageLength]
+      properties:
+        minimumAmount: { type: string }
+        maximumAmount: { type: string }
+        supportedCurrencies:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, pattern: '^[A-Z]{3}$' }
+        immediateTtlMinutes: { type: integer, minimum: 1 }
+        scheduledLeadMinutes: { type: integer, minimum: 1 }
+        maximumScheduleDays: { type: integer, minimum: 1 }
+        maximumDescriptionLength: { type: integer, minimum: 1 }
+        maximumPrimaryNeedLength: { type: integer, minimum: 1 }
+        maximumOfferMessageLength: { type: integer, minimum: 1 }
+    ServiceRequestPolicyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ServiceRequestPolicy' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CreateServiceOfferRequest:
+      type: object
+      additionalProperties: false
+      required: [price]
+      properties:
+        price:
+          type: object
+          additionalProperties: false
+          required: [amount]
+          properties:
+            amount: { type: string, pattern: '^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$' }
+        message: { type: string, minLength: 1, maxLength: 500 }
+    ProfessionalOfferSummary:
+      type: object
+      additionalProperties: false
+      required: [profileId, displayName, photoUrl, primarySpecialty, rating, totalReviews]
+      properties:
+        profileId: { type: string, format: uuid }
+        displayName: { type: string }
+        photoUrl: { type: [string, 'null'], format: uri }
+        primarySpecialty: { type: [string, 'null'] }
+        rating: { type: number, minimum: 0, maximum: 5 }
+        totalReviews: { type: integer, minimum: 0 }
+    ServiceOffer:
+      type: object
+      additionalProperties: false
+      required: [id, requestId, professional, price, message, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        professional: { $ref: '#/components/schemas/ProfessionalOfferSummary' }
+        price: { $ref: '#/components/schemas/Money' }
+        message: { type: [string, 'null'] }
+        status: { type: string, enum: [PENDING, ACCEPTED, REJECTED, WITHDRAWN] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ServiceOfferResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ServiceOffer' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ServiceOfferListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ServiceOffer' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AcceptanceResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [request, acceptedOffer, careRelationshipId, replayed]
+          properties:
+            request: { $ref: '#/components/schemas/ServiceRequest' }
+            acceptedOffer: { $ref: '#/components/schemas/ServiceOffer' }
+            careRelationshipId: { type: string, format: uuid }
+            replayed: { type: boolean }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
     HealthResponse:
       type: object
       required: [status]
@@ -915,6 +1294,12 @@ components:
               message:
                 type: string
   responses:
+    BadRequest:
+      description: Falta una cabecera obligatoria o la solicitud no puede interpretarse.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     Unauthorized:
       description: La sesión no es válida.
       content:

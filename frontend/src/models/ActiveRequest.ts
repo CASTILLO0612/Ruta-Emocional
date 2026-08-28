@@ -1,4 +1,4 @@
-import { Modality, GeoPoint } from './Psychologist';
+import { Modality } from './Psychologist';
 
 export type RequestStatus =
   | 'pending'
@@ -6,27 +6,23 @@ export type RequestStatus =
   | 'accepted'
   | 'in-session'
   | 'completed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'expired';
 
 export interface ActiveRequest {
   id: string;
-  patientId: string;
-  patientName: string;
-  patientPhotoURL?: string;
-
   modality: Modality;
   primaryNeed?: string;
   description?: string;
   proposedBudget: number;
-  finalPrice?: number;
+  currencyCode: string;
 
   status: RequestStatus;
 
-  coordinates?: GeoPoint;
-
   acceptedOfferId?: string;
   acceptedPsychologistId?: string;
-
+  scheduledFor?: Date;
+  expiresAt: Date;
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt?: Date;
 }

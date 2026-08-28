@@ -108,6 +108,9 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 
 ### Fase 4 — Solicitudes y ofertas
 
+**Estado:** completada el 27 de agosto de 2026. Evidencia técnica y decisiones en
+[`phase-4-service-requests-and-offers.md`](phase-4-service-requests-and-offers.md).
+
 **Trabajo**
 
 - DTO sin identificadores/nombres del actor;
@@ -126,6 +129,16 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 - psicólogo pendiente no oferta;
 - monto manipulado se ignora;
 - frontend reconcilia el estado real.
+
+**Resultado verificado**
+
+- solicitudes inmediatas/programadas y ofertas usan exclusivamente `/api/v1` y PostgreSQL;
+- identidad, elegibilidad, moneda, precio aceptado y estados son autoridad del servidor;
+- aceptación serializable e idempotente crea una sola relación y un solo evento outbox;
+- restricciones y triggers diferibles protegen estados incluso fuera del caso de uso;
+- Home, Radar y Dashboard consumen políticas y DTO tipados sin adaptadores MongoDB;
+- rutas HTTP y eventos WebSocket heredados de solicitudes/ofertas fueron retirados;
+- pruebas negativas, concurrencia HTTP real, compilación y typecheck están en verde.
 
 ### Fase 5 — Tiempo real y mensajería
 
@@ -306,4 +319,8 @@ El trabajo de ingeniería puede avanzar con adaptadores y feature flags, pero ni
 
 ## 6. Prioridad inmediata
 
-El siguiente incremento técnico es Fase 1 y Fase 2: plataforma backend e identidad. Es el menor corte vertical que permite validar arquitectura, seguridad, PostgreSQL, contratos y compatibilidad con el frontend antes de mover datos clínicos o financieros.
+El siguiente incremento funcional es la Fase 5: tiempo real y mensajería
+persistida. En paralelo, antes de cualquier despliegue productivo deben cerrarse
+los gates de almacenamiento privado de evidencia, rol PostgreSQL de aplicación,
+gestión externa de secretos y rotación de las credenciales compartidas. Ninguno
+de esos gates se considera resuelto por usar valores locales de desarrollo.

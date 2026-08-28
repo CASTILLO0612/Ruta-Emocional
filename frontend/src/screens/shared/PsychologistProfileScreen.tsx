@@ -16,7 +16,6 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { StarRating } from '../../components/common/StarRating';
-import { AppButton } from '../../components/common/AppButton';
 import { Modality, Psychologist } from '../../models/Psychologist';
 import { getPsychologistById } from '../../repositories/PsychologistRepository';
 import type {
@@ -37,8 +36,6 @@ export const PsychologistProfileScreen: React.FC = () => {
   const route = useRoute<PsychologistProfileRoute>();
 
   const psychologistId: string | undefined = route.params?.psychologistId;
-  const offerAmount: number | undefined = route.params?.offerAmount;
-  const onAccept: (() => void) | undefined = route.params?.onAccept;
   const [psychologist, setPsychologist] = useState<Psychologist | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -125,16 +122,6 @@ export const PsychologistProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {offerAmount !== undefined && (
-          <View style={styles.offerBanner}>
-            <View style={styles.offerBannerLeft}>
-              <Text style={styles.offerBannerLabel}>Oferta recibida</Text>
-              <Text style={styles.offerBannerAmount}>C$ {offerAmount}</Text>
-            </View>
-            <MaterialIcons name="local-offer" size={32} color={Colors.accent} />
-          </View>
-        )}
-
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
@@ -202,19 +189,6 @@ export const PsychologistProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.ctaBlock}>
-          {onAccept ? (
-            <AppButton
-              label={offerAmount ? `Aceptar oferta — C$${offerAmount}` : 'Aceptar psicólogo'}
-              onPress={() => {
-                onAccept();
-                navigation.goBack();
-              }}
-              variant="primary"
-              size="lg"
-              fullWidth
-              icon={<MaterialIcons name="check-circle-outline" size={20} color={Colors.primary} />}
-            />
-          ) : null}
           <TouchableOpacity
             style={styles.secondaryBtn}
             onPress={() => navigation.goBack()}

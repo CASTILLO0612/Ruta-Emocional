@@ -37,6 +37,27 @@ export interface AppConfig {
     readonly publicRequestsPerMinute: number;
     readonly supportedCurrencies: readonly string[];
   };
+  readonly requestFlow: {
+    readonly minimumAmount: string;
+    readonly maximumAmount: string;
+    readonly immediateTtlMinutes: number;
+    readonly scheduledLeadMinutes: number;
+    readonly scheduledOfferCutoffMinutes: number;
+    readonly maximumScheduleDays: number;
+    readonly locationRetentionHours: number;
+    readonly maximumOpenImmediateRequests: number;
+    readonly maximumDescriptionLength: number;
+    readonly maximumPrimaryNeedLength: number;
+    readonly maximumOfferMessageLength: number;
+    readonly defaultPageSize: number;
+    readonly maximumPageSize: number;
+    readonly idempotencyTtlHours: number;
+    readonly expirationBatchSize: number;
+    readonly mutationsPerMinute: number;
+    readonly serializableMaxRetries: number;
+    readonly serializableRetryBaseDelayMs: number;
+    readonly supportedCurrencies: readonly string[];
+  };
 }
 
 export class ConfigurationError extends Error {
@@ -72,6 +93,28 @@ function readInteger(
   const value = Number(raw);
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
     throw new ConfigurationError(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+  return value;
+}
+
+function readRequiredInteger(
+  source: NodeJS.ProcessEnv,
+  name: string,
+  minimum: number,
+  maximum: number
+): number {
+  const raw = readRequired(source, name);
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new ConfigurationError(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+  return value;
+}
+
+function readRequiredMoney(source: NodeJS.ProcessEnv, name: string): string {
+  const value = readRequired(source, name);
+  if (!/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$/.test(value)) {
+    throw new ConfigurationError(`${name} must be a positive decimal with at most two decimals`);
   }
   return value;
 }
@@ -160,6 +203,15 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigurationError('MONGO_MIGRATION_URI is required when legacy MongoDB routes are enabled');
   }
 
+  const supportedCurrencies = readCurrencies(source);
+  const minimumRequestAmount = readRequiredMoney(source, 'REQUEST_MINIMUM_AMOUNT');
+  const maximumRequestAmount = readRequiredMoney(source, 'REQUEST_MAXIMUM_AMOUNT');
+  if (Number(minimumRequestAmount) <= 0 || Number(maximumRequestAmount) <= Number(minimumRequestAmount)) {
+    throw new ConfigurationError(
+      'REQUEST_MAXIMUM_AMOUNT must be greater than the positive REQUEST_MINIMUM_AMOUNT'
+    );
+  }
+
   const config: AppConfig = {
     environment,
     port: readInteger(source, 'PORT', 5000, 1, 65535),
@@ -204,9 +256,111 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         10,
         1000
       ),
-      supportedCurrencies: readCurrencies(source),
+      supportedCurrencies,
+    },
+    requestFlow: {
+      minimumAmount: minimumRequestAmount,
+      maximumAmount: maximumRequestAmount,
+      immediateTtlMinutes: readRequiredInteger(
+        source,
+        'REQUEST_IMMEDIATE_TTL_MINUTES',
+        5,
+        1440
+      ),
+      scheduledLeadMinutes: readRequiredInteger(
+        source,
+        'REQUEST_SCHEDULED_LEAD_MINUTES',
+        15,
+        10080
+      ),
+      scheduledOfferCutoffMinutes: readRequiredInteger(
+        source,
+        'REQUEST_SCHEDULED_OFFER_CUTOFF_MINUTES',
+        5,
+        1440
+      ),
+      maximumScheduleDays: readRequiredInteger(
+        source,
+        'REQUEST_MAXIMUM_SCHEDULE_DAYS',
+        1,
+        365
+      ),
+      locationRetentionHours: readRequiredInteger(
+        source,
+        'REQUEST_LOCATION_RETENTION_HOURS',
+        1,
+        720
+      ),
+      maximumOpenImmediateRequests: readRequiredInteger(
+        source,
+        'REQUEST_MAXIMUM_OPEN_IMMEDIATE',
+        1,
+        10
+      ),
+      maximumDescriptionLength: readRequiredInteger(
+        source,
+        'REQUEST_MAXIMUM_DESCRIPTION_LENGTH',
+        100,
+        5000
+      ),
+      maximumPrimaryNeedLength: readRequiredInteger(
+        source,
+        'REQUEST_MAXIMUM_PRIMARY_NEED_LENGTH',
+        20,
+        240
+      ),
+      maximumOfferMessageLength: readRequiredInteger(
+        source,
+        'REQUEST_MAXIMUM_OFFER_MESSAGE_LENGTH',
+        20,
+        500
+      ),
+      defaultPageSize: readRequiredInteger(source, 'REQUEST_DEFAULT_PAGE_SIZE', 1, 100),
+      maximumPageSize: readRequiredInteger(source, 'REQUEST_MAXIMUM_PAGE_SIZE', 1, 100),
+      idempotencyTtlHours: readRequiredInteger(
+        source,
+        'REQUEST_IDEMPOTENCY_TTL_HOURS',
+        1,
+        168
+      ),
+      expirationBatchSize: readRequiredInteger(
+        source,
+        'REQUEST_EXPIRATION_BATCH_SIZE',
+        10,
+        1000
+      ),
+      mutationsPerMinute: readRequiredInteger(
+        source,
+        'REQUEST_MUTATIONS_PER_MINUTE',
+        5,
+        300
+      ),
+      serializableMaxRetries: readRequiredInteger(
+        source,
+        'REQUEST_SERIALIZABLE_MAX_RETRIES',
+        0,
+        5
+      ),
+      serializableRetryBaseDelayMs: readRequiredInteger(
+        source,
+        'REQUEST_SERIALIZABLE_RETRY_BASE_DELAY_MS',
+        1,
+        2000
+      ),
+      supportedCurrencies,
     },
   };
+
+  if (config.requestFlow.scheduledOfferCutoffMinutes >= config.requestFlow.scheduledLeadMinutes) {
+    throw new ConfigurationError(
+      'REQUEST_SCHEDULED_OFFER_CUTOFF_MINUTES must be lower than REQUEST_SCHEDULED_LEAD_MINUTES'
+    );
+  }
+  if (config.requestFlow.defaultPageSize > config.requestFlow.maximumPageSize) {
+    throw new ConfigurationError(
+      'REQUEST_DEFAULT_PAGE_SIZE cannot exceed REQUEST_MAXIMUM_PAGE_SIZE'
+    );
+  }
 
   return Object.freeze(config);
 }

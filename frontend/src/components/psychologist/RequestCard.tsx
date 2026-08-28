@@ -5,6 +5,7 @@ import { ActiveRequest } from '../../models/ActiveRequest';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
+import { formatMoney } from '../../utils/money';
 
 const MODALITY_ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   chat: 'chat-bubble-outline',
@@ -69,7 +70,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.patientName}>{request.patientName || 'Paciente'}</Text>
+        <Text style={styles.requestTitle}>Solicitud de atención</Text>
         {request.primaryNeed ? (
           <Text style={styles.need} numberOfLines={2}>
             {request.primaryNeed}
@@ -80,7 +81,9 @@ export const RequestCard: React.FC<RequestCardProps> = ({
       <View style={styles.budgetRow}>
         <MaterialIcons name="account-balance-wallet" size={16} color={Colors.textSecondary} />
         <Text style={styles.budgetLabel}>Presupuesto: </Text>
-        <Text style={styles.budgetAmount}>C${request.proposedBudget ?? 0}</Text>
+        <Text style={styles.budgetAmount}>
+          {formatMoney(request.proposedBudget, request.currencyCode)}
+        </Text>
       </View>
 
       <View style={styles.actions}>
@@ -88,7 +91,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
           style={styles.counterBtn}
           onPress={() => onCounterOffer(request)}
           activeOpacity={0.82}
-          accessibilityLabel={`Contraofertar solicitud de ${request.patientName}`}
+          accessibilityLabel="Proponer otra tarifa"
         >
           <MaterialIcons name="swap-horiz" size={18} color={Colors.textSecondary} />
           <Text style={styles.counterBtnText}>Contraofertar</Text>
@@ -98,10 +101,12 @@ export const RequestCard: React.FC<RequestCardProps> = ({
           style={styles.acceptBtn}
           onPress={() => onAccept(request)}
           activeOpacity={0.82}
-          accessibilityLabel={`Aceptar solicitud de ${request.patientName} por C$${request.proposedBudget}`}
+          accessibilityLabel={`Ofertar ${formatMoney(request.proposedBudget, request.currencyCode)}`}
         >
           <MaterialIcons name="check" size={18} color={Colors.textInverse} />
-          <Text style={styles.acceptBtnText}>Aceptar C${request.proposedBudget ?? 0}</Text>
+          <Text style={styles.acceptBtnText}>
+            Ofertar {formatMoney(request.proposedBudget, request.currencyCode)}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -164,7 +169,7 @@ const styles = StyleSheet.create({
   body: {
     gap: Spacing.xxs,
   },
-  patientName: {
+  requestTitle: {
     ...Typography.h3,
     color: Colors.textPrimary,
   },

@@ -31,8 +31,10 @@ evitar modelar relaciones o atributos clínicos.
 | `psychologist_modalities` | `(psychologist_profile_id, modality) -> price_per_hour, currency_code, is_enabled` |
 | `availability_rules` | `id -> psychologist_profile_id, weekday, start_time, end_time, timezone, vigencia, is_active` |
 | `availability_exceptions` | `id -> psychologist_profile_id, starts_at, ends_at, type, reason` |
-| `service_requests` | `id -> patient_profile_id, modality, budget, status` |
-| `offers` | `id -> request_id, psychologist_profile_id, amount, status` |
+| `service_requests` | `id -> patient_profile_id, modality, proposed_budget, currency_code, status, scheduled_for, expires_at, location, location_expires_at` |
+| `offers` | `id -> request_id, psychologist_profile_id, amount, message, status` y `(request_id, psychologist_profile_id) -> id` |
+| `care_relationship_sources` | `care_relationship_id -> service_request_id` y `service_request_id -> care_relationship_id` |
+| `idempotency_records` | `(actor_user_id, operation, idempotency_key) -> request_hash, resource_id, expires_at` |
 | `appointments` | `id -> patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
 | `clinical_records` | `id -> patient_profile_id, opened_at, status` |
 | `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, appointment_id` |
@@ -86,6 +88,30 @@ La corrección `20260827002000_normalize_verification_submission` elimina esa
 dependencia transitiva del primer diseño antes del cierre de la fase. Las claves
 candidatas, claves foráneas e índices resultantes están versionados en las
 migraciones de PostgreSQL.
+
+## Decisión de normalización de la Fase 4
+
+Solicitudes y ofertas conservan dependencias directas de sus claves:
+
+- `service_requests` guarda la moneda porque el presupuesto pertenece a la
+  solicitud; las ofertas reutilizan esa moneda al proyectar su importe y no la
+  duplican;
+- una oferta referencia `psychologist_profile_id`; nombre, fotografía,
+  especialidad y rating se derivan de relaciones y agregados existentes;
+- la solicitud no contiene `accepted_offer_id` ni `accepted_psychologist_id`; la
+  única oferta con estado `ACCEPTED` se protege mediante índice parcial y trigger
+  diferible;
+- `care_relationship_sources` modela el origen uno a uno de una relación sin
+  agregar una clave de solicitud redundante a `care_relationships`;
+- `idempotency_records` es un registro técnico con clave compuesta. `resource_id`
+  identifica el resultado sin copiar sus atributos y expira por política;
+- la identidad del paciente y del psicólogo nunca se captura como snapshot
+  accidental en este flujo.
+
+Las columnas temporales son atómicas y tienen semántica distinta:
+`scheduled_for` representa la sesión solicitada, `expires_at` el cierre de
+ofertas y `location_expires_at` la eliminación de ubicación precisa. Por ello no
+son grupos repetidos ni dependencias transitivas.
 
 ## Datos derivados
 

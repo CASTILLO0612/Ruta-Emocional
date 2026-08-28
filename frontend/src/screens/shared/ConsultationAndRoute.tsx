@@ -323,7 +323,7 @@ export const ConsultationScreen: React.FC = () => {
 export const RouteTrackingScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { cancelSearch } = useRequestStore();
+  const { clearCurrentRequest } = useRequestStore();
   const { userProfile } = useAuthStore();
 
   const psychologistName = route.params?.psychologistName ?? 'Dr. Carlos MÃ©ndez RÃ­os';
@@ -506,7 +506,7 @@ export const RouteTrackingScreen: React.FC = () => {
 
   const handleConfirmCancel = () => {
     setEndRouteAlertVisible(false);
-    cancelSearch();
+    clearCurrentRequest();
     navigation.goBack();
   };
 

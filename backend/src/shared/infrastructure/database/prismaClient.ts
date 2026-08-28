@@ -12,7 +12,7 @@ export function getPrismaClient(databaseUrl?: string): PrismaClient {
             },
           }
         : {}),
-      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['warn'] : [],
     });
   }
   return prismaInstance;

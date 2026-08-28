@@ -44,8 +44,6 @@ export type AppStackParamList = {
   Profile: undefined;
   PsychologistProfile: {
     psychologistId: string;
-    offerAmount?: number;
-    onAccept?: () => void;
   };
 };
 

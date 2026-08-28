@@ -12,26 +12,6 @@ interface AuthenticatedSocket extends Socket {
   userRoles?: readonly RoleCode[];
 }
 
-interface RequestData {
-  id: string;
-  patientId: string;
-  patientName: string;
-  modality: string;
-  proposedBudget: number;
-  status: string;
-  [key: string]: any;
-}
-
-interface OfferData {
-  id: string;
-  requestId: string;
-  psychologistId: string;
-  psychologistName: string;
-  amount: number;
-  status: string;
-  [key: string]: any;
-}
-
 interface ChatMessageData {
   roomId: string;
   message: {
@@ -118,47 +98,6 @@ export function setupSockets(io: Server, identity: IdentityService): void {
       const roomStr = String(roomId);
       socket.leave(roomStr);
       console.log(`[Socket.io] ${userLabel} salió de sala: ${roomStr}`);
-    });
-
-    // ── Eventos de Solicitudes (Requests) ─────────────────────────────────
-
-    socket.on('new_request_created', (data: RequestData) => {
-      if (!data?.id) return;
-      console.log(`[Socket.io Request] Nueva solicitud: ${data.id} por ${data.patientName}`);
-      // Broadcast a TODOS los psicólogos conectados
-      io.emit('broadcast_new_request', data);
-    });
-
-    socket.on('request_status_changed', (data: { requestId: string; status: string; [key: string]: any }) => {
-      if (!data?.requestId) return;
-      console.log(`[Socket.io Request] Estado cambiado: ${data.requestId} -> ${data.status}`);
-      // Notificar a la sala específica de la solicitud
-      io.to(data.requestId).emit('request_updated', data);
-      // También broadcast global para dashboards
-      io.emit('broadcast_request_update', data);
-    });
-
-    // ── Eventos de Ofertas (Offers / Bidding) ─────────────────────────────
-
-    socket.on('new_offer_created', (data: OfferData) => {
-      const reqId = data?.requestId || (data as any)?.request;
-      if (!reqId) return;
-      const roomStr = String(reqId);
-      console.log(`[Socket.io Offer] Nueva oferta de ${data.psychologistName} para solicitud: ${roomStr}`);
-      // Notificar a la sala de la solicitud Y broadcast de respaldo
-      io.to(roomStr).emit('receive_new_offer', { ...data, requestId: roomStr });
-      io.emit('receive_new_offer_broadcast', { ...data, requestId: roomStr });
-    });
-
-    socket.on('offer_accepted', (data: any) => {
-      const reqId = data?.requestId || data?.request;
-      if (!reqId) return;
-      const roomStr = String(reqId);
-      console.log(`[Socket.io Offer] Oferta aceptada: ${data.offerId} en solicitud ${roomStr}`);
-      // Notificar a toda la sala y emitir broadcast al psicólogo elegido
-      io.to(roomStr).emit('offer_was_accepted', data);
-      io.emit('broadcast_offer_accepted', data);
-      io.emit('broadcast_request_update', { requestId: roomStr, status: 'accepted' });
     });
 
     // ── Eventos de Chat en Tiempo Real ────────────────────────────────────

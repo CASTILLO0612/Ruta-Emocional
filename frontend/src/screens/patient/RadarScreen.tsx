@@ -30,6 +30,8 @@ import { getDirectoryMapConfig } from '../../config/runtimeConfig';
 import { CustomAlert } from '../../components/common/CustomAlert';
 import * as Location from 'expo-location';
 import type { AppNavigation } from '../../navigation/navigationTypes';
+import { showAlert } from '../../utils/alert';
+import { formatMoney } from '../../utils/money';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -42,6 +44,8 @@ export const RadarScreen: React.FC = () => {
     startListeningToOffers,
     acceptIncomingOffer,
     cancelSearch,
+    error,
+    clearError,
   } = useRequestStore();
 
   const [nearbyPsychologistCount, setNearbyPsychologistCount] = useState(0);
@@ -110,6 +114,12 @@ export const RadarScreen: React.FC = () => {
     }
   }, [activeRequestId, activeRequest?.id]);
 
+  useEffect(() => {
+    if (!error) return;
+    showAlert('No pudimos actualizar la búsqueda', error);
+    clearError();
+  }, [clearError, error]);
+
 
 
   const pulseRing = (anim: Animated.Value, delay: number) => {
@@ -172,33 +182,49 @@ export const RadarScreen: React.FC = () => {
   const handleConfirmAccept = async () => {
     if (!selectedOffer) return;
     setAcceptAlertVisible(false);
-    await acceptIncomingOffer(selectedOffer.id, selectedOffer.psychologistId, selectedOffer.amount);
-    bottomSheetRef.current?.dismiss();
-    
-    const selectedModality = activeRequest?.modality ?? 'chat';
-    const targetRequestId = activeRequest?.id || activeRequestId || selectedOffer.requestId;
-    if (selectedModality === 'in-person') {
-      navigation.replace('Route', {
-        requestId: targetRequestId,
-        psychologistName: selectedOffer.psychologistName,
-        psychologistPhotoURL: selectedOffer.psychologistPhotoURL,
-        amount: selectedOffer.amount,
-      });
-    } else {
-      navigation.replace('Consultation', {
-        requestId: targetRequestId,
-        psychologistName: selectedOffer.psychologistName,
-        psychologistPhotoURL: selectedOffer.psychologistPhotoURL,
-        modality: selectedModality,
-        amount: selectedOffer.amount,
-      });
+    try {
+      const result = await acceptIncomingOffer(selectedOffer.id);
+      bottomSheetRef.current?.dismiss();
+      const acceptedOffer = result.offer;
+      const selectedModality = activeRequest?.modality ?? 'chat';
+      const targetRequestId = activeRequest?.id || activeRequestId || acceptedOffer.requestId;
+      if (selectedModality === 'in-person') {
+        navigation.replace('Route', {
+          requestId: targetRequestId,
+          psychologistName: acceptedOffer.psychologistName,
+          psychologistPhotoURL: acceptedOffer.psychologistPhotoURL,
+          amount: acceptedOffer.amount,
+        });
+      } else {
+        navigation.replace('Consultation', {
+          requestId: targetRequestId,
+          psychologistName: acceptedOffer.psychologistName,
+          psychologistPhotoURL: acceptedOffer.psychologistPhotoURL,
+          modality: selectedModality,
+          amount: acceptedOffer.amount,
+        });
+      }
+    } catch (acceptanceError) {
+      clearError();
+      showAlert(
+        'No pudimos aceptar la oferta',
+        acceptanceError instanceof Error ? acceptanceError.message : 'Intenta nuevamente.'
+      );
     }
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     setCancelAlertVisible(false);
-    cancelSearch();
-    navigation.goBack();
+    try {
+      await cancelSearch();
+      navigation.goBack();
+    } catch (cancellationError) {
+      clearError();
+      showAlert(
+        'No pudimos cancelar la solicitud',
+        cancellationError instanceof Error ? cancellationError.message : 'Intenta nuevamente.'
+      );
+    }
   };
 
   const spin = rotateAnim.interpolate({
@@ -288,7 +314,9 @@ export const RadarScreen: React.FC = () => {
               <MaterialIcons name="account-balance-wallet" size={16} color={Colors.accent} />
               <Text style={styles.infoLabel}>Tu presupuesto</Text>
               <Text style={styles.infoValue}>
-                C${activeRequest?.proposedBudget ?? '--'}
+                {activeRequest
+                  ? formatMoney(activeRequest.proposedBudget, activeRequest.currencyCode)
+                  : '--'}
               </Text>
             </View>
             <View style={styles.infoRow}>
@@ -376,7 +404,7 @@ export const RadarScreen: React.FC = () => {
         <CustomAlert
           visible={acceptAlertVisible}
           title="Confirmar aceptación"
-          message={selectedOffer ? `¿Deseas aceptar la oferta de la ${selectedOffer.psychologistName} por C$${selectedOffer.amount}?` : ''}
+          message={selectedOffer ? `¿Deseas aceptar la oferta de ${selectedOffer.psychologistName} por ${formatMoney(selectedOffer.amount, selectedOffer.currencyCode)}?` : ''}
           confirmText="Aceptar"
           cancelText="Cancelar"
           showCancel

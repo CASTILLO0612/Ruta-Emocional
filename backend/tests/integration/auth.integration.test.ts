@@ -14,7 +14,7 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
   skip: !testDatabaseUrl,
 }, async () => {
   const databaseUrl = testDatabaseUrl!;
-  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } }, log: ['error'] });
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   const config: AppConfig = {
     environment: 'test',
     port: 0,
@@ -44,6 +44,27 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       maxAvailabilityWindowDays: 31,
       maxWeeklyRules: 50,
       publicRequestsPerMinute: 120,
+      supportedCurrencies: ['NIO'],
+    },
+    requestFlow: {
+      minimumAmount: '100.00',
+      maximumAmount: '10000.00',
+      immediateTtlMinutes: 30,
+      scheduledLeadMinutes: 120,
+      scheduledOfferCutoffMinutes: 30,
+      maximumScheduleDays: 90,
+      locationRetentionHours: 24,
+      maximumOpenImmediateRequests: 1,
+      maximumDescriptionLength: 2000,
+      maximumPrimaryNeedLength: 240,
+      maximumOfferMessageLength: 500,
+      defaultPageSize: 20,
+      maximumPageSize: 50,
+      idempotencyTtlHours: 24,
+      expirationBatchSize: 100,
+      mutationsPerMinute: 60,
+      serializableMaxRetries: 3,
+      serializableRetryBaseDelayMs: 5,
       supportedCurrencies: ['NIO'],
     },
   };

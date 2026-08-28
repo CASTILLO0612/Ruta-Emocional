@@ -8,10 +8,13 @@ import { ScryptPasswordHasher } from './modules/identity/infrastructure/security
 import { SystemClock } from './shared/application/clock';
 import { ProfessionalDirectoryService } from './modules/professional-directory/application/professionalDirectoryService';
 import { PrismaProfessionalDirectoryRepository } from './modules/professional-directory/infrastructure/persistence/prismaProfessionalDirectoryRepository';
+import { ServiceRequestService } from './modules/service-request/application/serviceRequestService';
+import { PrismaServiceRequestRepository } from './modules/service-request/infrastructure/persistence/prismaServiceRequestRepository';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
   readonly professionalDirectory: ProfessionalDirectoryService;
+  readonly serviceRequests: ServiceRequestService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -41,6 +44,14 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
     ),
     professionalDirectory: new ProfessionalDirectoryService(
       new PrismaProfessionalDirectoryRepository(prisma)
+    ),
+    serviceRequests: new ServiceRequestService(
+      new PrismaServiceRequestRepository(prisma, {
+        maximumRetries: config.requestFlow.serializableMaxRetries,
+        baseDelayMs: config.requestFlow.serializableRetryBaseDelayMs,
+      }),
+      new SystemClock(),
+      config.requestFlow
     ),
   };
 }

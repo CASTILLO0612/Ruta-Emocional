@@ -275,6 +275,8 @@ export class IdentityService {
     if (user.roles.includes('patient')) {
       capabilities.add('psychologist_directory:read');
       capabilities.add('service_request:create');
+      capabilities.add('service_request:manage:self');
+      capabilities.add('offer:read:self');
       capabilities.add('appointment:read:self');
       capabilities.add('conversation:read:self');
     }
@@ -284,6 +286,7 @@ export class IdentityService {
       if (user.psychologistVerificationStatus === 'VERIFIED') {
         capabilities.add('service_request:read:eligible');
         capabilities.add('offer:create:self');
+        capabilities.add('offer:manage:self');
         capabilities.add('availability:manage:self');
         capabilities.add('appointment:manage:self');
         capabilities.add('clinical:write:authorized');

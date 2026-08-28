@@ -1,4 +1,4 @@
-export type OfferStatus = 'pending' | 'accepted' | 'rejected';
+export type OfferStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn';
 
 export interface Offer {
   id: string;
@@ -7,9 +7,11 @@ export interface Offer {
   psychologistName: string;
   psychologistPhotoURL?: string;
   psychologistRating: number;
-  psychologistSpecialty: string;
+  psychologistSpecialty?: string;
 
   amount: number;
+  currencyCode: string;
+  message?: string;
   status: OfferStatus;
 
   createdAt: Date;

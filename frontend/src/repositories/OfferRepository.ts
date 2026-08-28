@@ -1,145 +1,138 @@
-import { apiRequest } from '../services/apiClient';
-import { getSocket, joinRoom, leaveRoom } from '../services/socketClient';
-import { Offer } from '../models/Offer';
+import { getRequestPollingConfig } from '../config/runtimeConfig';
+import { Offer, OfferStatus } from '../models/Offer';
+import { apiV1Request } from '../services/apiClient';
+import { createPollingSubscription } from '../services/pollingSubscription';
+
+type ApiOfferStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
+
+interface ApiMoney {
+  readonly amount: string;
+  readonly currency: string;
+}
+
+interface ApiServiceOffer {
+  readonly id: string;
+  readonly requestId: string;
+  readonly professional: {
+    readonly profileId: string;
+    readonly displayName: string;
+    readonly photoUrl: string | null;
+    readonly primarySpecialty: string | null;
+    readonly rating: number;
+    readonly totalReviews: number;
+  };
+  readonly price: ApiMoney;
+  readonly message: string | null;
+  readonly status: ApiOfferStatus;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+interface AcceptanceResponse {
+  readonly request: { readonly id: string; readonly status: 'ACCEPTED' };
+  readonly acceptedOffer: ApiServiceOffer;
+  readonly careRelationshipId: string;
+  readonly replayed: boolean;
+}
+
+interface Envelope<T> {
+  readonly data: T;
+}
 
 export interface SubmitOfferPayload {
-  requestId: string;
-  psychologistId: string;
-  psychologistName: string;
-  psychologistPhotoURL?: string;
-  psychologistRating: number;
-  psychologistSpecialty: string;
-  amount: number;
+  readonly requestId: string;
+  readonly amount: number;
+  readonly message?: string;
 }
 
-export async function submitOffer(payload: SubmitOfferPayload): Promise<string> {
-  try {
-    const newOffer = await apiRequest<any>('/offers', 'POST', payload);
-    const offerId = newOffer.id || newOffer._id;
-
-    // Emitir evento por socket para notificar al paciente en tiempo real
-    const socket = getSocket();
-    socket.emit('new_offer_created', {
-      ...newOffer,
-      id: offerId,
-      requestId: payload.requestId,
-    });
-
-    return offerId;
-  } catch (error) {
-    throw new Error(`Error enviando la oferta: ${error}`);
-  }
+export interface AcceptedOfferResult {
+  readonly offer: Offer;
+  readonly careRelationshipId: string;
+  readonly replayed: boolean;
 }
 
-export async function getOffersForRequest(requestId: string): Promise<Offer[]> {
-  try {
-    const list = await apiRequest<any[]>(`/offers/request/${requestId}`, 'GET');
-    return list.map((item) => ({
-      ...item,
-      id: item._id || item.id,
-      requestId: item.request || item.requestId,
-      psychologistId: item.psychologist || item.psychologistId,
-    }));
-  } catch (error) {
-    throw new Error(`Error obteniendo ofertas: ${error}`);
-  }
+const STATUS_FROM_API: Record<ApiOfferStatus, OfferStatus> = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  REJECTED: 'rejected',
+  WITHDRAWN: 'withdrawn',
+};
+
+function toOffer(offer: ApiServiceOffer): Offer {
+  return {
+    id: offer.id,
+    requestId: offer.requestId,
+    psychologistId: offer.professional.profileId,
+    psychologistName: offer.professional.displayName,
+    ...(offer.professional.photoUrl ? { psychologistPhotoURL: offer.professional.photoUrl } : {}),
+    psychologistRating: offer.professional.rating,
+    ...(offer.professional.primarySpecialty
+      ? { psychologistSpecialty: offer.professional.primarySpecialty }
+      : {}),
+    amount: Number(offer.price.amount),
+    currencyCode: offer.price.currency,
+    ...(offer.message ? { message: offer.message } : {}),
+    status: STATUS_FROM_API[offer.status],
+    createdAt: new Date(offer.createdAt),
+  };
+}
+
+export async function submitOffer(
+  payload: SubmitOfferPayload,
+  idempotencyKey: string
+): Promise<Offer> {
+  const response = await apiV1Request<Envelope<ApiServiceOffer>>(
+    `/service-requests/${encodeURIComponent(payload.requestId)}/offers`,
+    'POST',
+    {
+      price: { amount: payload.amount.toFixed(2) },
+      ...(payload.message?.trim() ? { message: payload.message.trim() } : {}),
+    },
+    { idempotencyKey }
+  );
+  return toOffer(response.data);
+}
+
+export async function getOffersForRequest(
+  requestId: string,
+  signal?: AbortSignal
+): Promise<Offer[]> {
+  const response = await apiV1Request<Envelope<readonly ApiServiceOffer[]>>(
+    `/service-requests/${encodeURIComponent(requestId)}/offers`,
+    'GET',
+    undefined,
+    { signal }
+  );
+  return response.data.map(toOffer);
 }
 
 export async function acceptOffer(
   requestId: string,
   offerId: string,
-  psychologistId: string,
-  finalPrice: number,
-  modality?: string,
-  patientName?: string
-): Promise<void> {
-  try {
-    await apiRequest('/offers/accept', 'POST', {
-      offerId,
-      requestId,
-      psychologistId,
-      finalPrice,
-    });
-
-    // Notificar aceptación por socket
-    const socket = getSocket();
-    socket.emit('offer_accepted', {
-      requestId,
-      offerId,
-      psychologistId,
-      finalPrice,
-      modality,
-      patientName,
-    });
-  } catch (error) {
-    throw new Error(`Error aceptando oferta: ${error}`);
-  }
+  idempotencyKey: string
+): Promise<AcceptedOfferResult> {
+  const response = await apiV1Request<Envelope<AcceptanceResponse>>(
+    `/service-requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,
+    'POST',
+    undefined,
+    { idempotencyKey }
+  );
+  return {
+    offer: toOffer(response.data.acceptedOffer),
+    careRelationshipId: response.data.careRelationshipId,
+    replayed: response.data.replayed,
+  };
 }
 
-/**
- * Escucha ofertas para una solicitud en tiempo real vía WebSockets.
- * Hace un fetch inicial y luego reacciona a eventos del servidor.
- */
 export function listenToOffers(
   requestId: string,
-  callback: (offers: Offer[]) => void
+  callback: (offers: Offer[]) => void,
+  onError?: (error: unknown) => void
 ): () => void {
-  const socket = getSocket();
-  let localOffers: Offer[] = [];
-
-  // Asegurar que estamos en la sala de esta solicitud
-  joinRoom(requestId);
-
-  // Fetch inicial
-  const initialFetch = async () => {
-    try {
-      const offers = await getOffersForRequest(requestId);
-      localOffers = offers;
-      callback(offers);
-    } catch (err) {
-      console.warn('[OfferRepository] Error en fetch inicial de ofertas:', err);
-    }
-  };
-
-  initialFetch();
-
-  // Escuchar nuevas ofertas en la sala de la solicitud o vía broadcast global
-  const onNewOffer = (data: any) => {
-    const incomingRequestId = data.requestId || data.request;
-    if (String(incomingRequestId) !== String(requestId)) return;
-
-    const newOffer: Offer = {
-      ...data,
-      id: data._id || data.id,
-      requestId: String(incomingRequestId),
-      psychologistId: String(data.psychologist || data.psychologistId),
-    };
-
-    // Evitar duplicados
-    if (!localOffers.find((o) => String(o.id) === String(newOffer.id))) {
-      localOffers = [newOffer, ...localOffers];
-      callback([...localOffers]);
-    }
-  };
-
-  // Escuchar cuando una oferta es aceptada (para actualizar estados)
-  const onOfferAccepted = (data: any) => {
-    if (String(data?.requestId) !== String(requestId)) return;
-    localOffers = localOffers.map((o) => ({
-      ...o,
-      status: String(o.id) === String(data.offerId) ? 'accepted' : 'rejected',
-    }));
-    callback([...localOffers]);
-  };
-
-  socket.on('receive_new_offer', onNewOffer);
-  socket.on('receive_new_offer_broadcast', onNewOffer);
-  socket.on('offer_was_accepted', onOfferAccepted);
-
-  return () => {
-    socket.off('receive_new_offer', onNewOffer);
-    socket.off('receive_new_offer_broadcast', onNewOffer);
-    socket.off('offer_was_accepted', onOfferAccepted);
-    leaveRoom(requestId);
-  };
+  return createPollingSubscription({
+    intervalMs: getRequestPollingConfig().intervalMs,
+    load: (signal) => getOffersForRequest(requestId, signal),
+    onData: callback,
+    onError,
+  });
 }

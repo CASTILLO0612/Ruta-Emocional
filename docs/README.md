@@ -14,6 +14,8 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 8. [Requisitos no funcionales](operations/non-functional-requirements.md)
 9. [Plan de ejecución del MVP](roadmap/mvp-execution-plan.md)
 10. [Cierre de la Fase 3](roadmap/phase-3-professional-directory.md)
+11. [Cierre de la Fase 4](roadmap/phase-4-service-requests-and-offers.md)
+12. [Gates de preparación productiva](operations/production-gates.md)
 
 ## Decisiones vigentes
 

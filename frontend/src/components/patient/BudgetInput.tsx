@@ -3,25 +3,33 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
-
-const QUICK_AMOUNTS = [200, 350, 500, 750];
+import { formatMoney } from '../../utils/money';
 
 interface BudgetInputProps {
   value: number;
   onChange: (value: number) => void;
+  currencyCode: string;
+  minimumAmount: number;
+  maximumAmount: number;
 }
 
-export const BudgetInput: React.FC<BudgetInputProps> = ({ value, onChange }) => {
+export const BudgetInput: React.FC<BudgetInputProps> = ({
+  value,
+  onChange,
+  currencyCode,
+  minimumAmount,
+  maximumAmount,
+}) => {
   const handleTextChange = (text: string) => {
-    const numeric = parseInt(text.replace(/[^0-9]/g, ''), 10);
-    if (!isNaN(numeric)) onChange(numeric);
+    const normalized = text.replace(',', '.').replace(/[^0-9.]/g, '');
+    const numeric = Number(normalized);
+    if (Number.isFinite(numeric)) onChange(numeric);
     else if (text === '') onChange(0);
   };
 
@@ -31,16 +39,16 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({ value, onChange }) => 
 
       <View style={styles.inputRow}>
         <View style={styles.currencyBadge}>
-          <Text style={styles.currencyText}>C$</Text>
+          <Text style={styles.currencyText}>{currencyCode}</Text>
         </View>
         <TextInput
           style={styles.input}
           value={value > 0 ? value.toString() : ''}
           onChangeText={handleTextChange}
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
           placeholder="0"
           placeholderTextColor={Colors.textDisabled}
-          maxLength={6}
+          maxLength={String(Math.trunc(maximumAmount)).length + 3}
           accessibilityLabel="Budget amount input"
         />
         <MaterialIcons
@@ -51,33 +59,10 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({ value, onChange }) => 
         />
       </View>
 
-      <View style={styles.quickRow}>
-        {QUICK_AMOUNTS.map((amount) => (
-          <TouchableOpacity
-            key={amount}
-            onPress={() => onChange(amount)}
-            activeOpacity={0.75}
-            style={[
-              styles.quickChip,
-              value === amount && styles.quickChipActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.quickChipText,
-                value === amount && styles.quickChipTextActive,
-              ]}
-            >
-              C${amount}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <View style={styles.hintRow}>
         <MaterialIcons name="info-outline" size={13} color={Colors.textTertiary} />
         <Text style={styles.hint}>
-          Los psicólogos pueden contraofertar
+          Rango permitido: {formatMoney(minimumAmount, currencyCode)}–{formatMoney(maximumAmount, currencyCode)}
         </Text>
       </View>
     </View>
@@ -123,34 +108,6 @@ const styles = StyleSheet.create({
   },
   editIcon: {
     opacity: 0.6,
-  },
-  quickRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  quickChip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing.xs + 3,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  quickChipActive: {
-    backgroundColor: Colors.accentFaded,
-    borderColor: Colors.accent,
-  },
-  quickChipText: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-  },
-  quickChipTextActive: {
-    color: Colors.accentDark,
-    fontWeight: '700',
   },
   hintRow: {
     flexDirection: 'row',

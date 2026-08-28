@@ -1,172 +1,225 @@
-import { apiRequest } from '../services/apiClient';
-import { getSocket, joinRoom, leaveRoom } from '../services/socketClient';
+import { getRequestPollingConfig } from '../config/runtimeConfig';
 import { ActiveRequest, RequestStatus } from '../models/ActiveRequest';
 import { Modality } from '../models/Psychologist';
+import { apiV1Request } from '../services/apiClient';
+import { createPollingSubscription } from '../services/pollingSubscription';
+
+type ApiModality = 'CHAT' | 'CALL' | 'IN_PERSON';
+type ApiRequestStatus =
+  | 'PENDING'
+  | 'BIDDING'
+  | 'ACCEPTED'
+  | 'IN_SESSION'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+interface ApiMoney {
+  readonly amount: string;
+  readonly currency: string;
+}
+
+interface ApiRequestBase {
+  readonly id: string;
+  readonly modality: ApiModality;
+  readonly primaryNeed: string | null;
+  readonly description: string | null;
+  readonly proposedBudget: ApiMoney;
+  readonly status: ApiRequestStatus;
+  readonly scheduledFor: string | null;
+  readonly expiresAt: string;
+  readonly createdAt: string;
+}
+
+interface ApiServiceRequest extends ApiRequestBase {
+  readonly updatedAt: string;
+  readonly acceptedOffer: {
+    readonly id: string;
+    readonly psychologistProfileId: string;
+    readonly price: ApiMoney;
+  } | null;
+}
+
+interface ApiEligibleServiceRequest extends ApiRequestBase {
+  readonly status: 'PENDING' | 'BIDDING';
+}
+
+interface Envelope<T> {
+  readonly data: T;
+}
+
+interface PageEnvelope<T> {
+  readonly data: readonly T[];
+  readonly meta: { readonly nextCursor: string | null };
+}
+
+export interface ServiceRequestPolicy {
+  readonly minimumAmount: string;
+  readonly maximumAmount: string;
+  readonly supportedCurrencies: readonly [string, ...string[]];
+  readonly immediateTtlMinutes: number;
+  readonly scheduledLeadMinutes: number;
+  readonly maximumScheduleDays: number;
+  readonly maximumDescriptionLength: number;
+  readonly maximumPrimaryNeedLength: number;
+  readonly maximumOfferMessageLength: number;
+}
 
 export interface CreateRequestPayload {
-  patientId: string;
-  patientName: string;
-  patientPhotoURL?: string;
-  modality: Modality;
-  proposedBudget: number;
-  primaryNeed?: string;
-  description?: string;
-  coordinates?: { latitude: number; longitude: number };
+  readonly modality: Modality;
+  readonly proposedBudget: number;
+  readonly currencyCode: string;
+  readonly primaryNeed?: string;
+  readonly description?: string;
+  readonly scheduledFor?: Date;
+  readonly location?: { readonly latitude: number; readonly longitude: number };
+}
+
+const MODALITY_TO_API: Record<Modality, ApiModality> = {
+  chat: 'CHAT',
+  call: 'CALL',
+  'in-person': 'IN_PERSON',
+};
+
+const MODALITY_FROM_API: Record<ApiModality, Modality> = {
+  CHAT: 'chat',
+  CALL: 'call',
+  IN_PERSON: 'in-person',
+};
+
+const STATUS_FROM_API: Record<ApiRequestStatus, RequestStatus> = {
+  PENDING: 'pending',
+  BIDDING: 'bidding',
+  ACCEPTED: 'accepted',
+  IN_SESSION: 'in-session',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  EXPIRED: 'expired',
+};
+
+function toActiveRequest(request: ApiServiceRequest): ActiveRequest {
+  return {
+    id: request.id,
+    modality: MODALITY_FROM_API[request.modality],
+    ...(request.primaryNeed ? { primaryNeed: request.primaryNeed } : {}),
+    ...(request.description ? { description: request.description } : {}),
+    proposedBudget: Number(request.proposedBudget.amount),
+    currencyCode: request.proposedBudget.currency,
+    ...(request.acceptedOffer ? {
+      acceptedOfferId: request.acceptedOffer.id,
+      acceptedPsychologistId: request.acceptedOffer.psychologistProfileId,
+    } : {}),
+    status: STATUS_FROM_API[request.status],
+    ...(request.scheduledFor ? { scheduledFor: new Date(request.scheduledFor) } : {}),
+    expiresAt: new Date(request.expiresAt),
+    createdAt: new Date(request.createdAt),
+    updatedAt: new Date(request.updatedAt),
+  };
+}
+
+function toEligibleActiveRequest(request: ApiEligibleServiceRequest): ActiveRequest {
+  return {
+    id: request.id,
+    modality: MODALITY_FROM_API[request.modality],
+    ...(request.primaryNeed ? { primaryNeed: request.primaryNeed } : {}),
+    ...(request.description ? { description: request.description } : {}),
+    proposedBudget: Number(request.proposedBudget.amount),
+    currencyCode: request.proposedBudget.currency,
+    status: STATUS_FROM_API[request.status],
+    ...(request.scheduledFor ? { scheduledFor: new Date(request.scheduledFor) } : {}),
+    expiresAt: new Date(request.expiresAt),
+    createdAt: new Date(request.createdAt),
+  };
+}
+
+export async function getServiceRequestPolicy(signal?: AbortSignal): Promise<ServiceRequestPolicy> {
+  const response = await apiV1Request<Envelope<ServiceRequestPolicy>>(
+    '/service-requests/policy',
+    'GET',
+    undefined,
+    { signal }
+  );
+  return response.data;
 }
 
 export async function createRequest(
-  payload: CreateRequestPayload
-): Promise<string> {
-  try {
-    const newReq = await apiRequest<ActiveRequest>('/requests', 'POST', payload);
-    const requestId = newReq.id || (newReq as any)._id;
-
-    // Emitir evento por socket para notificar a psicólogos en tiempo real
-    const socket = getSocket();
-    socket.emit('new_request_created', { ...newReq, id: requestId });
-
-    return requestId;
-  } catch (error) {
-    throw new Error(`Error al crear la solicitud: ${error}`);
-  }
+  payload: CreateRequestPayload,
+  idempotencyKey: string,
+  signal?: AbortSignal
+): Promise<ActiveRequest> {
+  const response = await apiV1Request<Envelope<ApiServiceRequest>>(
+    '/service-requests',
+    'POST',
+    {
+      modality: MODALITY_TO_API[payload.modality],
+      proposedBudget: {
+        amount: payload.proposedBudget.toFixed(2),
+        currency: payload.currencyCode,
+      },
+      timing: payload.scheduledFor
+        ? { kind: 'SCHEDULED', scheduledFor: payload.scheduledFor.toISOString() }
+        : { kind: 'IMMEDIATE' },
+      ...(payload.primaryNeed ? { primaryNeed: payload.primaryNeed } : {}),
+      ...(payload.description ? { description: payload.description } : {}),
+      ...(payload.location ? { location: payload.location } : {}),
+    },
+    { signal, idempotencyKey }
+  );
+  return toActiveRequest(response.data);
 }
 
-export async function getActiveRequests(): Promise<ActiveRequest[]> {
-  try {
-    const list = await apiRequest<any[]>('/requests/active', 'GET');
-    return list.map((item) => ({
-      ...item,
-      id: item._id || item.id,
-    }));
-  } catch (error) {
-    throw new Error(`Error al obtener solicitudes activas: ${error}`);
-  }
+export async function getEligibleRequests(signal?: AbortSignal): Promise<ActiveRequest[]> {
+  const response = await apiV1Request<PageEnvelope<ApiEligibleServiceRequest>>(
+    '/service-requests/eligible',
+    'GET',
+    undefined,
+    { signal }
+  );
+  return response.data.map(toEligibleActiveRequest);
 }
 
-export async function updateRequestStatus(
+export async function getRequestById(
   requestId: string,
-  status: RequestStatus,
-  extra?: Partial<ActiveRequest>
-): Promise<void> {
-  try {
-    await apiRequest(`/requests/${requestId}/status`, 'PATCH', {
-      status,
-      ...extra,
-    });
-
-    // Notificar cambio de estado por socket
-    const socket = getSocket();
-    socket.emit('request_status_changed', { requestId, status, ...extra });
-  } catch (error) {
-    throw new Error(`Error al actualizar la solicitud: ${error}`);
-  }
+  signal?: AbortSignal
+): Promise<ActiveRequest> {
+  const response = await apiV1Request<Envelope<ApiServiceRequest>>(
+    `/service-requests/${encodeURIComponent(requestId)}`,
+    'GET',
+    undefined,
+    { signal }
+  );
+  return toActiveRequest(response.data);
 }
 
-/**
- * Escucha solicitudes pendientes en tiempo real vía WebSockets.
- * Hace un fetch inicial y luego reacciona a eventos del servidor.
- */
+export async function cancelRequest(requestId: string): Promise<ActiveRequest> {
+  const response = await apiV1Request<Envelope<ApiServiceRequest>>(
+    `/service-requests/${encodeURIComponent(requestId)}/cancel`,
+    'POST'
+  );
+  return toActiveRequest(response.data);
+}
+
 export function listenToPendingRequests(
-  callback: (requests: ActiveRequest[]) => void
+  callback: (requests: ActiveRequest[]) => void,
+  onError?: (error: unknown) => void
 ): () => void {
-  const socket = getSocket();
-  let localRequests: ActiveRequest[] = [];
-
-  // Fetch inicial para tener estado base
-  const initialFetch = async () => {
-    try {
-      const requests = await getActiveRequests();
-      localRequests = requests;
-      callback(requests);
-    } catch (err) {
-      console.warn('[RequestRepository] Error en fetch inicial:', err);
-    }
-  };
-
-  initialFetch();
-
-  // Escuchar nuevas solicitudes broadcast
-  const onNewRequest = (data: any) => {
-    const newReq: ActiveRequest = {
-      ...data,
-      id: data._id || data.id,
-    };
-    // Evitar duplicados
-    if (!localRequests.find((r) => r.id === newReq.id)) {
-      localRequests = [newReq, ...localRequests];
-      callback([...localRequests]);
-    }
-  };
-
-  // Escuchar actualizaciones de solicitudes
-  const onRequestUpdate = (data: any) => {
-    if (!data?.requestId) return;
-    localRequests = localRequests.map((r) =>
-      r.id === data.requestId ? { ...r, ...data, id: data.requestId } : r
-    );
-    // Filtrar solo las que siguen pending/bidding
-    const filtered = localRequests.filter(
-      (r) => r.status === 'pending' || r.status === 'bidding'
-    );
-    localRequests = filtered;
-    callback([...filtered]);
-  };
-
-  socket.on('broadcast_new_request', onNewRequest);
-  socket.on('broadcast_request_update', onRequestUpdate);
-
-  return () => {
-    socket.off('broadcast_new_request', onNewRequest);
-    socket.off('broadcast_request_update', onRequestUpdate);
-  };
+  return createPollingSubscription({
+    intervalMs: getRequestPollingConfig().intervalMs,
+    load: getEligibleRequests,
+    onData: callback,
+    onError,
+  });
 }
 
-/**
- * Escucha una solicitud específica en tiempo real vía WebSockets.
- * Se une a la sala de la solicitud y escucha actualizaciones dirigidas.
- */
 export function listenToRequest(
   requestId: string,
-  callback: (request: ActiveRequest | null) => void
+  callback: (request: ActiveRequest) => void,
+  onError?: (error: unknown) => void
 ): () => void {
-  const socket = getSocket();
-
-  // Unirse a la sala de esta solicitud
-  joinRoom(requestId);
-
-  // Fetch inicial
-  const initialFetch = async () => {
-    try {
-      const list = await getActiveRequests();
-      const match = list.find((r) => r.id === requestId);
-      callback(match || null);
-    } catch (err) {
-      console.warn('[RequestRepository] Error en fetch inicial de solicitud:', err);
-    }
-  };
-
-  initialFetch();
-
-  // Escuchar actualizaciones en la sala
-  const onRequestUpdated = (data: any) => {
-    if (data?.requestId === requestId || data?.id === requestId) {
-      callback({ ...data, id: requestId } as ActiveRequest);
-    }
-  };
-
-  // Escuchar actualizaciones globales también
-  const onGlobalUpdate = (data: any) => {
-    if (data?.requestId === requestId) {
-      callback({ ...data, id: requestId } as ActiveRequest);
-    }
-  };
-
-  socket.on('request_updated', onRequestUpdated);
-  socket.on('broadcast_request_update', onGlobalUpdate);
-
-  return () => {
-    socket.off('request_updated', onRequestUpdated);
-    socket.off('broadcast_request_update', onGlobalUpdate);
-    leaveRoom(requestId);
-  };
+  return createPollingSubscription({
+    intervalMs: getRequestPollingConfig().intervalMs,
+    load: (signal) => getRequestById(requestId, signal),
+    onData: callback,
+    onError,
+  });
 }

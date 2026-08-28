@@ -1,0 +1,57 @@
+import { AppConfig } from '../../src/config/env';
+
+export function createTestConfig(databaseUrl: string, namespace: string): AppConfig {
+  return {
+    environment: 'test',
+    port: 0,
+    databaseUrl,
+    allowedOrigins: ['http://localhost:8081'],
+    trustProxy: false,
+    jsonBodyLimit: '256kb',
+    jwt: {
+      accessSecret: `${namespace}-jwt-secret-with-sufficient-entropy-for-integration-tests`,
+      issuer: `ruta-emocional-${namespace}`,
+      audience: 'ruta-emocional-app-test',
+      accessTtlSeconds: 900,
+      refreshTtlDays: 30,
+    },
+    password: {
+      pepper: `${namespace}-password-pepper-with-sufficient-entropy-for-tests`,
+      scryptN: 16_384,
+      scryptR: 8,
+      scryptP: 1,
+      keyLength: 32,
+    },
+    legacyMongo: { enabled: false },
+    professionalDirectory: {
+      defaultPageSize: 20,
+      maxPageSize: 50,
+      maxRadiusKm: 100,
+      maxAvailabilityWindowDays: 31,
+      maxWeeklyRules: 50,
+      publicRequestsPerMinute: 120,
+      supportedCurrencies: ['NIO'],
+    },
+    requestFlow: {
+      minimumAmount: '100.00',
+      maximumAmount: '10000.00',
+      immediateTtlMinutes: 30,
+      scheduledLeadMinutes: 120,
+      scheduledOfferCutoffMinutes: 30,
+      maximumScheduleDays: 90,
+      locationRetentionHours: 24,
+      maximumOpenImmediateRequests: 1,
+      maximumDescriptionLength: 2000,
+      maximumPrimaryNeedLength: 240,
+      maximumOfferMessageLength: 500,
+      defaultPageSize: 20,
+      maximumPageSize: 50,
+      idempotencyTtlHours: 24,
+      expirationBatchSize: 100,
+      mutationsPerMinute: 60,
+      serializableMaxRetries: 3,
+      serializableRetryBaseDelayMs: 5,
+      supportedCurrencies: ['NIO'],
+    },
+  };
+}

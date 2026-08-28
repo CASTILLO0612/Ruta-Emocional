@@ -46,6 +46,7 @@ enum RequestStatus {
   IN_SESSION
   COMPLETED
   CANCELLED
+  EXPIRED
 
   @@map("request_status")
 }
@@ -182,6 +183,7 @@ model User {
   clinicalNoteVersions  ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
   auditEvents           AuditEvent[]                       @relation("AuditActor")
   verificationDecisions ProfessionalVerificationDecision[] @relation("VerificationReviewer")
+  idempotencyRecords    IdempotencyRecord[]
 
   @@map("users")
 }
@@ -353,8 +355,12 @@ model ServiceRequest {
   primaryNeed            String?                                @map("primary_need") @db.VarChar(240)
   description            String?                                @db.Text
   proposedBudget         Decimal                                @map("proposed_budget") @db.Decimal(12, 2)
+  currencyCode           String                                 @map("currency_code") @db.Char(3)
   status                 RequestStatus                          @default(PENDING)
+  scheduledFor           DateTime?                              @map("scheduled_for") @db.Timestamptz(3)
+  expiresAt              DateTime                               @map("expires_at") @db.Timestamptz(3)
   location               Unsupported("geography(Point, 4326)")?
+  locationExpiresAt      DateTime?                              @map("location_expires_at") @db.Timestamptz(3)
   createdAt              DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime                               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   patientProfile         PatientProfile                         @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
@@ -364,8 +370,9 @@ model ServiceRequest {
   conversationLink       RequestConversation?
   triageLinks            RequestTriageAssessment[]
 
-  @@index([status, createdAt])
+  @@index([status, expiresAt, createdAt])
   @@index([patientProfileId, createdAt])
+  @@index([scheduledFor, status])
   @@map("service_requests")
 }
 
@@ -807,4 +814,19 @@ model OutboxEvent {
 
   @@index([publishedAt, occurredAt])
   @@map("outbox_events")
+}
+
+model IdempotencyRecord {
+  actorUserId    String   @map("actor_user_id") @db.Uuid
+  operation      String   @db.VarChar(80)
+  idempotencyKey String   @map("idempotency_key") @db.Uuid
+  requestHash    String   @map("request_hash") @db.Char(64)
+  resourceId     String   @map("resource_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+  actor          User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@id([actorUserId, operation, idempotencyKey])
+  @@index([expiresAt])
+  @@map("idempotency_records")
 }

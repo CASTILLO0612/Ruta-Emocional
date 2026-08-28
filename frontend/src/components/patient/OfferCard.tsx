@@ -15,6 +15,7 @@ import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
 import type { AppNavigation } from '../../navigation/navigationTypes';
+import { formatMoney } from '../../utils/money';
 
 interface OfferCardProps {
   offer: Offer;
@@ -34,8 +35,6 @@ export const OfferCard: React.FC<OfferCardProps> = ({
   const handleViewProfile = () => {
     navigation.navigate('PsychologistProfile', {
       psychologistId: offer.psychologistId,
-      offerAmount: offer.amount,
-      onAccept: () => onAccept(offer),
     });
   };
 
@@ -56,9 +55,11 @@ export const OfferCard: React.FC<OfferCardProps> = ({
           <Text style={styles.name} numberOfLines={1}>
             {offer.psychologistName}
           </Text>
-          <Text style={styles.specialty} numberOfLines={1}>
-            {offer.psychologistSpecialty}
-          </Text>
+          {offer.psychologistSpecialty && (
+            <Text style={styles.specialty} numberOfLines={1}>
+              {offer.psychologistSpecialty}
+            </Text>
+          )}
           <StarRating
             rating={offer.psychologistRating}
             size={13}
@@ -68,12 +69,14 @@ export const OfferCard: React.FC<OfferCardProps> = ({
 
         <View style={styles.priceCol}>
           <Text style={[styles.price, !isBelowBudget && styles.priceOver]}>
-            C${offer.amount}
+            {formatMoney(offer.amount, offer.currencyCode)}
           </Text>
           {isBelowBudget && discount > 0 && (
             <View style={styles.savingsBadge}>
               <MaterialIcons name="arrow-downward" size={10} color={Colors.accentDark} />
-              <Text style={styles.savingsText}>C${discount} menos</Text>
+              <Text style={styles.savingsText}>
+                {formatMoney(discount, offer.currencyCode)} menos
+              </Text>
             </View>
           )}
           {!isBelowBudget && (

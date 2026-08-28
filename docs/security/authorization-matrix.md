@@ -82,6 +82,23 @@ Un perfil pendiente no obtiene capacidades de marketplace aunque posea el rol `p
 
 La proyección para psicólogos no incluye nombre completo, contacto, ubicación exacta ni descripción clínica innecesaria antes de la aceptación.
 
+### Contrato HTTP implementado para solicitudes y ofertas
+
+- `service_request:create` y `service_request:manage:self` pertenecen al paciente
+  y el repositorio vuelve a filtrar por `patient_profile.user_id`.
+- `service_request:read:eligible` y `offer:create:self` solo se conceden a un
+  profesional verificado; la consulta vuelve a exigir cuenta/licencia activas y
+  una modalidad compatible.
+- `offer:manage:self` permite retirar únicamente la oferta propia pendiente.
+- El detalle de una solicitud se revela al dueño, a un profesional con oferta
+  propia o a un profesional todavía elegible; en cualquier otro caso responde
+  como recurso no encontrado.
+- El paciente es el único actor que lista todas las ofertas y acepta una. El
+  importe aceptado se obtiene de PostgreSQL y el cuerpo del comando debe estar
+  vacío.
+- La aceptación usa `Idempotency-Key`; propiedad, estado y consistencia se
+  comprueban dentro de la transacción serializable.
+
 ## 6. Relaciones y citas
 
 | Operación | Paciente relacionado | Psic. relacionado | Tercero | Admin | Auditor | Sistema |

@@ -41,3 +41,8 @@ las migraciones SQL versionadas son la autoridad sobre la estructura desplegada.
 La aplicación debe usar un rol con privilegios mínimos. El superusuario
 `postgres` solo se utiliza para administración local, extensiones y preparación
 de roles; no es una credencial de runtime.
+
+Los grants versionados para el rol `NOLOGIN` de runtime están en
+[`operations/grant_runtime_role.sql`](operations/grant_runtime_role.sql). El
+script no crea logins ni contraseñas y debe ejecutarse con una identidad
+administrativa después de revisar el conjunto de tablas del release.

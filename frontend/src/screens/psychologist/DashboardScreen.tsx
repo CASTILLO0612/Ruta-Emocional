@@ -13,7 +13,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
@@ -24,68 +23,53 @@ import { useRequestStore } from '../../store/useRequestStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomAlert } from '../../components/common/CustomAlert';
 import { Toast, useToast } from '../../components/common/Toast';
-import { getSocket } from '../../services/socketClient';
+import {
+  getServiceRequestPolicy,
+  ServiceRequestPolicy,
+} from '../../repositories/RequestRepository';
+import { formatMoney } from '../../utils/money';
 
 export const DashboardScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
   const { userProfile } = useAuthStore();
   const { toastConfig, showToast, hideToast } = useToast();
-  const { pendingRequests, startListeningToPendingRequests, submitCounterOffer, isLoading } = useRequestStore();
+  const {
+    pendingRequests,
+    startListeningToPendingRequests,
+    stopListeningToPendingRequests,
+    submitCounterOffer,
+    isLoading,
+    error,
+    clearError,
+  } = useRequestStore();
 
   const [selectedRequest, setSelectedRequest] = useState<ActiveRequest | null>(null);
   const [counterAmount, setCounterAmount] = useState('');
   const [showCounterModal, setShowCounterModal] = useState(false);
-  const [totalEarnings] = useState(4750);
+  const [requestPolicy, setRequestPolicy] = useState<ServiceRequestPolicy | null>(null);
 
   const [acceptAlertVisible, setAcceptAlertVisible] = useState(false);
   const [targetAcceptReq, setTargetAcceptReq] = useState<ActiveRequest | null>(null);
 
   useEffect(() => {
-    try {
-      startListeningToPendingRequests();
-    } catch (err) {
-      showToast('Error al cargar solicitudes. Verifica tu conexión.', 'error');
-    }
-  }, []);
+    const controller = new AbortController();
+    startListeningToPendingRequests();
+    void getServiceRequestPolicy(controller.signal)
+      .then(setRequestPolicy)
+      .catch((policyError) => {
+        if (policyError instanceof Error && policyError.name === 'AbortError') return;
+        showToast('No pudimos cargar las reglas de ofertas.', 'error');
+      });
+    return () => {
+      controller.abort();
+      stopListeningToPendingRequests();
+    };
+  }, [showToast, startListeningToPendingRequests, stopListeningToPendingRequests]);
 
   useEffect(() => {
-    if (!userProfile?.id) return;
-    const socket = getSocket();
-
-    const onOfferWasAccepted = (data: any) => {
-      if (!data?.requestId && !data?.offerId) return;
-      const req = pendingRequests.find(
-        (r) => String(r.id) === String(data.requestId) || String((r as any)._id) === String(data.requestId)
-      ) || targetAcceptReq || selectedRequest;
-
-      showToast('¡Tu oferta fue confirmada por el paciente! Iniciando seguimiento de ruta...', 'success');
-      const modality = data.modality || req?.modality || 'in-person';
-      const patientName = data.patientName || req?.patientName || 'Norman Castillo';
-      const amount = data.finalPrice || req?.proposedBudget || 730;
-
-      if (modality === 'in-person' || modality === 'presencial' || modality === 'Presencial') {
-        navigation.navigate('Route', {
-          requestId: data.requestId || req?.id || 'room_live',
-          psychologistName: patientName,
-          amount: amount,
-        });
-      } else {
-        navigation.navigate('Consultation', {
-          requestId: data.requestId || req?.id || 'room_live',
-          psychologistName: patientName,
-          modality: modality,
-        });
-      }
-    };
-
-    socket.on('offer_was_accepted', onOfferWasAccepted);
-    socket.on('broadcast_offer_accepted', onOfferWasAccepted);
-
-    return () => {
-      socket.off('offer_was_accepted', onOfferWasAccepted);
-      socket.off('broadcast_offer_accepted', onOfferWasAccepted);
-    };
-  }, [userProfile?.id, pendingRequests, targetAcceptReq, selectedRequest, navigation]);
+    if (!error) return;
+    showToast(error, 'error');
+    clearError();
+  }, [clearError, error, showToast]);
 
   const handleAccept = useCallback((request: ActiveRequest) => {
     setTargetAcceptReq(request);
@@ -93,7 +77,7 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   const handleConfirmAccept = async () => {
-    if (!userProfile || !targetAcceptReq) return;
+    if (!targetAcceptReq) return;
     setAcceptAlertVisible(false);
     const req = targetAcceptReq;
     setTargetAcceptReq(null);
@@ -101,16 +85,17 @@ export const DashboardScreen: React.FC = () => {
     try {
       await submitCounterOffer({
         requestId: req.id,
-        psychologistId: userProfile.id,
-        psychologistName: userProfile.displayName,
-        psychologistPhotoURL: userProfile.photoURL,
-        psychologistRating: 4.8,
-        psychologistSpecialty: userProfile.specialty || 'Psicología Clínica',
         amount: req.proposedBudget,
       });
       showToast('Oferta enviada. Esperando confirmación del paciente...', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'No se pudo aceptar la solicitud. Intenta nuevamente.', 'error');
+    } catch (submissionError) {
+      clearError();
+      showToast(
+        submissionError instanceof Error
+          ? submissionError.message
+          : 'No se pudo aceptar la solicitud. Intenta nuevamente.',
+        'error'
+      );
     }
   };
 
@@ -121,28 +106,38 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   const handleSubmitCounter = async () => {
-    if (!userProfile || !selectedRequest) return;
-    const amount = parseInt(counterAmount, 10);
-    if (isNaN(amount) || amount < 50) {
-      showToast('Ingresa un monto válido mayor a C$50.', 'warning');
+    if (!selectedRequest) return;
+    if (!requestPolicy) {
+      showToast('Las reglas de ofertas todavía se están cargando.', 'warning');
+      return;
+    }
+    const amount = Number(counterAmount);
+    const minimum = Number(requestPolicy.minimumAmount);
+    const maximum = Number(requestPolicy.maximumAmount);
+    if (!Number.isFinite(amount) || amount < minimum || amount > maximum) {
+      showToast(
+        `Ingresa un monto entre ${formatMoney(minimum, selectedRequest.currencyCode)} y ${formatMoney(maximum, selectedRequest.currencyCode)}.`,
+        'warning'
+      );
       return;
     }
 
     try {
       await submitCounterOffer({
         requestId: selectedRequest.id,
-        psychologistId: userProfile.id,
-        psychologistName: userProfile.displayName,
-        psychologistPhotoURL: userProfile.photoURL,
-        psychologistRating: 4.8,
-        psychologistSpecialty: userProfile.specialty || 'Psicología Clínica',
         amount,
       });
       setShowCounterModal(false);
       setSelectedRequest(null);
       showToast('Contraoferta enviada correctamente.', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'No se pudo enviar la contraoferta.', 'error');
+    } catch (submissionError) {
+      clearError();
+      showToast(
+        submissionError instanceof Error
+          ? submissionError.message
+          : 'No se pudo enviar la contraoferta.',
+        'error'
+      );
     }
   };
 
@@ -152,7 +147,7 @@ export const DashboardScreen: React.FC = () => {
         <MaterialIcons name="wifi-tethering" size={28} color={Colors.textDisabled} />
       </View>
       <Text style={styles.emptyTitle}>Escaneando solicitudes</Text>
-      <Text style={styles.emptySub}>Las peticiones de pacientes aparecerán aquí en tiempo real.</Text>
+      <Text style={styles.emptySub}>Las solicitudes disponibles aparecerán aquí.</Text>
     </View>
   );
 
@@ -172,11 +167,6 @@ export const DashboardScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Earnings inline */}
-          <View style={styles.earningsBadge}>
-            <Text style={styles.earningsLabel}>Ganancias</Text>
-            <Text style={styles.earningsValue}>C${totalEarnings.toLocaleString()}</Text>
-          </View>
         </View>
 
         {/* Barra de solicitudes activas */}
@@ -190,7 +180,7 @@ export const DashboardScreen: React.FC = () => {
         </View>
       </SafeAreaView>
 
-      <Text style={styles.listSectionLabel}>Solicitudes en tiempo real</Text>
+      <Text style={styles.listSectionLabel}>Solicitudes disponibles</Text>
 
       <FlatList
         data={pendingRequests}
@@ -222,14 +212,13 @@ export const DashboardScreen: React.FC = () => {
 
             <Text style={styles.modalTitle}>Proponer tarifa</Text>
             <Text style={styles.modalSub}>
-              Enviarás una contraoferta a{' '}
-              <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>
-                {selectedRequest?.patientName}
-              </Text>
+              La identidad del paciente permanecerá protegida hasta que acepte una oferta.
             </Text>
 
             <View style={styles.amountRow}>
-              <Text style={styles.currencySymbol}>C$</Text>
+              <Text style={styles.currencySymbol}>
+                {selectedRequest?.currencyCode ?? ''}
+              </Text>
               <TextInput
                 style={styles.amountInput}
                 value={counterAmount}
@@ -269,7 +258,7 @@ export const DashboardScreen: React.FC = () => {
         title="Aceptar solicitud"
         message={
           targetAcceptReq
-            ? `¿Atender a ${targetAcceptReq.patientName} por C$${targetAcceptReq.proposedBudget}?`
+            ? `¿Enviar una oferta por ${formatMoney(targetAcceptReq.proposedBudget, targetAcceptReq.currencyCode)}?`
             : ''
         }
         confirmText="Aceptar"
@@ -312,10 +301,6 @@ const styles = StyleSheet.create({
   },
   greeting: { ...Typography.overline, color: Colors.textTertiary },
   subGreeting: { ...Typography.h4, color: Colors.textPrimary },
-
-  earningsBadge: { alignItems: 'flex-end' },
-  earningsLabel: { ...Typography.caption, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  earningsValue: { ...Typography.h3, color: Colors.primary },
 
   activeBar: {
     flexDirection: 'row',

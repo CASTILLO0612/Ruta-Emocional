@@ -7,11 +7,16 @@ export class RuntimeConfigurationError extends Error {
 
 let cachedApiOrigin: string | null = null;
 let cachedDirectoryMapConfig: DirectoryMapConfig | null = null;
+let cachedRequestPollingConfig: RequestPollingConfig | null = null;
 
 export interface DirectoryMapConfig {
   readonly radiusKm: number;
   readonly latitudeDelta: number;
   readonly longitudeDelta: number;
+}
+
+export interface RequestPollingConfig {
+  readonly intervalMs: number;
 }
 
 function requiredPositiveNumber(rawValue: string | undefined, name: string): number {
@@ -86,4 +91,19 @@ export function getDirectoryMapConfig(): DirectoryMapConfig {
     ),
   });
   return cachedDirectoryMapConfig;
+}
+
+export function getRequestPollingConfig(): RequestPollingConfig {
+  if (cachedRequestPollingConfig) return cachedRequestPollingConfig;
+  const intervalMs = requiredPositiveNumber(
+    process.env.EXPO_PUBLIC_REQUEST_POLL_INTERVAL_MS,
+    'EXPO_PUBLIC_REQUEST_POLL_INTERVAL_MS'
+  );
+  if (!Number.isInteger(intervalMs) || intervalMs < 1000 || intervalMs > 60000) {
+    throw new RuntimeConfigurationError(
+      'EXPO_PUBLIC_REQUEST_POLL_INTERVAL_MS debe ser un entero entre 1000 y 60000.'
+    );
+  }
+  cachedRequestPollingConfig = Object.freeze({ intervalMs });
+  return cachedRequestPollingConfig;
 }

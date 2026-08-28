@@ -31,6 +31,56 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { usePsychologistStore } from '../../store/usePsychologistStore';
 import { showAlert } from '../../utils/alert';
 import type { PatientHomeNavigation } from '../../navigation/navigationTypes';
+import {
+  getServiceRequestPolicy,
+  ServiceRequestPolicy,
+} from '../../repositories/RequestRepository';
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+] as const;
+
+interface CalendarDay {
+  readonly id: string;
+  readonly date: Date | null;
+  readonly dayNumber: number | null;
+  readonly disabled: boolean;
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function createCalendarDays(month: Date, maximumDate?: Date): CalendarDay[] {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const firstDayIndex = new Date(year, monthIndex, 1).getDay();
+  const emptySpaces = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+  const numberOfDays = new Date(year, monthIndex + 1, 0).getDate();
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const maximumDay = maximumDate
+    ? new Date(maximumDate.getFullYear(), maximumDate.getMonth(), maximumDate.getDate())
+    : null;
+  const days: CalendarDay[] = Array.from({ length: emptySpaces }, (_, index) => ({
+    id: `empty-${year}-${monthIndex}-${index}`,
+    date: null,
+    dayNumber: null,
+    disabled: true,
+  }));
+
+  for (let dayNumber = 1; dayNumber <= numberOfDays; dayNumber += 1) {
+    const date = new Date(year, monthIndex, dayNumber);
+    days.push({
+      id: `day-${year}-${monthIndex}-${dayNumber}`,
+      date,
+      dayNumber,
+      disabled: date < todayStart || Boolean(maximumDay && date > maximumDay),
+    });
+  }
+  return days;
+}
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -51,54 +101,29 @@ export const HomeScreen: React.FC = () => {
   } = usePsychologistStore();
 
   const [modality, setModality] = useState<Modality>('chat');
-  const [budget, setBudget] = useState<number>(350);
+  const [budget, setBudget] = useState<number>(0);
   const [description, setDescription] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestPolicy, setRequestPolicy] = useState<ServiceRequestPolicy | null>(null);
 
   const [isScheduleLater, setIsScheduleLater] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [showCalendarGrid, setShowCalendarGrid] = useState(false);
   const [schedTime, setSchedTime] = useState('15:00');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const getDaysInMonth = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-    const monthLabel = monthNames[month];
-
-    const firstDayIndex = new Date(year, month, 1).getDay();
-    const numDays = new Date(year, month + 1, 0).getDate();
-
-    const emptySpaces = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
-    
-    const days = [];
-    for (let i = 0; i < emptySpaces; i++) {
-      days.push({ id: `empty-${i}`, dayNum: null, isPast: true });
-    }
-
-    const todayNum = new Date().getDate();
-
-    for (let d = 1; d <= numDays; d++) {
-      days.push({
-        id: `day-${d}`,
-        dayNum: d,
-        isPast: d < todayNum,
-        formattedLabel: `${d} de ${monthLabel}`
-      });
-    }
-
-    return { days, monthLabel, year };
-  };
-
-  const { days: calendarDays, monthLabel: currentMonthLabel } = getDaysInMonth();
-  const selectedFormattedDayLabel = `${selectedDay} de ${currentMonthLabel}`;
+  const maximumScheduleDate = requestPolicy
+    ? new Date(Date.now() + requestPolicy.maximumScheduleDays * 86_400_000)
+    : undefined;
+  const calendarDays = createCalendarDays(calendarMonth, maximumScheduleDate);
+  const currentMonthLabel = MONTH_NAMES[calendarMonth.getMonth()];
+  const selectedFormattedDayLabel = `${selectedDate.getDate()} de ${MONTH_NAMES[selectedDate.getMonth()]}`;
+  const currentMonthStart = startOfMonth(new Date());
+  const nextMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+  const canGoToPreviousMonth = calendarMonth.getTime() > currentMonthStart.getTime();
+  const canGoToNextMonth = !maximumScheduleDate || nextMonth <= maximumScheduleDate;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -109,6 +134,19 @@ export const HomeScreen: React.FC = () => {
 
     const controller = new AbortController();
     void fetchAvailablePsychologists(controller.signal);
+    void getServiceRequestPolicy(controller.signal)
+      .then((policy) => {
+        setRequestPolicy(policy);
+        setBudget((current) => {
+          const minimum = Number(policy.minimumAmount);
+          const maximum = Number(policy.maximumAmount);
+          return current >= minimum && current <= maximum ? current : minimum;
+        });
+      })
+      .catch((policyError) => {
+        if (policyError instanceof Error && policyError.name === 'AbortError') return;
+        showAlert('Configuración no disponible', 'No pudimos cargar las reglas de solicitudes.');
+      });
 
     return () => {
       controller.abort();
@@ -127,29 +165,70 @@ export const HomeScreen: React.FC = () => {
       showAlert('Sesión requerida', 'Por favor inicia sesión primero.');
       return;
     }
-    if (budget < 100) {
-      showAlert('Presupuesto muy bajo', 'El presupuesto mínimo es C$100.');
+    if (!requestPolicy) {
+      showAlert('Espera un momento', 'Las reglas de solicitudes todavía se están cargando.');
       return;
     }
 
-    try {
-      const timeString = isScheduleLater ? `${selectedFormattedDayLabel} a las ${schedTime}` : 'Inmediata (Ahora)';
-      const requestDescription = description.trim() 
-        ? `${description.trim()}\n\n[Horario: ${timeString}]` 
-        : `Solicitud de sesión. [Horario: ${timeString}]`;
+    const minimumAmount = Number(requestPolicy.minimumAmount);
+    const maximumAmount = Number(requestPolicy.maximumAmount);
+    const currencyCode = requestPolicy.supportedCurrencies[0];
+    if (!currencyCode) {
+      showAlert('Configuración inválida', 'No existe una moneda habilitada para solicitudes.');
+      return;
+    }
+    if (!Number.isFinite(budget) || budget < minimumAmount || budget > maximumAmount) {
+      showAlert(
+        'Presupuesto fuera de rango',
+        `El monto debe estar entre ${currencyCode} ${requestPolicy.minimumAmount} y ${currencyCode} ${requestPolicy.maximumAmount}.`
+      );
+      return;
+    }
 
+    let scheduledFor: Date | undefined;
+    if (isScheduleLater) {
+      const timeMatch = /^(\d{2}):(\d{2})$/.exec(schedTime.trim());
+      if (!timeMatch) {
+        showAlert('Hora inválida', 'Usa el formato de 24 horas HH:mm, por ejemplo 15:30.');
+        return;
+      }
+      const hours = Number(timeMatch[1]);
+      const minutes = Number(timeMatch[2]);
+      if (hours > 23 || minutes > 59) {
+        showAlert('Hora inválida', 'La hora seleccionada no es válida.');
+        return;
+      }
+      scheduledFor = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        hours,
+        minutes
+      );
+      const earliest = Date.now() + requestPolicy.scheduledLeadMinutes * 60_000;
+      const latest = Date.now() + requestPolicy.maximumScheduleDays * 86_400_000;
+      if (scheduledFor.getTime() < earliest || scheduledFor.getTime() > latest) {
+        showAlert(
+          'Fecha fuera de rango',
+          `Programa la sesión con al menos ${requestPolicy.scheduledLeadMinutes} minutos de anticipación y dentro de los próximos ${requestPolicy.maximumScheduleDays} días.`
+        );
+        return;
+      }
+    }
+
+    try {
       await createSessionRequest({
-        patientId: userProfile.id,
-        patientName: userProfile.displayName,
-        patientPhotoURL: userProfile.photoURL,
         modality,
         proposedBudget: budget,
-        description: requestDescription,
+        currencyCode,
+        ...(description.trim() ? { description: description.trim() } : {}),
+        ...(scheduledFor ? { scheduledFor } : {}),
       });
 
       setShowRequestModal(false);
       navigation.navigate('Radar');
     } catch {
+      return;
     }
   };
 
@@ -339,7 +418,17 @@ export const HomeScreen: React.FC = () => {
 
               <View style={styles.gap} />
 
-              <BudgetInput value={budget} onChange={setBudget} />
+              {requestPolicy ? (
+                <BudgetInput
+                  value={budget}
+                  onChange={setBudget}
+                  currencyCode={requestPolicy.supportedCurrencies[0]}
+                  minimumAmount={Number(requestPolicy.minimumAmount)}
+                  maximumAmount={Number(requestPolicy.maximumAmount)}
+                />
+              ) : (
+                <ActivityIndicator color={Colors.primary} />
+              )}
 
               <View style={styles.gap} />
 
@@ -385,7 +474,35 @@ export const HomeScreen: React.FC = () => {
 
                   {showCalendarGrid && (
                     <View style={styles.calendarCard}>
-                      <Text style={styles.calendarMonthHeader}>{currentMonthLabel} 2026</Text>
+                      <View style={styles.calendarMonthRow}>
+                        <TouchableOpacity
+                          disabled={!canGoToPreviousMonth}
+                          onPress={() => setCalendarMonth(
+                            new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
+                          )}
+                          accessibilityLabel="Mes anterior"
+                        >
+                          <MaterialIcons
+                            name="chevron-left"
+                            size={22}
+                            color={canGoToPreviousMonth ? Colors.primary : Colors.textDisabled}
+                          />
+                        </TouchableOpacity>
+                        <Text style={styles.calendarMonthHeader}>
+                          {currentMonthLabel} {calendarMonth.getFullYear()}
+                        </Text>
+                        <TouchableOpacity
+                          disabled={!canGoToNextMonth}
+                          onPress={() => setCalendarMonth(nextMonth)}
+                          accessibilityLabel="Mes siguiente"
+                        >
+                          <MaterialIcons
+                            name="chevron-right"
+                            size={22}
+                            color={canGoToNextMonth ? Colors.primary : Colors.textDisabled}
+                          />
+                        </TouchableOpacity>
+                      </View>
                       
                       <View style={styles.calendarWeekdays}>
                         {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => (
@@ -395,8 +512,9 @@ export const HomeScreen: React.FC = () => {
 
                       <View style={styles.calendarGrid}>
                         {calendarDays.map((day, idx) => {
-                          const isSelected = day.dayNum === selectedDay;
-                          const isDisabled = day.isPast || day.dayNum === null;
+                          const isSelected = Boolean(
+                            day.date && day.date.toDateString() === selectedDate.toDateString()
+                          );
 
                           return (
                             <TouchableOpacity
@@ -404,12 +522,12 @@ export const HomeScreen: React.FC = () => {
                               style={[
                                 styles.calendarDayCell,
                                 isSelected && styles.calendarDayCellActive,
-                                isDisabled && styles.calendarDayCellDisabled,
+                                day.disabled && styles.calendarDayCellDisabled,
                               ]}
-                              disabled={isDisabled}
+                              disabled={day.disabled}
                               onPress={() => {
-                                if (day.dayNum) {
-                                  setSelectedDay(day.dayNum);
+                                if (day.date) {
+                                  setSelectedDate(day.date);
                                   setShowCalendarGrid(false);
                                 }
                               }}
@@ -417,9 +535,9 @@ export const HomeScreen: React.FC = () => {
                               <Text style={[
                                 styles.calendarDayText,
                                 isSelected && styles.calendarDayTextActive,
-                                isDisabled && styles.calendarDayTextDisabled,
+                                day.disabled && styles.calendarDayTextDisabled,
                               ]}>
-                                {day.dayNum || ''}
+                                {day.dayNumber || ''}
                               </Text>
                             </TouchableOpacity>
                           );
@@ -445,7 +563,9 @@ export const HomeScreen: React.FC = () => {
 
               <View style={styles.fieldHeaderRow}>
                 <Text style={styles.fieldLabel}>DESCRIPCIÓN (OPCIONAL)</Text>
-                <Text style={styles.charCounter}>{description.length}/200</Text>
+                <Text style={styles.charCounter}>
+                  {description.length}/{requestPolicy?.maximumDescriptionLength ?? 0}
+                </Text>
               </View>
               <View style={styles.textAreaWrapper}>
                 <TextInput
@@ -455,7 +575,7 @@ export const HomeScreen: React.FC = () => {
                   placeholder="¿Cómo te sientes hoy?"
                   placeholderTextColor={Colors.textDisabled}
                   multiline
-                  maxLength={200}
+                  maxLength={requestPolicy?.maximumDescriptionLength}
                   numberOfLines={3}
                   textAlignVertical="top"
                 />
@@ -470,6 +590,7 @@ export const HomeScreen: React.FC = () => {
                 size="lg"
                 fullWidth
                 isLoading={isLoading}
+                disabled={!requestPolicy}
                 icon={<MaterialIcons name="send" size={18} color={Colors.primary} />}
               />
 
@@ -907,13 +1028,18 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     ...Shadow.sm,
   },
+  calendarMonthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
   calendarMonthHeader: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.textPrimary,
     textAlign: 'center',
     textTransform: 'capitalize',
-    marginBottom: Spacing.sm,
   },
   calendarWeekdays: {
     flexDirection: 'row',

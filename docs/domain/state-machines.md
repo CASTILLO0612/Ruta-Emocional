@@ -44,22 +44,23 @@ Solo `VERIFIED` habilita marketplace, ofertas, agenda y actividad clínica.
 ```text
 PENDING ──► BIDDING ──► ACCEPTED ──► IN_SESSION ──► COMPLETED
    │           │            │             │
-   ├───────────┴────────────┴─────────────┴────► CANCELLED
-   └───────────┬────────────┘
-               └──────────────────────────────► EXPIRED
+   ├───────────┴──────────────────────────────► CANCELLED
+   └───────────┬──────────────────────────────► EXPIRED
+               └────► PENDING  (sin ofertas pendientes)
 ```
 
-`EXPIRED` se incorporará al esquema antes de activar expiración productiva. Mientras no exista, el job no debe simular expiración mediante `CANCELLED` sin guardar un motivo distinguible.
+`EXPIRED` existe como estado terminal propio; nunca se simula mediante
+`CANCELLED`.
 
 | De | A | Comando | Actor/causa |
 |---|---|---|---|
 | — | `PENDING` | `CreateServiceRequest` | Paciente autenticado |
 | `PENDING` | `BIDDING` | `SubmitOffer` | Primera oferta elegible |
-| `PENDING`, `BIDDING` | `ACCEPTED` | `AcceptOffer` | Paciente propietario |
+| `BIDDING` | `ACCEPTED` | `AcceptOffer` | Paciente propietario y oferta pendiente |
+| `BIDDING` | `PENDING` | `WithdrawOffer` | Se retiró la última oferta pendiente |
 | `ACCEPTED` | `IN_SESSION` | `StartSession` | Participante autorizado, dentro de ventana |
 | `IN_SESSION` | `COMPLETED` | `CompleteSession` | Psicólogo; confirmación operativa |
 | `PENDING`, `BIDDING` | `CANCELLED` | `CancelServiceRequest` | Paciente propietario |
-| `ACCEPTED`, `IN_SESSION` | `CANCELLED` | `CancelAcceptedCare` | Política de cancelación y pago |
 | `PENDING`, `BIDDING` | `EXPIRED` | `ExpireServiceRequest` | Job idempotente al vencer TTL |
 
 Transiciones prohibidas destacadas:
@@ -75,11 +76,11 @@ Transiciones prohibidas destacadas:
 PENDING ──► ACCEPTED
    │
    ├──────► REJECTED
-   ├──────► WITHDRAWN
-   └──────► EXPIRED
+   └──────► WITHDRAWN
 ```
 
-`EXPIRED` se añadirá al esquema cuando se habilite expiración individual.
+Al expirar o cancelarse la solicitud, sus ofertas pendientes pasan a
+`REJECTED`; no existe un estado de oferta ambiguo o simulado.
 
 | De | A | Comando | Actor/causa |
 |---|---|---|---|
@@ -87,9 +88,7 @@ PENDING ──► ACCEPTED
 | `PENDING` | `ACCEPTED` | `AcceptOffer` | Paciente propietario de la solicitud |
 | `PENDING` | `REJECTED` | `AcceptOffer` | Efecto para ofertas competidoras |
 | `PENDING` | `WITHDRAWN` | `WithdrawOffer` | Psicólogo propietario |
-| `PENDING` | `EXPIRED` | `ExpireOffer` | Solicitud vencida o TTL de oferta |
-
-Estados terminales: `ACCEPTED`, `REJECTED`, `WITHDRAWN`, `EXPIRED`.
+Estados terminales: `ACCEPTED`, `REJECTED`, `WITHDRAWN`.
 
 ## 5. Relación de atención
 

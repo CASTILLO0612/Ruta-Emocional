@@ -46,6 +46,7 @@ export interface ApiRequestOptions {
   readonly authenticated?: boolean;
   readonly retryUnauthorized?: boolean;
   readonly signal?: AbortSignal;
+  readonly idempotencyKey?: string;
 }
 
 type RefreshAccessToken = () => Promise<string | null>;
@@ -124,6 +125,7 @@ async function executeRequest<T>(
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (authenticated && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
 
   let response: Response;
   try {
