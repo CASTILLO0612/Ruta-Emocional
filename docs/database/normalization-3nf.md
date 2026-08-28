@@ -36,6 +36,7 @@ evitar modelar relaciones o atributos clínicos.
 | `care_relationship_sources` | `care_relationship_id -> service_request_id` y `service_request_id -> care_relationship_id` |
 | `idempotency_records` | `(actor_user_id, operation, idempotency_key) -> request_hash, resource_id, expires_at` |
 | `appointments` | `id -> patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
+| `appointment_events` | `id -> appointment_id, actor_user_id, type, estados, intervalo_anterior, reason, occurred_at` |
 | `clinical_records` | `id -> patient_profile_id, opened_at, status` |
 | `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, appointment_id` |
 | `clinical_note_versions` | `(clinical_note_id, version_number) -> content, author_user_id, created_at` |
@@ -146,6 +147,23 @@ verdad definida y un mecanismo comprobable de reconstrucción.
 
 Estas dependencias evitan grupos repetidos, dependencias parciales y
 dependencias transitivas; el módulo cumple al menos 3FN.
+
+## Decisión de normalización de la Fase 6
+
+- la cita conserva el intervalo y estado actuales; su vínculo con la relación se
+  expresa en `appointment_care_relationships`;
+- `appointment_events` registra hechos de transición y no repite paciente,
+  psicólogo, modalidad, nombres ni horario actual;
+- el intervalo anterior solo pertenece al hecho `RESCHEDULED` y depende de la
+  clave de ese evento;
+- disponibilidad calculada no se persiste como slots ni arrays; se deriva de
+  reglas, excepciones y citas activas;
+- recordatorios son sobres técnicos outbox reconstruibles. Antes de entregar se
+  contrastan con la cita canónica, por lo que no se convierten en otra fuente de
+  verdad.
+
+El agregado mantiene 1FN, 2FN y 3FN y usa constraints GiST para una invariante
+de concurrencia que no requiere desnormalización.
 
 ## Verificación en revisiones
 

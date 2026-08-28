@@ -112,6 +112,20 @@ La proyección para psicólogos no incluye nombre completo, contacto, ubicación
 | Confirmar/cancelar | Sí propia | Sí propia | — | Corrección auditada | — | Política automática |
 | Marcar completada/no-show | Confirmación limitada | Sí propia | — | Corrección auditada | — | — |
 
+### Contrato implementado para agenda
+
+- `appointment:read:self` y `appointment:manage:self` solo proyectan citas cuya
+  relación contiene al actor autenticado.
+- `appointment:create:self` permite al paciente reservar sobre una relación
+  activa; participantes, duración, fin y zona se derivan en el servidor.
+- confirmar, iniciar, completar y marcar inasistencia exigen al psicólogo
+  relacionado y verificado; cancelar y reprogramar aplican actor, estado y
+  anticipación dentro de la transacción.
+- un tercero recibe recurso no encontrado y la posesión de un UUID nunca concede
+  acceso.
+- eventos Socket.IO se entregan a salas internas por usuario y no modifican el
+  estado canónico.
+
 ## 7. Conversaciones y comunicación en tiempo real
 
 | Operación | Participante | Usuario ajeno | Admin | Auditor | Sistema |

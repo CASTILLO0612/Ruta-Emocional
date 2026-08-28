@@ -127,7 +127,7 @@ SCHEDULED ──► CONFIRMED ──► IN_PROGRESS ──► COMPLETED
 | `IN_PROGRESS` | `COMPLETED` | `CompleteAppointment` | Sesión finalizada |
 | `SCHEDULED`, `CONFIRMED`, `IN_PROGRESS` | `CANCELLED` | `CancelAppointment` | Motivo y política aplicable |
 | `SCHEDULED`, `CONFIRMED` | `NO_SHOW` | `MarkNoShow` | Fin de ventana y actor autorizado |
-| `SCHEDULED`, `CONFIRMED` | mismo estado | `RescheduleAppointment` | Nueva disponibilidad y traza de horario anterior |
+| `SCHEDULED`, `CONFIRMED` | `SCHEDULED` | `RescheduleAppointment` | Nueva disponibilidad y traza de horario/estado anterior |
 
 Una corrección administrativa de un estado terminal requiere comando separado, permiso elevado y auditoría; nunca un `PATCH status` genérico.
 

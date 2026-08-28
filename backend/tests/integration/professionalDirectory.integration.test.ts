@@ -101,6 +101,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
       supportedCurrencies: ['NIO'],
     },
     messaging: createTestConfig(databaseUrl, 'directory-integration').messaging,
+    appointments: createTestConfig(databaseUrl, 'directory-integration').appointments,
   };
 
   const app = createApp({

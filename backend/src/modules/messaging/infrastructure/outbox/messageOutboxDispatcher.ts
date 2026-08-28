@@ -33,6 +33,62 @@ function verificationUpdateFromPayload(payload: Prisma.JsonValue): {
   return { userId: userId.toLowerCase(), status };
 }
 
+function appointmentUpdateFromPayload(payload: Prisma.JsonValue): {
+  readonly appointmentId: string;
+  readonly status: string;
+  readonly userIds: readonly string[];
+} | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const record = payload as Prisma.JsonObject;
+  const appointmentId = record.appointmentId;
+  const status = record.status;
+  const userIds = record.userIds;
+  if (typeof appointmentId !== 'string' || !UUID_PATTERN.test(appointmentId)) return null;
+  if (typeof status !== 'string' || !Array.isArray(userIds)) return null;
+  const normalizedUserIds = userIds.filter(
+    (value): value is string => typeof value === 'string' && UUID_PATTERN.test(value)
+  );
+  if (normalizedUserIds.length !== userIds.length || normalizedUserIds.length === 0) return null;
+  return {
+    appointmentId: appointmentId.toLowerCase(),
+    status,
+    userIds: normalizedUserIds.map((value) => value.toLowerCase()),
+  };
+}
+
+function appointmentReminderFromPayload(payload: Prisma.JsonValue): {
+  readonly appointmentId: string;
+  readonly startsAt: string;
+  readonly minutesBefore: number;
+  readonly userIds: readonly string[];
+} | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const record = payload as Prisma.JsonObject;
+  const appointmentId = record.appointmentId;
+  const startsAt = record.startsAt;
+  const minutesBefore = record.minutesBefore;
+  const userIds = record.userIds;
+  if (typeof appointmentId !== 'string' || !UUID_PATTERN.test(appointmentId)) return null;
+  if (
+    typeof startsAt !== 'string'
+    || Number.isNaN(new Date(startsAt).getTime())
+    || typeof minutesBefore !== 'number'
+    || !Number.isInteger(minutesBefore)
+    || minutesBefore < 1
+    || !Array.isArray(userIds)
+  ) return null;
+  const normalizedUserIds = userIds.filter(
+    (value): value is string => typeof value === 'string' && UUID_PATTERN.test(value)
+  );
+  if (normalizedUserIds.length !== userIds.length || normalizedUserIds.length === 0) return null;
+  return {
+    appointmentId: appointmentId.toLowerCase(),
+    startsAt: new Date(startsAt).toISOString(),
+    minutesBefore,
+    userIds: normalizedUserIds.map((value) => value.toLowerCase()),
+  };
+}
+
 export class MessageOutboxDispatcher {
   private stopped = true;
   private timer?: NodeJS.Timeout;
@@ -66,7 +122,11 @@ export class MessageOutboxDispatcher {
          WHERE "event_type" IN (
            'message.created',
            'psychologist.verification_approved',
-           'psychologist.verification_rejected'
+           'psychologist.verification_rejected',
+           'appointment.created',
+           'appointment.updated',
+           'appointment.rescheduled',
+           'appointment.reminder_due'
          )
            AND "published_at" IS NULL
            AND "dead_lettered_at" IS NULL
@@ -110,10 +170,28 @@ export class MessageOutboxDispatcher {
         const message = await this.messaging.findMessageForDelivery(messageId);
         if (!message) throw new Error('MESSAGE_NOT_FOUND');
         await this.publisher.publishMessageCreated(message);
-      } else {
+      } else if (event.eventType.startsWith('psychologist.verification_')) {
         const update = verificationUpdateFromPayload(event.payload);
         if (!update) throw new Error('INVALID_VERIFICATION_EVENT_PAYLOAD');
         await this.publisher.publishPsychologistVerificationUpdated(update);
+      } else if (event.eventType === 'appointment.reminder_due') {
+        const reminder = appointmentReminderFromPayload(event.payload);
+        if (!reminder) throw new Error('INVALID_APPOINTMENT_REMINDER_PAYLOAD');
+        const appointment = await this.prisma.appointment.findUnique({
+          where: { id: reminder.appointmentId },
+          select: { startsAt: true, status: true },
+        });
+        if (
+          appointment
+          && appointment.startsAt.toISOString() === reminder.startsAt
+          && ['SCHEDULED', 'CONFIRMED'].includes(appointment.status)
+        ) {
+          await this.publisher.publishAppointmentReminder(reminder);
+        }
+      } else {
+        const update = appointmentUpdateFromPayload(event.payload);
+        if (!update) throw new Error('INVALID_APPOINTMENT_EVENT_PAYLOAD');
+        await this.publisher.publishAppointmentUpdated(update);
       }
       await this.prisma.outboxEvent.updateMany({
         where: { id: event.id, claimToken },

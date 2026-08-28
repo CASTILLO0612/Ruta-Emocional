@@ -278,6 +278,8 @@ export class IdentityService {
       capabilities.add('service_request:manage:self');
       capabilities.add('offer:read:self');
       capabilities.add('appointment:read:self');
+      capabilities.add('appointment:create:self');
+      capabilities.add('appointment:manage:self');
       capabilities.add('conversation:read:self');
       capabilities.add('conversation:send:self');
     }

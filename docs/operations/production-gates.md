@@ -166,7 +166,7 @@ salas o eventos de dominio fabricados por clientes. Las llamadas y la ubicación
 en vivo heredadas también fueron retiradas del transporte de mensajería y no se
 presentan como capacidades reales. Aún deben resolverse en sus fases:
 
-- historial y citas simuladas (Fase 6);
+- recordatorios push fuera de la app hasta contar con proveedor, consentimiento y observabilidad;
 - respuestas/fallbacks clínicos de MENTA y proveedor fijado (Fase 8);
 - pagos y RTC de demostración si no hay proveedor aprobado (Fase 9);
 - cualquier ubicación en vivo solo podrá volver con propósito, consentimiento,

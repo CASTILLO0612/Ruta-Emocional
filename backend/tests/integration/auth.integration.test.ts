@@ -75,6 +75,7 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       supportedCurrencies: ['NIO'],
     },
     messaging: createTestConfig(databaseUrl, 'auth-integration').messaging,
+    appointments: createTestConfig(databaseUrl, 'auth-integration').appointments,
   };
 
   const logger = createLogger('test');

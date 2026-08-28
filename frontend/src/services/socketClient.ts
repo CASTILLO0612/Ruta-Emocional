@@ -10,10 +10,23 @@ interface MessageCreatedEvent {
 interface ServerEvents {
   'message.created': (event: MessageCreatedEvent) => void;
   'psychologist.verification.updated': (event: PsychologistVerificationUpdatedEvent) => void;
+  'appointment.updated': (event: AppointmentUpdatedEvent) => void;
+  'appointment.reminder': (event: AppointmentReminderEvent) => void;
 }
 
 export interface PsychologistVerificationUpdatedEvent {
   readonly status: 'VERIFIED' | 'REJECTED';
+}
+
+export interface AppointmentUpdatedEvent {
+  readonly appointmentId: string;
+  readonly status: string;
+}
+
+export interface AppointmentReminderEvent {
+  readonly appointmentId: string;
+  readonly startsAt: string;
+  readonly minutesBefore: number;
 }
 
 interface SubscriptionAck {
@@ -146,6 +159,22 @@ export function subscribeToPsychologistVerificationUpdates(
   const socket = getSocket();
   socket.on('psychologist.verification.updated', onUpdate);
   return () => socket.off('psychologist.verification.updated', onUpdate);
+}
+
+export function subscribeToAppointmentUpdates(
+  onUpdate: (event: AppointmentUpdatedEvent) => void
+): () => void {
+  const socket = getSocket();
+  socket.on('appointment.updated', onUpdate);
+  return () => socket.off('appointment.updated', onUpdate);
+}
+
+export function subscribeToAppointmentReminders(
+  onReminder: (event: AppointmentReminderEvent) => void
+): () => void {
+  const socket = getSocket();
+  socket.on('appointment.reminder', onReminder);
+  return () => socket.off('appointment.reminder', onReminder);
 }
 
 export function disconnectSocket(): void {

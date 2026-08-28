@@ -191,6 +191,15 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 - cambios conservan traza;
 - slots no se calculan en el cliente.
 
+**Resultado verificado**
+
+- slots, zonas, reglas y excepciones se resuelven en PostgreSQL;
+- reserva/reprogramación son serializables, idempotentes y protegidas por GiST;
+- transiciones, horario anterior, auditoría y outbox conservan traza;
+- recordatorios in-app validan estado y horario antes de emitirse;
+- Agenda reemplaza completamente el historial simulado en ambos roles;
+- pruebas unitarias, HTTP concurrente y typechecks están en verde.
+
 ### Fase 7 — Historia clínica
 
 **Trabajo**
@@ -332,8 +341,8 @@ El trabajo de ingeniería puede avanzar con adaptadores y feature flags, pero ni
 
 ## 6. Prioridad inmediata
 
-El siguiente incremento funcional es la Fase 6: agenda y sustitución de citas e
-historial simulados. En paralelo, antes de cualquier despliegue productivo deben
+El siguiente incremento funcional es la Fase 7: historia clínica normalizada,
+versionada y autorizada por propósito. En paralelo, antes de cualquier despliegue productivo deben
 cerrarse los gates de almacenamiento privado de evidencia, rol PostgreSQL de
 aplicación, gestión externa de secretos, rotación de credenciales, backup/restore
 y alertas externas. Ninguno se considera resuelto por usar valores locales de

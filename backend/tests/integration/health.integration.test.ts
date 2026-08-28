@@ -20,7 +20,7 @@ interface ReadinessResponse {
   };
 }
 
-test('readiness reports message outbox dead letters without exposing event payloads', {
+test('readiness ignores future reminders and reports dead letters without exposing payloads', {
   skip: !testDatabaseUrl,
 }, async () => {
   const databaseUrl = testDatabaseUrl!;
@@ -41,6 +41,22 @@ test('readiness reports message outbox dead letters without exposing event paylo
   const readinessUrl = `http://127.0.0.1:${address.port}/api/v1/health/ready`;
 
   try {
+    await prisma.outboxEvent.create({
+      data: {
+        aggregateType: 'health-test',
+        aggregateId,
+        eventType: 'appointment.reminder_due',
+        payload: {
+          appointmentId: randomUUID(),
+          startsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          minutesBefore: 60,
+          userIds: [randomUUID()],
+        },
+        occurredAt: new Date(Date.now() - 86_400_000),
+        availableAt: new Date(Date.now() + 82_800_000),
+      },
+    });
+
     const healthyResponse = await fetch(readinessUrl);
     assert.equal(healthyResponse.status, 200);
     const healthyBody = await healthyResponse.json() as ReadinessResponse;

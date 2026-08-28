@@ -79,6 +79,14 @@ enum AppointmentStatus {
   @@map("appointment_status")
 }
 
+enum AppointmentEventType {
+  CREATED
+  STATUS_CHANGED
+  RESCHEDULED
+
+  @@map("appointment_event_type")
+}
+
 enum AvailabilityExceptionType {
   AVAILABLE
   UNAVAILABLE
@@ -184,6 +192,7 @@ model User {
   auditEvents           AuditEvent[]                       @relation("AuditActor")
   verificationDecisions ProfessionalVerificationDecision[] @relation("VerificationReviewer")
   idempotencyRecords    IdempotencyRecord[]
+  appointmentEvents     AppointmentEvent[]                 @relation("AppointmentEventActor")
 
   @@map("users")
 }
@@ -468,10 +477,30 @@ model Appointment {
   clinicalEncounterLink ClinicalEncounterAppointment?
   conversationLink      AppointmentConversation?
   review                Review?
+  events                AppointmentEvent[]
 
   @@index([psychologistProfileId, startsAt])
   @@index([patientProfileId, startsAt])
   @@map("appointments")
+}
+
+model AppointmentEvent {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  appointmentId    String               @map("appointment_id") @db.Uuid
+  actorUserId      String               @map("actor_user_id") @db.Uuid
+  type             AppointmentEventType
+  fromStatus       AppointmentStatus?   @map("from_status")
+  toStatus         AppointmentStatus    @map("to_status")
+  previousStartsAt DateTime?            @map("previous_starts_at") @db.Timestamptz(3)
+  previousEndsAt   DateTime?            @map("previous_ends_at") @db.Timestamptz(3)
+  reason           String?              @db.VarChar(500)
+  occurredAt       DateTime             @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  appointment      Appointment          @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  actor            User                 @relation("AppointmentEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([appointmentId, occurredAt, id])
+  @@index([actorUserId, occurredAt])
+  @@map("appointment_events")
 }
 
 model AppointmentRequest {

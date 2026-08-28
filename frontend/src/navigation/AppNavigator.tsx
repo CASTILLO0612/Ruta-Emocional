@@ -16,7 +16,7 @@ import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
 import { VerificationQueueScreen } from '../screens/admin/VerificationQueueScreen';
 import { MentaScreen } from '../screens/shared/MentaScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
-import { HistoryScreen } from '../screens/shared/HistoryScreen';
+import { AgendaScreen } from '../screens/shared/AgendaScreen';
 import { PsychologistProfileScreen } from '../screens/shared/PsychologistProfileScreen';
 import { InboxScreen } from '../screens/shared/InboxScreen';
 import { ConversationScreen } from '../screens/shared/ConversationScreen';
@@ -83,11 +83,11 @@ function PatientTabs() {
       />
       <PatientTab.Screen
         name="History"
-        component={HistoryScreen}
+        component={AgendaScreen}
         options={{
-          tabBarLabel: 'Historial',
+          tabBarLabel: 'Agenda',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="history" size={size} color={color} />
+            <MaterialIcons name="event-note" size={size} color={color} />
           ),
         }}
       />
@@ -155,11 +155,11 @@ function PsychologistTabs() {
       />
       <PsychologistTab.Screen
         name="History"
-        component={HistoryScreen}
+        component={AgendaScreen}
         options={{
-          tabBarLabel: 'Historial',
+          tabBarLabel: 'Agenda',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="history" size={size} color={color} />
+            <MaterialIcons name="event-note" size={size} color={color} />
           ),
         }}
       />

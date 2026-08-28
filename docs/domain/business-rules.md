@@ -98,6 +98,8 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **AP-015**. La reprogramación es transaccional y conserva una traza del horario anterior.
 - **AP-016**. Marcar `NO_SHOW` requiere que la ventana haya finalizado y actor autorizado.
 - **AP-017**. Todos los instantes se almacenan en UTC; la zona IANA usada para interpretar la intención también se conserva.
+- **AP-018**. Los recordatorios se programan con anticipaciones configurables; antes de entregarlos se comprueba estado y horario canónicos para descartar eventos obsoletos.
+- **AP-019**. El cliente no define duración, fin, zona, participantes ni estado al reservar.
 
 ## 7. Conversaciones y mensajes
 

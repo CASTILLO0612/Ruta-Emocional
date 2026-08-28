@@ -73,5 +73,21 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       outboxRetryBaseDelayMs: 10,
       outboxReadinessMaximumLagSeconds: 120,
     },
+    appointments: {
+      durationMinutes: 50,
+      slotIntervalMinutes: 10,
+      minimumLeadMinutes: 0,
+      maximumHorizonDays: 90,
+      patientCancellationNoticeMinutes: 60,
+      startWindowBeforeMinutes: 15,
+      maximumCancellationReasonLength: 500,
+      defaultPageSize: 20,
+      maximumPageSize: 50,
+      mutationsPerMinute: 60,
+      idempotencyTtlHours: 24,
+      serializableMaxRetries: 3,
+      serializableRetryBaseDelayMs: 5,
+      reminderMinutesBefore: [1440, 60],
+    },
   };
 }

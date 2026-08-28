@@ -13,12 +13,15 @@ import { ServiceRequestService } from './modules/service-request/application/ser
 import { PrismaServiceRequestRepository } from './modules/service-request/infrastructure/persistence/prismaServiceRequestRepository';
 import { MessagingService } from './modules/messaging/application/messagingService';
 import { PrismaMessagingRepository } from './modules/messaging/infrastructure/persistence/prismaMessagingRepository';
+import { AppointmentService } from './modules/appointment/application/appointmentService';
+import { PrismaAppointmentRepository } from './modules/appointment/infrastructure/persistence/prismaAppointmentRepository';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
   readonly professionalDirectory: ProfessionalDirectoryService;
   readonly serviceRequests: ServiceRequestService;
   readonly messaging: MessagingService;
+  readonly appointments: AppointmentService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -63,5 +66,13 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       config.requestFlow
     ),
     messaging: new MessagingService(new PrismaMessagingRepository(prisma), config.messaging),
+    appointments: new AppointmentService(
+      new PrismaAppointmentRepository(prisma, {
+        maximumRetries: config.appointments.serializableMaxRetries,
+        baseDelayMs: config.appointments.serializableRetryBaseDelayMs,
+      }),
+      new SystemClock(),
+      config.appointments
+    ),
   };
 }

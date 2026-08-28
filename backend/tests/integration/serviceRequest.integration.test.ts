@@ -472,6 +472,8 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
       {
         publishMessageCreated: async (message) => { deliveredMessages.push(message); },
         publishPsychologistVerificationUpdated: async () => undefined,
+        publishAppointmentUpdated: async () => undefined,
+        publishAppointmentReminder: async () => undefined,
       },
       createLogger('test'),
       config.messaging

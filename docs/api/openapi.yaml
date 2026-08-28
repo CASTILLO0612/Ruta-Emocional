@@ -764,6 +764,154 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /appointments/policy:
+    get:
+      tags: [Appointments]
+      operationId: getAppointmentPolicy
+      responses:
+        '200':
+          description: Política de agenda controlada por el servidor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentPolicyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /appointment-relationships:
+    get:
+      tags: [Appointments]
+      operationId: listAppointmentRelationships
+      responses:
+        '200':
+          description: Relaciones activas y modalidades habilitadas para la agenda del actor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentRelationshipListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /appointment-slots:
+    get:
+      tags: [Appointments]
+      operationId: listAvailableAppointmentSlots
+      parameters:
+        - name: careRelationshipId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: modality
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Modality' }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: until
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Slots calculados y filtrados por el servidor; deben revalidarse al reservar.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentSlotListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /appointments:
+    get:
+      tags: [Appointments]
+      operationId: listOwnAppointments
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema: { type: string, enum: [UPCOMING, HISTORY], default: UPCOMING }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Citas propias ordenadas según el alcance solicitado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentPageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [Appointments]
+      operationId: createAppointment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAppointmentRequest' }
+      responses:
+        '201':
+          description: Cita creada, trazada y encolada para entrega.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /appointments/{appointmentId}/transitions:
+    post:
+      tags: [Appointments]
+      operationId: transitionAppointment
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppointmentTransitionRequest' }
+      responses:
+        '200':
+          description: Transición autorizada, auditada y persistida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /appointments/{appointmentId}/reschedule:
+    post:
+      tags: [Appointments]
+      operationId: rescheduleAppointment
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RescheduleAppointmentRequest' }
+      responses:
+        '200':
+          description: Horario reemplazado y horario anterior conservado en la bitácora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 components:
   securitySchemes:
     bearerAuth:
@@ -783,6 +931,11 @@ components:
       schema: { type: string, format: uuid }
     ConversationId:
       name: conversationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AppointmentId:
+      name: appointmentId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1534,6 +1687,126 @@ components:
             message: { $ref: '#/components/schemas/Message' }
             replayed: { type: boolean }
         meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AppointmentStatus:
+      type: string
+      enum: [SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+    AppointmentCounterpart:
+      type: object
+      additionalProperties: false
+      required: [userId, displayName, photoUrl]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        photoUrl: { type: [string, 'null'], format: uri }
+    AppointmentRelationship:
+      type: object
+      additionalProperties: false
+      required: [id, counterpart, enabledModalities, timezone, conversationId]
+      properties:
+        id: { type: string, format: uuid }
+        counterpart: { $ref: '#/components/schemas/AppointmentCounterpart' }
+        enabledModalities:
+          type: array
+          items: { $ref: '#/components/schemas/Modality' }
+        timezone: { type: [string, 'null'], maxLength: 80 }
+        conversationId: { type: [string, 'null'], format: uuid }
+    AppointmentRelationshipListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AppointmentRelationship' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AppointmentSlot:
+      type: object
+      additionalProperties: false
+      required: [startsAt, endsAt, timezone]
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        timezone: { type: string, maxLength: 80 }
+    AppointmentSlotListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/AppointmentSlot' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Appointment:
+      type: object
+      additionalProperties: false
+      required: [id, careRelationshipId, counterpart, modality, startsAt, endsAt, timezone, status, cancellationReason, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        careRelationshipId: { type: string, format: uuid }
+        counterpart: { $ref: '#/components/schemas/AppointmentCounterpart' }
+        modality: { $ref: '#/components/schemas/Modality' }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        timezone: { type: string, maxLength: 80 }
+        status: { $ref: '#/components/schemas/AppointmentStatus' }
+        cancellationReason: { type: [string, 'null'], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AppointmentResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Appointment' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AppointmentPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Appointment' }
+        meta:
+          type: object
+          required: [requestId, nextCursor]
+          properties:
+            requestId: { type: string, format: uuid }
+            nextCursor: { type: [string, 'null'] }
+    AppointmentPolicy:
+      type: object
+      additionalProperties: false
+      required: [durationMinutes, slotIntervalMinutes, minimumLeadMinutes, maximumHorizonDays, patientCancellationNoticeMinutes]
+      properties:
+        durationMinutes: { type: integer, minimum: 15, maximum: 240 }
+        slotIntervalMinutes: { type: integer, minimum: 5, maximum: 120 }
+        minimumLeadMinutes: { type: integer, minimum: 0, maximum: 10080 }
+        maximumHorizonDays: { type: integer, minimum: 1, maximum: 365 }
+        patientCancellationNoticeMinutes: { type: integer, minimum: 0, maximum: 10080 }
+    AppointmentPolicyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/AppointmentPolicy' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CreateAppointmentRequest:
+      type: object
+      additionalProperties: false
+      required: [careRelationshipId, modality, startsAt]
+      properties:
+        careRelationshipId: { type: string, format: uuid }
+        modality: { $ref: '#/components/schemas/Modality' }
+        startsAt: { type: string, format: date-time }
+    AppointmentTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [transition]
+      properties:
+        transition: { type: string, enum: [CONFIRM, START, COMPLETE, CANCEL, NO_SHOW] }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    RescheduleAppointmentRequest:
+      type: object
+      additionalProperties: false
+      required: [startsAt]
+      properties:
+        startsAt: { type: string, format: date-time }
     HealthResponse:
       type: object
       required: [status]

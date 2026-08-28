@@ -17,6 +17,7 @@ import { asyncHandler } from './shared/presentation/http/asyncHandler';
 import { createProfessionalDirectoryRouter } from './modules/professional-directory/presentation/professionalDirectoryRoutes';
 import { createServiceRequestRouter } from './modules/service-request/presentation/serviceRequestRoutes';
 import { createMessagingRouter } from './modules/messaging/presentation/messagingRoutes';
+import { createAppointmentRouter } from './modules/appointment/presentation/appointmentRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -74,7 +75,11 @@ export function createApp(dependencies: AppDependencies): Express {
              WHERE "event_type" IN (
                'message.created',
                'psychologist.verification_approved',
-               'psychologist.verification_rejected'
+               'psychologist.verification_rejected',
+               'appointment.created',
+               'appointment.updated',
+               'appointment.rescheduled',
+               'appointment.reminder_due'
              )
                AND "dead_lettered_at" IS NOT NULL
           ) AS "deadLettered",
@@ -84,11 +89,15 @@ export function createApp(dependencies: AppDependencies): Express {
              WHERE "event_type" IN (
                'message.created',
                'psychologist.verification_approved',
-               'psychologist.verification_rejected'
+               'psychologist.verification_rejected',
+               'appointment.created',
+               'appointment.updated',
+               'appointment.rescheduled',
+               'appointment.reminder_due'
              )
                AND "published_at" IS NULL
                AND "dead_lettered_at" IS NULL
-               AND "occurred_at" < ${lagCutoff}
+               AND "available_at" < ${lagCutoff}
           ) AS "lagging"
       `), 2_000);
       const messagingOutbox = outbox?.deadLettered
@@ -134,6 +143,10 @@ export function createApp(dependencies: AppDependencies): Express {
       services.serviceRequests,
       config.requestFlow
     )
+  );
+  app.use(
+    '/api/v1',
+    createAppointmentRouter(services.identity, services.appointments, config.appointments)
   );
   app.use('/api/auth', createLegacyIdentityRouter(services.identity));
 

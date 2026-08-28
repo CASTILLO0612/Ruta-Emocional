@@ -78,6 +78,22 @@ export interface AppConfig {
     readonly outboxRetryBaseDelayMs: number;
     readonly outboxReadinessMaximumLagSeconds: number;
   };
+  readonly appointments: {
+    readonly durationMinutes: number;
+    readonly slotIntervalMinutes: number;
+    readonly minimumLeadMinutes: number;
+    readonly maximumHorizonDays: number;
+    readonly patientCancellationNoticeMinutes: number;
+    readonly startWindowBeforeMinutes: number;
+    readonly maximumCancellationReasonLength: number;
+    readonly defaultPageSize: number;
+    readonly maximumPageSize: number;
+    readonly mutationsPerMinute: number;
+    readonly idempotencyTtlHours: number;
+    readonly serializableMaxRetries: number;
+    readonly serializableRetryBaseDelayMs: number;
+    readonly reminderMinutesBefore: readonly number[];
+  };
 }
 
 export class ConfigurationError extends Error {
@@ -195,6 +211,27 @@ function readCurrencies(source: NodeJS.ProcessEnv): readonly string[] {
     throw new ConfigurationError('SUPPORTED_CURRENCIES must contain ISO 4217 three-letter codes');
   }
   return Object.freeze([...new Set(values)]);
+}
+
+function readPositiveIntegerList(
+  source: NodeJS.ProcessEnv,
+  name: string,
+  defaultValue: string,
+  maximumItems: number,
+  maximumValue: number
+): readonly number[] {
+  const raw = source[name]?.trim() || defaultValue;
+  const values = raw.split(',').map((value) => Number(value.trim()));
+  if (
+    values.length === 0
+    || values.length > maximumItems
+    || values.some((value) => !Number.isInteger(value) || value < 1 || value > maximumValue)
+  ) {
+    throw new ConfigurationError(
+      `${name} must contain between 1 and ${maximumItems} positive integer values`
+    );
+  }
+  return Object.freeze([...new Set(values)].sort((left, right) => right - left));
 }
 
 function assertSecret(name: string, value: string): string {
@@ -431,6 +468,63 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         86_400
       ),
     },
+    appointments: {
+      durationMinutes: readRequiredInteger(source, 'APPOINTMENT_DURATION_MINUTES', 15, 240),
+      slotIntervalMinutes: readRequiredInteger(source, 'APPOINTMENT_SLOT_INTERVAL_MINUTES', 5, 120),
+      minimumLeadMinutes: readRequiredInteger(source, 'APPOINTMENT_MINIMUM_LEAD_MINUTES', 0, 10080),
+      maximumHorizonDays: readRequiredInteger(source, 'APPOINTMENT_MAXIMUM_HORIZON_DAYS', 1, 365),
+      patientCancellationNoticeMinutes: readRequiredInteger(
+        source,
+        'APPOINTMENT_PATIENT_CANCELLATION_NOTICE_MINUTES',
+        0,
+        10080
+      ),
+      startWindowBeforeMinutes: readRequiredInteger(
+        source,
+        'APPOINTMENT_START_WINDOW_BEFORE_MINUTES',
+        0,
+        240
+      ),
+      maximumCancellationReasonLength: readRequiredInteger(
+        source,
+        'APPOINTMENT_MAXIMUM_CANCELLATION_REASON_LENGTH',
+        20,
+        1000
+      ),
+      defaultPageSize: readRequiredInteger(source, 'APPOINTMENT_DEFAULT_PAGE_SIZE', 1, 100),
+      maximumPageSize: readRequiredInteger(source, 'APPOINTMENT_MAXIMUM_PAGE_SIZE', 1, 200),
+      mutationsPerMinute: readRequiredInteger(
+        source,
+        'APPOINTMENT_MUTATIONS_PER_MINUTE',
+        1,
+        300
+      ),
+      idempotencyTtlHours: readRequiredInteger(
+        source,
+        'APPOINTMENT_IDEMPOTENCY_TTL_HOURS',
+        1,
+        168
+      ),
+      serializableMaxRetries: readRequiredInteger(
+        source,
+        'APPOINTMENT_SERIALIZABLE_MAX_RETRIES',
+        0,
+        5
+      ),
+      serializableRetryBaseDelayMs: readRequiredInteger(
+        source,
+        'APPOINTMENT_SERIALIZABLE_RETRY_BASE_DELAY_MS',
+        1,
+        2000
+      ),
+      reminderMinutesBefore: readPositiveIntegerList(
+        source,
+        'APPOINTMENT_REMINDER_MINUTES_BEFORE',
+        '1440,60',
+        5,
+        10080
+      ),
+    },
   };
 
   if (config.requestFlow.scheduledOfferCutoffMinutes >= config.requestFlow.scheduledLeadMinutes) {
@@ -451,6 +545,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (config.messaging.outboxClaimTtlSeconds * 1000 <= config.messaging.outboxPollIntervalMs) {
     throw new ConfigurationError(
       'OUTBOX_CLAIM_TTL_SECONDS must exceed OUTBOX_POLL_INTERVAL_MS'
+    );
+  }
+  if (config.appointments.defaultPageSize > config.appointments.maximumPageSize) {
+    throw new ConfigurationError(
+      'APPOINTMENT_DEFAULT_PAGE_SIZE cannot exceed APPOINTMENT_MAXIMUM_PAGE_SIZE'
+    );
+  }
+  if (config.appointments.slotIntervalMinutes > config.appointments.durationMinutes) {
+    throw new ConfigurationError(
+      'APPOINTMENT_SLOT_INTERVAL_MINUTES cannot exceed APPOINTMENT_DURATION_MINUTES'
     );
   }
 

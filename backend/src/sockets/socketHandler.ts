@@ -25,6 +25,17 @@ export interface RealtimePublisher {
     readonly userId: string;
     readonly status: 'VERIFIED' | 'REJECTED';
   }): Promise<void>;
+  publishAppointmentUpdated(event: {
+    readonly appointmentId: string;
+    readonly status: string;
+    readonly userIds: readonly string[];
+  }): Promise<void>;
+  publishAppointmentReminder(event: {
+    readonly appointmentId: string;
+    readonly startsAt: string;
+    readonly minutesBefore: number;
+    readonly userIds: readonly string[];
+  }): Promise<void>;
 }
 
 function roomName(conversationId: string): string {
@@ -162,6 +173,23 @@ export function setupSockets(
       io.to(userRoomName(event.userId)).emit('psychologist.verification.updated', {
         status: event.status,
       });
+    },
+    async publishAppointmentUpdated(event): Promise<void> {
+      for (const userId of event.userIds) {
+        io.to(userRoomName(userId)).emit('appointment.updated', {
+          appointmentId: event.appointmentId,
+          status: event.status,
+        });
+      }
+    },
+    async publishAppointmentReminder(event): Promise<void> {
+      for (const userId of event.userIds) {
+        io.to(userRoomName(userId)).emit('appointment.reminder', {
+          appointmentId: event.appointmentId,
+          startsAt: event.startsAt,
+          minutesBefore: event.minutesBefore,
+        });
+      }
     },
   };
 }
