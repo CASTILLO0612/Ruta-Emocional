@@ -24,7 +24,13 @@ evitar modelar relaciones o atributos clínicos.
 | `patient_profiles` | `id -> user_id, birth_date` y `user_id -> id` |
 | `psychologist_profiles` | `id -> user_id, verification_status, bio` |
 | `professional_licenses` | `id -> psychologist_profile_id, authority, license_number, status` |
-| `specialties` | `id -> code, name` |
+| `professional_verification_submissions` | `id -> professional_license_id, evidence_object_key, submitted_at` |
+| `professional_verification_decisions` | `id -> submission_id, reviewer_user_id, decision, reasons, decided_at` y `submission_id -> id` |
+| `specialties` | `id -> code, name, is_active` |
+| `psychologist_specialties` | `(psychologist_profile_id, specialty_id) -> is_primary` |
+| `psychologist_modalities` | `(psychologist_profile_id, modality) -> price_per_hour, currency_code, is_enabled` |
+| `availability_rules` | `id -> psychologist_profile_id, weekday, start_time, end_time, timezone, vigencia, is_active` |
+| `availability_exceptions` | `id -> psychologist_profile_id, starts_at, ends_at, type, reason` |
 | `service_requests` | `id -> patient_profile_id, modality, budget, status` |
 | `offers` | `id -> request_id, psychologist_profile_id, amount, status` |
 | `appointments` | `id -> patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
@@ -60,6 +66,26 @@ Las relaciones multivaluadas se representan con tablas asociativas:
 
 No se almacenarán arrays de roles, especialidades o modalidades dentro de una
 fila del núcleo transaccional.
+
+## Decisión de normalización de la Fase 3
+
+La evidencia profesional y su resolución se separan deliberadamente:
+
+- una entrega pertenece a una licencia y conserva una clave opaca de
+  almacenamiento privado;
+- una decisión pertenece a una sola entrega y conserva revisor, resultado,
+  razones y fecha;
+- la entrega no repite `psychologist_profile_id`, porque
+  `professional_license_id -> psychologist_profile_id`; guardar ambos crearía
+  una dependencia transitiva y violaría 3FN;
+- una nueva evidencia crea otra entrega; no actualiza la evidencia histórica;
+- el promedio y total de reseñas siguen calculándose desde `reviews` y
+  `appointments`, sin columnas derivadas en el perfil.
+
+La corrección `20260827002000_normalize_verification_submission` elimina esa
+dependencia transitiva del primer diseño antes del cierre de la fase. Las claves
+candidatas, claves foráneas e índices resultantes están versionados en las
+migraciones de PostgreSQL.
 
 ## Datos derivados
 

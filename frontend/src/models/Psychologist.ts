@@ -1,24 +1,24 @@
+export type Modality = 'chat' | 'call' | 'in-person';
+export type DirectoryModality = 'CHAT' | 'CALL' | 'IN_PERSON';
+
 export interface Psychologist {
-  id: string;
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  specialty: string;
-  licenseNumber: string;
-  rating: number;
-  totalReviews: number;
-  pricePerHour: number;
-  modalities: Modality[];
-  isAvailable: boolean;
-  isVerified: boolean;
-  bio?: string;
-  coordinates?: GeoPoint;
-  createdAt: Date;
+  readonly id: string;
+  readonly displayName: string;
+  readonly photoURL?: string;
+  readonly specialty: string;
+  readonly specialties: readonly { readonly code: string; readonly name: string }[];
+  readonly rating: number;
+  readonly totalReviews: number;
+  readonly pricePerHour: string;
+  readonly currencyCode: string;
+  readonly modalities: readonly Modality[];
+  readonly isAvailable: boolean;
+  readonly bio?: string;
+  readonly credentialAuthority: string;
+  readonly approximateDistanceKm?: string;
 }
 
 export interface GeoPoint {
-  latitude: number;
-  longitude: number;
+  readonly latitude: number;
+  readonly longitude: number;
 }
-
-export type Modality = 'chat' | 'call' | 'in-person';

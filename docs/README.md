@@ -13,6 +13,7 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 7. [Convenciones de API](api/api-guidelines.md)
 8. [Requisitos no funcionales](operations/non-functional-requirements.md)
 9. [Plan de ejecución del MVP](roadmap/mvp-execution-plan.md)
+10. [Cierre de la Fase 3](roadmap/phase-3-professional-directory.md)
 
 ## Decisiones vigentes
 

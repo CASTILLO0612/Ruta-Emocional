@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
-  Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -17,8 +16,8 @@ import { Typography } from '../../theme/typography';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { useAuthStore } from '../../store/useAuthStore';
 import { fetchUserConversations } from '../../repositories/ChatRepository';
-import { getAvailablePsychologists } from '../../repositories/PsychologistRepository';
 import { Toast, useToast } from '../../components/common/Toast';
+import type { AppNavigation } from '../../navigation/navigationTypes';
 
 interface ChatItem {
   id: string;
@@ -30,58 +29,8 @@ interface ChatItem {
   requestId?: string;
 }
 
-/** Punto de presencia online con pulso animado */
-const OnlinePulse: React.FC = () => {
-  const pulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.4, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [pulse]);
-
-  return (
-    <View style={onlineStyles.container}>
-      <Animated.View style={[onlineStyles.ring, { transform: [{ scale: pulse }] }]} />
-      <View style={onlineStyles.dot} />
-    </View>
-  );
-};
-
-const onlineStyles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Colors.accentFaded,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.accent,
-    borderWidth: 2,
-    borderColor: Colors.surface,
-  },
-});
-
 export const InboxScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigation>();
   const { userProfile } = useAuthStore();
   const { toastConfig, showToast, hideToast } = useToast();
   const [chats, setChats] = useState<ChatItem[]>([]);
@@ -106,7 +55,7 @@ export const InboxScreen: React.FC = () => {
               time: c.updatedAt
                 ? new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : '',
-              unread: idx === 0,
+              unread: false,
               requestId: c.requestId,
             }));
             if (isSubscribed) {
@@ -116,23 +65,11 @@ export const InboxScreen: React.FC = () => {
             }
           }
         }
-
-        // Fallback si no hay conversaciones en DB
-        const psychs = await getAvailablePsychologists();
-        const chatItems: ChatItem[] = psychs.map((psy, idx) => ({
-          id: psy.id,
-          displayName: psy.displayName,
-          photoURL: psy.photoURL,
-          lastMessage: 'Sesión de apoyo activa.',
-          time: `${14 - idx}:30`,
-          unread: idx === 0,
-        }));
-
         if (isSubscribed) {
-          setChats(chatItems);
+          setChats([]);
           setLoading(false);
         }
-      } catch (err: any) {
+      } catch {
         if (isSubscribed) {
           setLoading(false);
           showToast('No se pudieron cargar los mensajes. Verifica tu conexión.', 'error');
@@ -140,11 +77,9 @@ export const InboxScreen: React.FC = () => {
       }
     };
 
-    loadConversations();
-    const interval = setInterval(loadConversations, 5000);
+    void loadConversations();
     return () => {
       isSubscribed = false;
-      clearInterval(interval);
     };
   }, [userProfile?.id, userProfile?.role]);
 
@@ -178,7 +113,6 @@ export const InboxScreen: React.FC = () => {
               </Text>
             </View>
           )}
-          {item.unread && <OnlinePulse />}
         </View>
 
         {/* Contenido */}
@@ -238,10 +172,6 @@ export const InboxScreen: React.FC = () => {
             {!loading && chats.length > 0 && (
               <Text style={styles.headerSub}>{chats.length} conversación{chats.length !== 1 ? 'es' : ''} activa{chats.length !== 1 ? 's' : ''}</Text>
             )}
-          </View>
-          <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>En vivo</Text>
           </View>
         </View>
       </SafeAreaView>

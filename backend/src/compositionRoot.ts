@@ -6,9 +6,12 @@ import { JwtAccessTokenService } from './modules/identity/infrastructure/securit
 import { OpaqueRefreshTokenService } from './modules/identity/infrastructure/security/opaqueRefreshTokenService';
 import { ScryptPasswordHasher } from './modules/identity/infrastructure/security/scryptPasswordHasher';
 import { SystemClock } from './shared/application/clock';
+import { ProfessionalDirectoryService } from './modules/professional-directory/application/professionalDirectoryService';
+import { PrismaProfessionalDirectoryRepository } from './modules/professional-directory/infrastructure/persistence/prismaProfessionalDirectoryRepository';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
+  readonly professionalDirectory: ProfessionalDirectoryService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -35,6 +38,9 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       new OpaqueRefreshTokenService(),
       new SystemClock(),
       config.jwt.refreshTtlDays
+    ),
+    professionalDirectory: new ProfessionalDirectoryService(
+      new PrismaProfessionalDirectoryRepository(prisma)
     ),
   };
 }

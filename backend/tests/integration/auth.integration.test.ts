@@ -37,6 +37,15 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       keyLength: 32,
     },
     legacyMongo: { enabled: false },
+    professionalDirectory: {
+      defaultPageSize: 20,
+      maxPageSize: 50,
+      maxRadiusKm: 100,
+      maxAvailabilityWindowDays: 31,
+      maxWeeklyRules: 50,
+      publicRequestsPerMinute: 120,
+      supportedCurrencies: ['NIO'],
+    },
   };
 
   const logger = createLogger('test');

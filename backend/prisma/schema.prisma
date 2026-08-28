@@ -24,6 +24,13 @@ enum VerificationStatus {
   @@map("verification_status")
 }
 
+enum VerificationDecision {
+  APPROVED
+  REJECTED
+
+  @@map("verification_decision")
+}
+
 enum Modality {
   CHAT
   CALL
@@ -157,23 +164,24 @@ enum TriageRiskLevel {
 }
 
 model User {
-  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  legacyId             String?                   @unique @map("legacy_id")
-  email                String                    @unique @db.VarChar(320)
-  displayName          String                    @map("display_name") @db.VarChar(160)
-  passwordHash         String                    @map("password_hash") @db.VarChar(255)
-  photoUrl             String?                   @map("photo_url") @db.Text
-  phone                String?                   @db.VarChar(32)
-  status               AccountStatus             @default(ACTIVE)
-  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  patientProfile       PatientProfile?
-  psychologistProfile  PsychologistProfile?
-  roles                UserRole[]
-  authSessions         AuthSession[]
-  conversationMembers  ConversationParticipant[]
-  clinicalNoteVersions ClinicalNoteVersion[]     @relation("ClinicalNoteVersionAuthor")
-  auditEvents          AuditEvent[]              @relation("AuditActor")
+  id                    String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legacyId              String?                            @unique @map("legacy_id")
+  email                 String                             @unique @db.VarChar(320)
+  displayName           String                             @map("display_name") @db.VarChar(160)
+  passwordHash          String                             @map("password_hash") @db.VarChar(255)
+  photoUrl              String?                            @map("photo_url") @db.Text
+  phone                 String?                            @db.VarChar(32)
+  status                AccountStatus                      @default(ACTIVE)
+  createdAt             DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  patientProfile        PatientProfile?
+  psychologistProfile   PsychologistProfile?
+  roles                 UserRole[]
+  authSessions          AuthSession[]
+  conversationMembers   ConversationParticipant[]
+  clinicalNoteVersions  ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
+  auditEvents           AuditEvent[]                       @relation("AuditActor")
+  verificationDecisions ProfessionalVerificationDecision[] @relation("VerificationReviewer")
 
   @@map("users")
 }
@@ -259,15 +267,16 @@ model PsychologistProfile {
 }
 
 model ProfessionalLicense {
-  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  psychologistProfileId String              @map("psychologist_profile_id") @db.Uuid
-  authority             String              @db.VarChar(120)
-  licenseNumber         String              @map("license_number") @db.VarChar(80)
-  status                VerificationStatus  @default(PENDING)
-  documentUrl           String?             @map("document_url") @db.Text
-  verifiedAt            DateTime?           @map("verified_at") @db.Timestamptz(3)
-  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  id                      String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  psychologistProfileId   String                               @map("psychologist_profile_id") @db.Uuid
+  authority               String                               @db.VarChar(120)
+  licenseNumber           String                               @map("license_number") @db.VarChar(80)
+  status                  VerificationStatus                   @default(PENDING)
+  documentUrl             String?                              @map("document_url") @db.Text
+  verifiedAt              DateTime?                            @map("verified_at") @db.Timestamptz(3)
+  createdAt               DateTime                             @default(now()) @map("created_at") @db.Timestamptz(3)
+  psychologistProfile     PsychologistProfile                  @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  verificationSubmissions ProfessionalVerificationSubmission[]
 
   @@unique([authority, licenseNumber])
   @@map("professional_licenses")
@@ -277,8 +286,12 @@ model Specialty {
   id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code          String                  @unique @db.VarChar(60)
   name          String                  @unique @db.VarChar(120)
+  isActive      Boolean                 @default(true) @map("is_active")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   psychologists PsychologistSpecialty[]
 
+  @@index([isActive, name])
   @@map("specialties")
 }
 
@@ -297,11 +310,39 @@ model PsychologistModality {
   psychologistProfileId String              @map("psychologist_profile_id") @db.Uuid
   modality              Modality
   pricePerHour          Decimal             @map("price_per_hour") @db.Decimal(12, 2)
+  currencyCode          String              @map("currency_code") @db.Char(3)
   isEnabled             Boolean             @default(true) @map("is_enabled")
   psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Cascade)
 
   @@id([psychologistProfileId, modality])
   @@map("psychologist_modalities")
+}
+
+model ProfessionalVerificationSubmission {
+  id                    String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  professionalLicenseId String                            @map("professional_license_id") @db.Uuid
+  evidenceObjectKey     String                            @map("evidence_object_key") @db.VarChar(512)
+  submittedAt           DateTime                          @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  professionalLicense   ProfessionalLicense               @relation(fields: [professionalLicenseId], references: [id], onDelete: Restrict)
+  decision              ProfessionalVerificationDecision?
+
+  @@index([professionalLicenseId, submittedAt])
+  @@map("professional_verification_submissions")
+}
+
+model ProfessionalVerificationDecision {
+  id             String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId   String                             @unique @map("submission_id") @db.Uuid
+  reviewerUserId String                             @map("reviewer_user_id") @db.Uuid
+  decision       VerificationDecision
+  publicReason   String?                            @map("public_reason") @db.VarChar(500)
+  internalReason String?                            @map("internal_reason") @db.VarChar(1000)
+  decidedAt      DateTime                           @default(now()) @map("decided_at") @db.Timestamptz(3)
+  submission     ProfessionalVerificationSubmission @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  reviewer       User                               @relation("VerificationReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([reviewerUserId, decidedAt])
+  @@map("professional_verification_decisions")
 }
 
 model ServiceRequest {

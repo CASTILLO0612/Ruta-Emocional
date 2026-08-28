@@ -28,3 +28,17 @@ export function getActor(request: AuthenticatedRequest): AuthenticatedActor {
   if (!request.actor) throw AppError.unauthorized();
   return request.actor;
 }
+
+export function requireCapability(capability: string): RequestHandler {
+  return (request: AuthenticatedRequest, _response: Response, next: NextFunction): void => {
+    try {
+      const actor = getActor(request);
+      if (!actor.user.capabilities.includes(capability)) {
+        throw AppError.forbidden('CAPABILITY_REQUIRED');
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}

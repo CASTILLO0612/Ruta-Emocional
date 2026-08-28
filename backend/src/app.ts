@@ -17,6 +17,7 @@ import { requestContext } from './shared/presentation/http/requestContext';
 import { requestLogger } from './shared/presentation/http/requestLogger';
 import { securityHeaders } from './shared/presentation/http/securityHeaders';
 import { asyncHandler } from './shared/presentation/http/asyncHandler';
+import { createProfessionalDirectoryRouter } from './modules/professional-directory/presentation/professionalDirectoryRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -70,6 +71,14 @@ export function createApp(dependencies: AppDependencies): Express {
   });
 
   app.use('/api/v1/auth', createIdentityRouter(services.identity));
+  app.use(
+    '/api/v1',
+    createProfessionalDirectoryRouter(
+      services.identity,
+      services.professionalDirectory,
+      config.professionalDirectory
+    )
+  );
   app.use('/api/auth', createLegacyIdentityRouter(services.identity));
 
   if (config.legacyMongo.enabled) {

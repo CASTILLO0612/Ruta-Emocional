@@ -6,6 +6,22 @@ export class RuntimeConfigurationError extends Error {
 }
 
 let cachedApiOrigin: string | null = null;
+let cachedDirectoryMapConfig: DirectoryMapConfig | null = null;
+
+export interface DirectoryMapConfig {
+  readonly radiusKm: number;
+  readonly latitudeDelta: number;
+  readonly longitudeDelta: number;
+}
+
+function requiredPositiveNumber(rawValue: string | undefined, name: string): number {
+  const raw = rawValue?.trim();
+  const value = raw ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RuntimeConfigurationError(`${name} debe ser un número positivo.`);
+  }
+  return value;
+}
 
 export function getApiOrigin(): string {
   if (cachedApiOrigin) return cachedApiOrigin;
@@ -51,4 +67,23 @@ export function getLegacyApiBaseUrl(): string {
 
 export function getVersionOneApiBaseUrl(): string {
   return `${getApiOrigin()}/api/v1`;
+}
+
+export function getDirectoryMapConfig(): DirectoryMapConfig {
+  if (cachedDirectoryMapConfig) return cachedDirectoryMapConfig;
+  cachedDirectoryMapConfig = Object.freeze({
+    radiusKm: requiredPositiveNumber(
+      process.env.EXPO_PUBLIC_DIRECTORY_RADIUS_KM,
+      'EXPO_PUBLIC_DIRECTORY_RADIUS_KM'
+    ),
+    latitudeDelta: requiredPositiveNumber(
+      process.env.EXPO_PUBLIC_MAP_LATITUDE_DELTA,
+      'EXPO_PUBLIC_MAP_LATITUDE_DELTA'
+    ),
+    longitudeDelta: requiredPositiveNumber(
+      process.env.EXPO_PUBLIC_MAP_LONGITUDE_DELTA,
+      'EXPO_PUBLIC_MAP_LONGITUDE_DELTA'
+    ),
+  });
+  return cachedDirectoryMapConfig;
 }

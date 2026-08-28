@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,12 @@ import { Colors } from '../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomAlert } from '../../components/common/CustomAlert';
+import { getOwnProfessionalProfile, updateProfessionalBio } from '../../repositories/ProfessionalProfileRepository';
+import { showAlert } from '../../utils/alert';
+import type { AppNavigation } from '../../navigation/navigationTypes';
 
 export const ProfileScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigation>();
   const { userProfile, setUserProfile, signOut } = useAuthStore();
   const isPsychologist = userProfile?.role === 'psychologist';
 
@@ -37,7 +40,6 @@ export const ProfileScreen: React.FC = () => {
   // Campos profesionales para psicólogo
   const [specialty, setSpecialty] = useState(userProfile?.specialty ?? '');
   const [bio, setBio] = useState(userProfile?.bio ?? '');
-  const [isAvailable, setIsAvailable] = useState(true);
 
   const [pin, setPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -51,6 +53,21 @@ export const ProfileScreen: React.FC = () => {
   const [notifEmail, setNotifEmail] = useState(false);
 
   const [supportText, setSupportText] = useState('');
+
+  useEffect(() => {
+    if (!isPsychologist) return;
+    const controller = new AbortController();
+    void getOwnProfessionalProfile(controller.signal)
+      .then((profile) => {
+        setSpecialty(profile.specialties.find(({ isPrimary }) => isPrimary)?.name ?? '');
+        setBio(profile.bio ?? '');
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        showAlert('Perfil profesional', 'No pudimos cargar la información profesional actual.');
+      });
+    return () => controller.abort();
+  }, [isPsychologist]);
 
   const handleSignOut = () => {
     setLogoutAlertVisible(true);
@@ -79,6 +96,19 @@ export const ProfileScreen: React.FC = () => {
     }
     setActivePanel(null);
     setSaveSuccessAlertVisible(true);
+  };
+
+  const handleSaveProfessional = async () => {
+    try {
+      await updateProfessionalBio(bio.trim() || null);
+      setActivePanel(null);
+      setSaveSuccessAlertVisible(true);
+    } catch (error) {
+      showAlert(
+        'No pudimos actualizar el perfil',
+        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+      );
+    }
   };
 
   return (
@@ -119,35 +149,10 @@ export const ProfileScreen: React.FC = () => {
           
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>
-              {isPsychologist ? 'Psicólogo verificado' : 'Paciente'}
+              {isPsychologist
+                ? `Psicólogo ${userProfile?.psychologistVerificationStatus?.toLowerCase() ?? 'pendiente'}`
+                : 'Paciente'}
             </Text>
-          </View>
-
-          {isPsychologist && (
-            <View style={styles.availabilityRow}>
-              <View style={[styles.availabilityDot, isAvailable ? styles.dotOnline : styles.dotOffline]} />
-              <Text style={styles.availabilityText}>
-                {isAvailable ? 'Disponible para atender' : 'En pausa'}
-              </Text>
-              <Switch value={isAvailable} onValueChange={setIsAvailable} trackColor={{ true: Colors.primary }} />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.statsCard}>
-          <View style={styles.statCol}>
-            <Text style={styles.statVal}>{isPsychologist ? 'C$4,750' : 'C$1,200'}</Text>
-            <Text style={styles.statLbl}>{isPsychologist ? 'Ganancias' : 'Presupuesto'}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCol}>
-            <Text style={styles.statVal}>8</Text>
-            <Text style={styles.statLbl}>Sesiones</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCol}>
-            <Text style={styles.statVal}>4.9</Text>
-            <Text style={styles.statLbl}>{isPsychologist ? 'Rating' : 'Progreso'}</Text>
           </View>
         </View>
 
@@ -275,7 +280,7 @@ export const ProfileScreen: React.FC = () => {
             </View>
             <ScrollView contentContainerStyle={styles.panelBody}>
               <Text style={styles.inputLabel}>Especialidades</Text>
-              <TextInput style={styles.panelInput} value={specialty} onChangeText={setSpecialty} />
+              <TextInput style={styles.panelInput} value={specialty} editable={false} />
 
               <Text style={styles.inputLabel}>Resumen Profesional / Bio</Text>
               <TextInput
@@ -287,7 +292,7 @@ export const ProfileScreen: React.FC = () => {
               />
 
               <View style={{ height: Spacing.xl }} />
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSavePanel}>
+              <TouchableOpacity style={styles.saveBtn} onPress={() => void handleSaveProfessional()}>
                 <Text style={styles.saveBtnText}>Actualizar perfil profesional</Text>
               </TouchableOpacity>
             </ScrollView>

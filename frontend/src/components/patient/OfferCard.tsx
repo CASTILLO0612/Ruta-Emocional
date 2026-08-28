@@ -14,6 +14,7 @@ import { AppButton } from '../common/AppButton';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
+import type { AppNavigation } from '../../navigation/navigationTypes';
 
 interface OfferCardProps {
   offer: Offer;
@@ -26,28 +27,13 @@ export const OfferCard: React.FC<OfferCardProps> = ({
   patientBudget,
   onAccept,
 }) => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigation>();
   const discount = patientBudget - offer.amount;
   const isBelowBudget = offer.amount <= patientBudget;
 
   const handleViewProfile = () => {
-    const mockPsychologist = {
-      id: offer.psychologistId,
-      displayName: offer.psychologistName,
-      specialty: offer.psychologistSpecialty,
-      rating: offer.psychologistRating,
-      totalReviews: 0,
-      photoURL: offer.psychologistPhotoURL,
-      isVerified: true,
-      isAvailable: true,
-      modalities: ['chat', 'call'],
-      pricePerHour: offer.amount,
-      licenseNumber: 'PSY-NI-VERIFICADO',
-      bio: undefined,
-    };
-
     navigation.navigate('PsychologistProfile', {
-      psychologist: mockPsychologist,
+      psychologistId: offer.psychologistId,
       offerAmount: offer.amount,
       onAccept: () => onAccept(offer),
     });
@@ -64,7 +50,6 @@ export const OfferCard: React.FC<OfferCardProps> = ({
               <MaterialIcons name="person" size={28} color={Colors.primary} />
             </View>
           )}
-          <View style={styles.onlineDot} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.info} onPress={handleViewProfile} activeOpacity={0.7}>
@@ -156,17 +141,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: Colors.border,
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.accent,
-    borderWidth: 2,
-    borderColor: Colors.surface,
   },
   info: {
     flex: 1,

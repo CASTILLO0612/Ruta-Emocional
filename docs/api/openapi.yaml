@@ -2,13 +2,17 @@ openapi: 3.1.0
 info:
   title: Ruta Emocional API
   version: 1.0.0-draft
-  description: Contrato inicial ejecutable del primer flujo vertical de identidad.
+  description: Contrato ejecutable de identidad, directorio profesional y verificación.
 servers:
   - url: http://localhost:5000/api/v1
     description: Desarrollo local
 tags:
   - name: Health
   - name: Auth
+  - name: Catalogs
+  - name: Directory
+  - name: Professional profile
+  - name: Professional verification
 paths:
   /health/live:
     get:
@@ -174,6 +178,288 @@ paths:
                     $ref: '#/components/schemas/ResponseMeta'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /catalogs/specialties:
+    get:
+      tags: [Catalogs]
+      operationId: listSpecialties
+      security: []
+      responses:
+        '200':
+          description: Especialidades activas, ordenadas por nombre.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpecialtyListResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogs/modalities:
+    get:
+      tags: [Catalogs]
+      operationId: listModalities
+      security: []
+      responses:
+        '200':
+          description: Códigos de modalidad y monedas habilitadas por configuración.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModalityCatalogResponse'
+  /psychologists:
+    get:
+      tags: [Directory]
+      operationId: listPublicPsychologists
+      security: []
+      parameters:
+        - { name: specialty, in: query, schema: { type: string, maxLength: 60 } }
+        - { name: modality, in: query, schema: { $ref: '#/components/schemas/Modality' } }
+        - { name: minPrice, in: query, schema: { type: string, pattern: '^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$' } }
+        - { name: maxPrice, in: query, schema: { type: string, pattern: '^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$' } }
+        - { name: availableFrom, in: query, schema: { type: string, format: date-time } }
+        - { name: availableUntil, in: query, schema: { type: string, format: date-time } }
+        - { name: latitude, in: query, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: longitude, in: query, schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: radiusKm, in: query, schema: { type: number, exclusiveMinimum: 0 } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200':
+          description: Página estable de perfiles públicos verificados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfessionalPage'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /psychologists/{psychologistId}:
+    get:
+      tags: [Directory]
+      operationId: getPublicPsychologist
+      security: []
+      parameters:
+        - name: psychologistId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Perfil público minimizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfessionalResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /psychologists/me:
+    get:
+      tags: [Professional profile]
+      operationId: getOwnProfessionalProfile
+      responses:
+        '200':
+          description: Expediente del profesional autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnProfessionalResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [Professional profile]
+      operationId: updateOwnProfessionalProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [bio]
+              properties:
+                bio: { type: [string, 'null'], minLength: 20, maxLength: 3000 }
+      responses:
+        '200':
+          description: Expediente actualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /psychologists/me/specialties:
+    put:
+      tags: [Professional profile]
+      operationId: replaceOwnProfessionalSpecialties
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [specialtyCodes, primarySpecialtyCode]
+              properties:
+                specialtyCodes:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  uniqueItems: true
+                  items: { type: string, maxLength: 60 }
+                primarySpecialtyCode: { type: string, maxLength: 60 }
+      responses:
+        '200':
+          description: Especialidades reemplazadas atómicamente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /psychologists/me/modalities/{modality}:
+    put:
+      tags: [Professional profile]
+      operationId: configureOwnProfessionalModality
+      parameters:
+        - name: modality
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Modality' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModalityConfigurationRequest' }
+      responses:
+        '200':
+          description: Modalidad configurada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /psychologists/me/availability:
+    put:
+      tags: [Professional profile]
+      operationId: replaceOwnWeeklyAvailability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WeeklyAvailabilityRequest' }
+      responses:
+        '200':
+          description: Reglas semanales reemplazadas atómicamente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /psychologists/me/availability-exceptions:
+    post:
+      tags: [Professional profile]
+      operationId: createOwnAvailabilityException
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AvailabilityExceptionRequest' }
+      responses:
+        '201':
+          description: Excepción creada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /psychologists/me/verification-submissions:
+    post:
+      tags: [Professional verification]
+      operationId: submitProfessionalEvidence
+      description: Registra la referencia de un objeto ya almacenado en almacenamiento privado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerificationSubmissionRequest' }
+      responses:
+        '201':
+          description: Evidencia registrada como pendiente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/catalogs/specialties:
+    post:
+      tags: [Catalogs]
+      operationId: createSpecialty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Specialty' }
+      responses:
+        '201':
+          description: Especialidad creada y auditada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecialtyResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/catalogs/specialties/{code}:
+    patch:
+      tags: [Catalogs]
+      operationId: setSpecialtyStatus
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, maxLength: 60 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [isActive]
+              properties:
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Estado del catálogo actualizado y auditado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecialtyResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/psychologist-verifications:
+    get:
+      tags: [Professional verification]
+      operationId: listPendingProfessionalVerifications
+      parameters:
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200':
+          description: Cola paginada de evidencias pendientes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationQueueResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/psychologist-verifications/{submissionId}/decision:
+    post:
+      tags: [Professional verification]
+      operationId: decideProfessionalVerification
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerificationDecisionRequest' }
+      responses:
+        '204': { description: Decisión persistida, auditada y publicada en outbox. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     bearerAuth:
@@ -312,6 +598,272 @@ components:
           uniqueItems: true
           items:
             type: string
+    Modality:
+      type: string
+      enum: [CHAT, CALL, IN_PERSON]
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^(?:0|[1-9][0-9]{0,9})\.[0-9]{2}$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    Specialty:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 2, maxLength: 60, pattern: '^[A-Z0-9]+(?:_[A-Z0-9]+)*$' }
+        name: { type: string, minLength: 2, maxLength: 120 }
+    SpecialtyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Specialty' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    SpecialtyListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Specialty' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ModalityCatalogResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [codes, currencies]
+          properties:
+            codes:
+              type: array
+              uniqueItems: true
+              items: { $ref: '#/components/schemas/Modality' }
+            currencies:
+              type: array
+              uniqueItems: true
+              items: { type: string, pattern: '^[A-Z]{3}$' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PublicProfessional:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, photoUrl, bio, specialties, primarySpecialty, modalities, rating, availability, credential]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        photoUrl: { type: [string, 'null'], format: uri }
+        bio: { type: [string, 'null'] }
+        specialties:
+          type: array
+          items: { $ref: '#/components/schemas/Specialty' }
+        primarySpecialty:
+          oneOf:
+            - { $ref: '#/components/schemas/Specialty' }
+            - { type: 'null' }
+        modalities:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [code, pricePerHour]
+            properties:
+              code: { $ref: '#/components/schemas/Modality' }
+              pricePerHour: { $ref: '#/components/schemas/Money' }
+        rating:
+          type: object
+          required: [average, count]
+          properties:
+            average: { type: [string, 'null'] }
+            count: { type: integer, minimum: 0 }
+        availability:
+          type: object
+          required: [hasWeeklySchedule]
+          properties:
+            hasWeeklySchedule: { type: boolean }
+        credential:
+          description: Proyección deliberadamente sin número de licencia ni evidencia.
+          type: object
+          additionalProperties: false
+          required: [authority, status]
+          properties:
+            authority: { type: string }
+            status: { type: string, const: VERIFIED }
+        approximateDistanceKm:
+          type: string
+          pattern: '^[0-9]+\.[0-9]$'
+    PublicProfessionalResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/PublicProfessional' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PublicProfessionalPage:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PublicProfessional' }
+        meta:
+          allOf:
+            - { $ref: '#/components/schemas/ResponseMeta' }
+            - type: object
+              required: [nextCursor]
+              properties:
+                nextCursor: { type: [string, 'null'] }
+    ProfessionalLicense:
+      type: object
+      required: [id, authority, number, status, evidenceSubmitted, latestPublicDecisionReason]
+      properties:
+        id: { type: string, format: uuid }
+        authority: { type: string }
+        number: { type: string }
+        status: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+        evidenceSubmitted: { type: boolean }
+        latestPublicDecisionReason: { type: [string, 'null'] }
+    WeeklyAvailabilityRule:
+      type: object
+      additionalProperties: false
+      required: [weekday, startTime, endTime, isActive]
+      properties:
+        weekday: { type: integer, minimum: 0, maximum: 6 }
+        startTime: { type: string, pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' }
+        endTime: { type: string, pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' }
+        effectiveFrom: { type: string, format: date }
+        effectiveUntil: { type: string, format: date }
+        isActive: { type: boolean }
+    OwnProfessional:
+      type: object
+      required: [id, userId, displayName, email, bio, verificationStatus, specialties, modalities, licenses, availability]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: string, format: email }
+        photoUrl: { type: [string, 'null'], format: uri }
+        bio: { type: [string, 'null'] }
+        verificationStatus: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+        specialties:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/Specialty' }
+              - type: object
+                required: [isPrimary]
+                properties: { isPrimary: { type: boolean } }
+        modalities:
+          type: array
+          items:
+            type: object
+            required: [code, pricePerHour, isEnabled]
+            properties:
+              code: { $ref: '#/components/schemas/Modality' }
+              pricePerHour: { $ref: '#/components/schemas/Money' }
+              isEnabled: { type: boolean }
+        licenses:
+          type: array
+          items: { $ref: '#/components/schemas/ProfessionalLicense' }
+        availability:
+          type: object
+          required: [timezone, weeklyRules, exceptions]
+          properties:
+            timezone: { type: [string, 'null'] }
+            weeklyRules:
+              type: array
+              items: { $ref: '#/components/schemas/WeeklyAvailabilityRule' }
+            exceptions:
+              type: array
+              items:
+                type: object
+                required: [id, startsAt, endsAt, type, reason]
+                properties:
+                  id: { type: string, format: uuid }
+                  startsAt: { type: string, format: date-time }
+                  endsAt: { type: string, format: date-time }
+                  type: { type: string, enum: [AVAILABLE, UNAVAILABLE] }
+                  reason: { type: [string, 'null'] }
+    OwnProfessionalResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/OwnProfessional' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ModalityConfigurationRequest:
+      type: object
+      additionalProperties: false
+      required: [pricePerHour, isEnabled]
+      properties:
+        pricePerHour: { $ref: '#/components/schemas/Money' }
+        isEnabled: { type: boolean }
+    WeeklyAvailabilityRequest:
+      type: object
+      additionalProperties: false
+      required: [timezone, rules]
+      properties:
+        timezone: { type: string, maxLength: 80 }
+        rules:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/WeeklyAvailabilityRule' }
+    AvailabilityExceptionRequest:
+      type: object
+      additionalProperties: false
+      required: [startsAt, endsAt, type]
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        type: { type: string, enum: [AVAILABLE, UNAVAILABLE] }
+        reason: { type: string, maxLength: 240 }
+    VerificationSubmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [licenseId, evidenceObjectKey]
+      properties:
+        licenseId: { type: string, format: uuid }
+        evidenceObjectKey:
+          type: string
+          minLength: 8
+          maxLength: 512
+          description: Clave opaca de almacenamiento privado; nunca una URL pública.
+    VerificationDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [APPROVED, REJECTED] }
+        publicReason: { type: string, minLength: 10, maxLength: 500 }
+        internalReason: { type: string, maxLength: 1000 }
+    VerificationQueueResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [submissionId, psychologistProfileId, psychologistName, license, evidenceObjectKey, submittedAt]
+            properties:
+              submissionId: { type: string, format: uuid }
+              psychologistProfileId: { type: string, format: uuid }
+              psychologistName: { type: string }
+              license:
+                type: object
+                required: [id, authority, number]
+                properties:
+                  id: { type: string, format: uuid }
+                  authority: { type: string }
+                  number: { type: string }
+              evidenceObjectKey: { type: string }
+              submittedAt: { type: string, format: date-time }
+        meta:
+          allOf:
+            - { $ref: '#/components/schemas/ResponseMeta' }
+            - type: object
+              required: [nextCursor]
+              properties:
+                nextCursor: { type: [string, 'null'] }
     HealthResponse:
       type: object
       required: [status]
@@ -365,6 +917,18 @@ components:
   responses:
     Unauthorized:
       description: La sesión no es válida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: La identidad no posee la capacidad requerida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: El recurso no existe o no puede revelarse al actor.
       content:
         application/problem+json:
           schema:

@@ -22,13 +22,19 @@ import {
   ConsultationScreen,
   RouteTrackingScreen,
 } from '../screens/shared/ConsultationAndRoute';
+import type {
+  AppStackParamList,
+  PatientTabParamList,
+  PsychologistTabParamList,
+} from './navigationTypes';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<AppStackParamList>();
+const PatientTab = createBottomTabNavigator<PatientTabParamList>();
+const PsychologistTab = createBottomTabNavigator<PsychologistTabParamList>();
 
 function PatientTabs() {
   return (
-    <Tab.Navigator
+    <PatientTab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -47,7 +53,7 @@ function PatientTabs() {
         },
       }}
     >
-      <Tab.Screen
+      <PatientTab.Screen
         name="Home"
         component={HomeScreen}
         options={{
@@ -57,7 +63,7 @@ function PatientTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PatientTab.Screen
         name="Menta"
         component={MentaScreen}
         options={{
@@ -67,7 +73,7 @@ function PatientTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PatientTab.Screen
         name="Messages"
         component={InboxScreen}
         options={{
@@ -77,7 +83,7 @@ function PatientTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PatientTab.Screen
         name="History"
         component={HistoryScreen}
         options={{
@@ -87,7 +93,7 @@ function PatientTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PatientTab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
@@ -97,13 +103,13 @@ function PatientTabs() {
           ),
         }}
       />
-    </Tab.Navigator>
+    </PatientTab.Navigator>
   );
 }
 
 function PsychologistTabs() {
   return (
-    <Tab.Navigator
+    <PsychologistTab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -119,7 +125,7 @@ function PsychologistTabs() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
-      <Tab.Screen
+      <PsychologistTab.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
@@ -129,7 +135,7 @@ function PsychologistTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PsychologistTab.Screen
         name="Menta"
         component={MentaScreen}
         options={{
@@ -139,7 +145,7 @@ function PsychologistTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PsychologistTab.Screen
         name="Messages"
         component={InboxScreen}
         options={{
@@ -149,7 +155,7 @@ function PsychologistTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PsychologistTab.Screen
         name="History"
         component={HistoryScreen}
         options={{
@@ -159,7 +165,7 @@ function PsychologistTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      <PsychologistTab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
@@ -169,7 +175,7 @@ function PsychologistTabs() {
           ),
         }}
       />
-    </Tab.Navigator>
+    </PsychologistTab.Navigator>
   );
 }
 

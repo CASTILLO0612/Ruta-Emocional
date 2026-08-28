@@ -53,6 +53,20 @@ Un rol por sí solo nunca concede acceso global a objetos. Cada caso de uso eval
 
 Un perfil pendiente no obtiene capacidades de marketplace aunque posea el rol `psychologist`.
 
+### Contrato HTTP implementado para verificación
+
+- `psychologist_onboarding:update:self` permite leer y completar únicamente el
+  expediente propio, sus especialidades, modalidades, disponibilidad y entregas
+  de evidencia.
+- `psychologist_verification:manage` permite administrar catálogos, consultar la
+  cola pendiente y decidir una entrega.
+- La respuesta pública nunca incluye correo, teléfono, número de licencia,
+  referencia de evidencia ni coordenadas exactas.
+- El repositorio vuelve a comprobar propiedad y estado dentro de la transacción;
+  no confía solamente en el middleware HTTP.
+- Cada decisión genera auditoría y un evento outbox, pero no concede acceso
+  clínico al administrador.
+
 ## 5. Solicitudes y ofertas
 
 | Operación | Paciente dueño | Otro paciente | Psic. elegible | Psic. no elegible | Admin | Sistema |

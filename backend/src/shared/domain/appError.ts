@@ -28,6 +28,10 @@ export class AppError extends Error {
     return new AppError(403, code, 'Acceso denegado', 'No tienes permiso para realizar esta operación.');
   }
 
+  static notFound(code = 'NOT_FOUND', message = 'El recurso solicitado no existe.'): AppError {
+    return new AppError(404, code, 'Recurso no encontrado', message);
+  }
+
   static conflict(code: string, message: string): AppError {
     return new AppError(409, code, 'La operación entra en conflicto con el estado actual', message);
   }

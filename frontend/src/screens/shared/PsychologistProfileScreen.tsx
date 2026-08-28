@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -16,29 +17,69 @@ import { Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { StarRating } from '../../components/common/StarRating';
 import { AppButton } from '../../components/common/AppButton';
-import { Psychologist } from '../../models/Psychologist';
+import { Modality, Psychologist } from '../../models/Psychologist';
+import { getPsychologistById } from '../../repositories/PsychologistRepository';
+import type {
+  AppNavigation,
+  PsychologistProfileRoute,
+} from '../../navigation/navigationTypes';
 
-const MODALITY_LABELS: Record<string, { icon: string; label: string }> = {
+type MaterialIconName = React.ComponentProps<typeof MaterialIcons>['name'];
+
+const MODALITY_LABELS: Record<Modality, { icon: MaterialIconName; label: string }> = {
   chat: { icon: 'chat-bubble-outline', label: 'Chat de texto' },
   call: { icon: 'phone-in-talk', label: 'Llamada de audio' },
   'in-person': { icon: 'location-on', label: 'Presencial' },
 };
 
 export const PsychologistProfileScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<AppNavigation>();
+  const route = useRoute<PsychologistProfileRoute>();
 
-  const psychologist: Psychologist = route.params?.psychologist;
+  const psychologistId: string | undefined = route.params?.psychologistId;
   const offerAmount: number | undefined = route.params?.offerAmount;
   const onAccept: (() => void) | undefined = route.params?.onAccept;
+  const [psychologist, setPsychologist] = useState<Psychologist | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadProfile = () => {
+    if (!psychologistId) {
+      setLoadError('El perfil solicitado no es válido.');
+      setIsLoading(false);
+      return () => undefined;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    setLoadError(null);
+    void getPsychologistById(psychologistId, controller.signal)
+      .then(setPsychologist)
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setLoadError(error instanceof Error ? error.message : 'No pudimos cargar el perfil.');
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
+  };
+
+  useEffect(loadProfile, [psychologistId]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.errorState}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.errorText}>Cargando perfil verificado...</Text>
+      </View>
+    );
+  }
 
   if (!psychologist) {
     return (
       <View style={styles.errorState}>
         <MaterialIcons name="error-outline" size={48} color={Colors.textDisabled} />
-        <Text style={styles.errorText}>Perfil no disponible</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>Volver</Text>
+        <Text style={styles.errorText}>{loadError ?? 'Perfil no disponible'}</Text>
+        <TouchableOpacity onPress={loadProfile} style={styles.backLink}>
+          <Text style={styles.backLinkText}>Reintentar</Text>
         </TouchableOpacity>
       </View>
     );
@@ -71,9 +112,7 @@ export const PsychologistProfileScreen: React.FC = () => {
           <View style={styles.heroTextBlock}>
             <View style={styles.verifiedRow}>
               <Text style={styles.heroName}>{psychologist.displayName}</Text>
-              {psychologist.isVerified && (
-                <MaterialIcons name="verified" size={18} color={Colors.accent} />
-              )}
+              <MaterialIcons name="verified" size={18} color={Colors.accent} />
             </View>
             <Text style={styles.heroSpecialty}>{psychologist.specialty}</Text>
             <StarRating rating={psychologist.rating} size={14} showValue />
@@ -98,13 +137,15 @@ export const PsychologistProfileScreen: React.FC = () => {
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>C${psychologist.pricePerHour}</Text>
-            <Text style={styles.statLabel}>por hora</Text>
+            <Text style={styles.statValue}>
+              {psychologist.currencyCode} {psychologist.pricePerHour}
+            </Text>
+            <Text style={styles.statLabel}>desde / hora</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{psychologist.totalReviews}</Text>
-            <Text style={styles.statLabel}>sesiones</Text>
+            <Text style={styles.statLabel}>reseñas</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
@@ -118,9 +159,9 @@ export const PsychologistProfileScreen: React.FC = () => {
             <MaterialIcons name="badge" size={18} color={Colors.primary} />
             <Text style={styles.sectionTitle}>Credencial</Text>
           </View>
-          <Text style={styles.licenseText}>{psychologist.licenseNumber}</Text>
+          <Text style={styles.licenseText}>Licencia profesional verificada</Text>
           <Text style={styles.licenseNote}>
-            Verificado por el Ministerio de Salud de Nicaragua
+            Autoridad emisora: {psychologist.credentialAuthority}
           </Text>
         </View>
 
@@ -142,9 +183,10 @@ export const PsychologistProfileScreen: React.FC = () => {
           <View style={styles.modalityList}>
             {psychologist.modalities.map((m) => {
               const meta = MODALITY_LABELS[m];
+              if (!meta) return null;
               return (
                 <View key={m} style={styles.modalityChip}>
-                  <MaterialIcons name={meta.icon as any} size={16} color={Colors.primary} />
+                  <MaterialIcons name={meta.icon} size={16} color={Colors.primary} />
                   <Text style={styles.modalityLabel}>{meta.label}</Text>
                 </View>
               );

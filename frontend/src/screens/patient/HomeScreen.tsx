@@ -13,6 +13,7 @@ import {
   StatusBar,
   FlatList,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -24,11 +25,12 @@ import { AppButton } from '../../components/common/AppButton';
 import { ModalitySelector } from '../../components/patient/ModalitySelector';
 import { BudgetInput } from '../../components/patient/BudgetInput';
 import { StarRating } from '../../components/common/StarRating';
-import { Modality, Psychologist } from '../../models/Psychologist';
+import { Modality } from '../../models/Psychologist';
 import { useRequestStore } from '../../store/useRequestStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { getAvailablePsychologists } from '../../repositories/PsychologistRepository';
+import { usePsychologistStore } from '../../store/usePsychologistStore';
 import { showAlert } from '../../utils/alert';
+import type { PatientHomeNavigation } from '../../navigation/navigationTypes';
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -38,15 +40,20 @@ function getGreeting(): string {
 }
 
 export const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<PatientHomeNavigation>();
   const { userProfile } = useAuthStore();
   const { createSessionRequest, isLoading, error, clearError } = useRequestStore();
+  const {
+    psychologists,
+    isLoading: isDirectoryLoading,
+    error: directoryError,
+    fetchAvailablePsychologists,
+  } = usePsychologistStore();
 
   const [modality, setModality] = useState<Modality>('chat');
   const [budget, setBudget] = useState<number>(350);
   const [description, setDescription] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
 
   const [isScheduleLater, setIsScheduleLater] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
@@ -100,27 +107,13 @@ export const HomeScreen: React.FC = () => {
       useNativeDriver: Platform.OS !== 'web',
     }).start();
 
-    let isMounted = true;
-
-    const loadPsychologists = async () => {
-      try {
-        const data = await getAvailablePsychologists();
-        if (isMounted) {
-          setPsychologists(data);
-        }
-      } catch (err) {
-        console.warn('[HomeScreen] Error cargando psicólogos:', err);
-      }
-    };
-
-    loadPsychologists();
-    const intervalId = setInterval(loadPsychologists, 3000);
+    const controller = new AbortController();
+    void fetchAvailablePsychologists(controller.signal);
 
     return () => {
-      isMounted = false;
-      clearInterval(intervalId);
+      controller.abort();
     };
-  }, []);
+  }, [fetchAvailablePsychologists]);
 
   useEffect(() => {
     if (error) {
@@ -208,7 +201,7 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Solicitar Terapia</Text>
               <Text style={styles.actionDesc}>
-                Propón tu presupuesto y recibe ofertas en minutos
+                Propón tu presupuesto y consulta las ofertas disponibles
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={22} color="rgba(255,255,255,0.5)" />
@@ -240,8 +233,8 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Psicólogos disponibles</Text>
           <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>En línea</Text>
+            <MaterialIcons name="verified" size={13} color={Colors.accentDark} />
+            <Text style={styles.liveText}>Verificados</Text>
           </View>
         </View>
 
@@ -255,10 +248,7 @@ export const HomeScreen: React.FC = () => {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.psychCard}
-                onPress={() => {
-                  const { createdAt, ...serializablePsy } = item as any;
-                  navigation.navigate('PsychologistProfile', { psychologist: serializablePsy });
-                }}
+                onPress={() => navigation.navigate('PsychologistProfile', { psychologistId: item.id })}
                 activeOpacity={0.85}
               >
                 <View style={styles.psychAvatarWrapper}>
@@ -269,7 +259,6 @@ export const HomeScreen: React.FC = () => {
                       <MaterialIcons name="person" size={24} color={Colors.primary} />
                     </View>
                   )}
-                  <View style={styles.onlineBadge} />
                 </View>
                 <Text style={styles.psychName} numberOfLines={2}>
                   {item.displayName}
@@ -278,25 +267,47 @@ export const HomeScreen: React.FC = () => {
                   {item.specialty}
                 </Text>
                 <StarRating rating={item.rating} size={11} showValue />
-                <Text style={styles.psychPrice}>C${item.pricePerHour}/hr</Text>
+                <Text style={styles.psychPrice}>
+                  {item.currencyCode} {item.pricePerHour}/hr
+                </Text>
               </TouchableOpacity>
             )}
           />
         ) : (
-          <View style={styles.emptyPsych}>
-            <MaterialIcons name="search" size={32} color={Colors.textDisabled} />
-            <Text style={styles.emptyText}>Cargando psicólogos...</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.emptyPsych}
+            onPress={() => void fetchAvailablePsychologists()}
+            disabled={isDirectoryLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Volver a cargar el directorio"
+          >
+            {isDirectoryLoading ? (
+              <ActivityIndicator color={Colors.primary} />
+            ) : (
+              <MaterialIcons
+                name={directoryError ? 'refresh' : 'search'}
+                size={32}
+                color={Colors.textDisabled}
+              />
+            )}
+            <Text style={styles.emptyText}>
+              {isDirectoryLoading
+                ? 'Cargando profesionales verificados...'
+                : directoryError
+                  ? 'No pudimos cargar el directorio. Toca para reintentar.'
+                  : 'Aún no hay profesionales disponibles con estos criterios.'}
+            </Text>
+          </TouchableOpacity>
         )}
 
         <View style={styles.infoRow}>
           <View style={styles.infoChip}>
             <MaterialIcons name="lock" size={14} color={Colors.primary} />
-            <Text style={styles.infoChipText}>100% confidencial</Text>
+            <Text style={styles.infoChipText}>Directorio protegido</Text>
           </View>
           <View style={styles.infoChip}>
-            <MaterialIcons name="flash-on" size={14} color={Colors.primary} />
-            <Text style={styles.infoChipText}>Respuesta en minutos</Text>
+            <MaterialIcons name="privacy-tip" size={14} color={Colors.primary} />
+            <Text style={styles.infoChipText}>Sin datos de contacto públicos</Text>
           </View>
         </View>
       </Animated.ScrollView>
@@ -464,7 +475,7 @@ export const HomeScreen: React.FC = () => {
 
               <Text style={styles.disclaimer}>
                 <MaterialIcons name="lock-outline" size={12} color={Colors.textTertiary} />
-                {'  '}Sesión cifrada y 100% confidencial
+                {'  '}Revisa los detalles antes de publicar tu solicitud
               </Text>
             </ScrollView>
           </SafeAreaView>

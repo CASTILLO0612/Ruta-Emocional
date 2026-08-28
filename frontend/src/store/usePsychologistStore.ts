@@ -8,7 +8,7 @@ interface PsychologistState {
   isLoading: boolean;
   error: string | null;
 
-  fetchAvailablePsychologists: () => Promise<void>;
+  fetchAvailablePsychologists: (signal?: AbortSignal) => Promise<void>;
   selectPsychologist: (p: Psychologist | null) => void;
   clearError: () => void;
 }
@@ -19,12 +19,13 @@ export const usePsychologistStore = create<PsychologistState>((set) => ({
   isLoading: false,
   error: null,
 
-  fetchAvailablePsychologists: async () => {
+  fetchAvailablePsychologists: async (signal) => {
     set({ isLoading: true, error: null });
     try {
-      const list = await getAvailablePsychologists();
+      const list = await getAvailablePsychologists({}, signal);
       set({ psychologists: list, isLoading: false });
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       set({ error: `${error}`, isLoading: false });
     }
   },

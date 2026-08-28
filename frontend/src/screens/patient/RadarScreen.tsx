@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,42 +7,34 @@ import {
   Animated,
   Easing,
   TouchableOpacity,
-  FlatList,
   StatusBar,
   Platform,
   Dimensions,
-  Image,
 } from 'react-native';
 import MapView, {
   PROVIDER_GOOGLE,
   PROVIDER_DEFAULT,
-  Marker,
 } from '../../components/common/CustomMapView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetView, BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { OfferCard } from '../../components/patient/OfferCard';
 import { Offer } from '../../models/Offer';
-import { Psychologist } from '../../models/Psychologist';
 import { useRequestStore } from '../../store/useRequestStore';
-import { getAvailablePsychologists } from '../../repositories/PsychologistRepository';
+import { getNearbyPsychologists } from '../../repositories/PsychologistRepository';
+import { getDirectoryMapConfig } from '../../config/runtimeConfig';
 import { CustomAlert } from '../../components/common/CustomAlert';
 import * as Location from 'expo-location';
+import type { AppNavigation } from '../../navigation/navigationTypes';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const DEFAULT_REGION = {
-  latitude: 12.1328,
-  longitude: -86.2904,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
-};
 
 export const RadarScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigation>();
   const {
     activeRequest,
     activeRequestId,
@@ -50,11 +42,9 @@ export const RadarScreen: React.FC = () => {
     startListeningToOffers,
     acceptIncomingOffer,
     cancelSearch,
-    submitCounterOffer,
-    isLoading,
   } = useRequestStore();
 
-  const [nearbyPsychologists, setNearbyPsychologists] = useState<Psychologist[]>([]);
+  const [nearbyPsychologistCount, setNearbyPsychologistCount] = useState(0);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
@@ -75,7 +65,6 @@ export const RadarScreen: React.FC = () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.warn('[Radar] Permiso de ubicación denegado, usando coordenadas por defecto');
           setLocationPermissionDenied(true);
           return;
         }
@@ -88,17 +77,31 @@ export const RadarScreen: React.FC = () => {
           longitude: location.coords.longitude,
         });
       } catch (err) {
-        console.warn('[Radar] Error obteniendo ubicación GPS:', err);
         setLocationPermissionDenied(true);
       }
     };
 
     requestLocation();
 
-    getAvailablePsychologists()
-      .then(setNearbyPsychologists)
-      .catch((err) => console.warn('[Radar] Error loading psychologists:', err));
   }, []);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    const controller = new AbortController();
+    const { radiusKm } = getDirectoryMapConfig();
+    void getNearbyPsychologists(
+      userLocation.latitude,
+      userLocation.longitude,
+      radiusKm,
+      controller.signal
+    )
+      .then((profiles) => setNearbyPsychologistCount(profiles.length))
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setNearbyPsychologistCount(0);
+      });
+    return () => controller.abort();
+  }, [userLocation]);
 
   useEffect(() => {
     const currentId = activeRequestId || activeRequest?.id;
@@ -173,7 +176,7 @@ export const RadarScreen: React.FC = () => {
     bottomSheetRef.current?.dismiss();
     
     const selectedModality = activeRequest?.modality ?? 'chat';
-    const targetRequestId = activeRequest?.id || activeRequestId || (selectedOffer as any).requestId;
+    const targetRequestId = activeRequest?.id || activeRequestId || selectedOffer.requestId;
     if (selectedModality === 'in-person') {
       navigation.replace('Route', {
         requestId: targetRequestId,
@@ -196,13 +199,6 @@ export const RadarScreen: React.FC = () => {
     setCancelAlertVisible(false);
     cancelSearch();
     navigation.goBack();
-  };
-
-  const handlePinPress = (psy: Psychologist) => {
-    const { createdAt, ...serializablePsy } = psy as any;
-    navigation.navigate('PsychologistProfile', {
-      psychologist: serializablePsy,
-    });
   };
 
   const spin = rotateAnim.interpolate({
@@ -228,45 +224,24 @@ export const RadarScreen: React.FC = () => {
       <View style={styles.root}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-        <MapView
-          style={StyleSheet.absoluteFill}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-          initialRegion={{
-            latitude: userLocation?.latitude ?? DEFAULT_REGION.latitude,
-            longitude: userLocation?.longitude ?? DEFAULT_REGION.longitude,
-            latitudeDelta: DEFAULT_REGION.latitudeDelta,
-            longitudeDelta: DEFAULT_REGION.longitudeDelta,
-          }}
-          showsUserLocation
-          scrollEnabled={false}
-          zoomEnabled={false}
-          mapType="standard"
-        >
-          {nearbyPsychologists.map((psy) =>
-            psy.coordinates ? (
-              <Marker
-                key={psy.id}
-                coordinate={psy.coordinates}
-                title={psy.displayName}
-                onPress={() => handlePinPress(psy)}
-              >
-                <View style={styles.life360Marker}>
-                  <View style={styles.life360AvatarBorder}>
-                    {psy.photoURL ? (
-                      <Image source={{ uri: psy.photoURL }} style={styles.life360Avatar} />
-                    ) : (
-                      <View style={styles.life360Placeholder}>
-                        <MaterialIcons name="person" size={20} color={Colors.textInverse} />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.life360ActiveBadge} />
-                  <View style={styles.life360PinTip} />
-                </View>
-              </Marker>
-            ) : null
-          )}
-        </MapView>
+        {userLocation ? (
+          <MapView
+            style={StyleSheet.absoluteFill}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+            initialRegion={{
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude,
+              latitudeDelta: getDirectoryMapConfig().latitudeDelta,
+              longitudeDelta: getDirectoryMapConfig().longitudeDelta,
+            }}
+            showsUserLocation
+            scrollEnabled={false}
+            zoomEnabled={false}
+            mapType="standard"
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.mapUnavailable]} />
+        )}
 
         <View style={styles.darkOverlay} />
 
@@ -324,13 +299,19 @@ export const RadarScreen: React.FC = () => {
               </Text>
             </View>
 
-            {nearbyPsychologists.length > 0 && incomingOffers.length === 0 && (
+            {nearbyPsychologistCount > 0 && incomingOffers.length === 0 && (
               <View style={styles.nearbyRow}>
                 <MaterialIcons name="location-on" size={14} color={Colors.accent} />
                 <Text style={styles.nearbyText}>
-                  {nearbyPsychologists.length} psicólogos disponibles cerca de ti
+                  {nearbyPsychologistCount} profesionales verificados dentro del radio de búsqueda
                 </Text>
               </View>
+            )}
+
+            {locationPermissionDenied && (
+              <Text style={styles.waitingText}>
+                La búsqueda por cercanía requiere permiso de ubicación. Las ofertas siguen funcionando.
+              </Text>
             )}
 
             {incomingOffers.length === 0 ? (
@@ -417,6 +398,9 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(10,36,99,0.06)',
     pointerEvents: 'none',
+  },
+  mapUnavailable: {
+    backgroundColor: Colors.background,
   },
   safe: {
     flex: 1,
@@ -599,59 +583,4 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  life360Marker: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 58,
-    height: 58,
-  },
-  life360AvatarBorder: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: Colors.surface,
-    borderWidth: 3,
-    borderColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadow.md,
-  },
-  life360Avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  life360Placeholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  life360ActiveBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 6,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.accent,
-    borderWidth: 1.5,
-    borderColor: Colors.surface,
-  },
-  life360PinTip: {
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: Colors.accent,
-    alignSelf: 'center',
-    marginTop: -2,
-  },
 });

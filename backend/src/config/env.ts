@@ -28,6 +28,15 @@ export interface AppConfig {
     readonly enabled: boolean;
     readonly uri?: string;
   };
+  readonly professionalDirectory: {
+    readonly defaultPageSize: number;
+    readonly maxPageSize: number;
+    readonly maxRadiusKm: number;
+    readonly maxAvailabilityWindowDays: number;
+    readonly maxWeeklyRules: number;
+    readonly publicRequestsPerMinute: number;
+    readonly supportedCurrencies: readonly string[];
+  };
 }
 
 export class ConfigurationError extends Error {
@@ -114,6 +123,17 @@ function readOrigins(source: NodeJS.ProcessEnv, environment: RuntimeEnvironment)
   return Object.freeze([...new Set(origins)]);
 }
 
+function readCurrencies(source: NodeJS.ProcessEnv): readonly string[] {
+  const values = (source.SUPPORTED_CURRENCIES ?? '')
+    .split(',')
+    .map((value) => value.trim().toUpperCase())
+    .filter(Boolean);
+  if (values.length === 0 || values.some((value) => !/^[A-Z]{3}$/.test(value))) {
+    throw new ConfigurationError('SUPPORTED_CURRENCIES must contain ISO 4217 three-letter codes');
+  }
+  return Object.freeze([...new Set(values)]);
+}
+
 function assertSecret(name: string, value: string): string {
   if (value.length < 32) {
     throw new ConfigurationError(`${name} must contain at least 32 characters of high-entropy data`);
@@ -164,6 +184,27 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     legacyMongo: {
       enabled: legacyEnabled,
       ...(legacyUri ? { uri: legacyUri } : {}),
+    },
+    professionalDirectory: {
+      defaultPageSize: readInteger(source, 'DIRECTORY_DEFAULT_PAGE_SIZE', 20, 1, 100),
+      maxPageSize: readInteger(source, 'DIRECTORY_MAX_PAGE_SIZE', 50, 1, 100),
+      maxRadiusKm: readInteger(source, 'DIRECTORY_MAX_RADIUS_KM', 100, 1, 500),
+      maxAvailabilityWindowDays: readInteger(
+        source,
+        'DIRECTORY_MAX_AVAILABILITY_WINDOW_DAYS',
+        31,
+        1,
+        90
+      ),
+      maxWeeklyRules: readInteger(source, 'DIRECTORY_MAX_WEEKLY_RULES', 50, 1, 100),
+      publicRequestsPerMinute: readInteger(
+        source,
+        'DIRECTORY_PUBLIC_REQUESTS_PER_MINUTE',
+        120,
+        10,
+        1000
+      ),
+      supportedCurrencies: readCurrencies(source),
     },
   };
 

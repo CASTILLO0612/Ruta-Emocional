@@ -76,6 +76,9 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 
 ### Fase 3 — Directorio y verificación
 
+**Estado:** completada el 27 de agosto de 2026. Evidencia técnica y decisiones en
+[`phase-3-professional-directory.md`](phase-3-professional-directory.md).
+
 **Trabajo**
 
 - catálogos de especialidades/modalidades;
@@ -91,6 +94,17 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 - solo perfiles verificados aparecen;
 - datos públicos se derivan de fuente normalizada;
 - consultas paginadas e indexadas.
+
+**Resultado verificado**
+
+- catálogo activo administrable y consumido por el cliente;
+- expediente propio, evidencia histórica y decisión administrativa auditada;
+- filtros por especialidad, modalidad, precio, disponibilidad y PostGIS;
+- cursor opaco, límite configurable y rate limit público;
+- DTO público sin correo, teléfono, número de licencia, evidencia ni ubicación
+  exacta;
+- frontend sin seed/fallback del directorio ni sondeo periódico;
+- pruebas unitarias, integración HTTP real y typecheck del cliente en verde.
 
 ### Fase 4 — Solicitudes y ofertas
 
