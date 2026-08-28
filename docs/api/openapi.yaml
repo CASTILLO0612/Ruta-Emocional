@@ -384,6 +384,55 @@ paths:
               schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /psychologists/me/verification-evidence/policy:
+    get:
+      tags: [Professional verification]
+      operationId: getProfessionalEvidenceUploadPolicy
+      responses:
+        '200':
+          description: Modo de carga habilitado para la sesión profesional.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidenceUploadPolicyResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /psychologists/me/verification-evidence/local/{licenseId}:
+    put:
+      tags: [Professional verification]
+      operationId: uploadLocalQaProfessionalEvidence
+      description: >-
+        Ruta exclusiva de desarrollo para QA local. Se rechaza cuando ENABLE_LOCAL_QA
+        está desactivado y la configuración no puede habilitarse en producción.
+      x-local-qa-only: true
+      parameters:
+        - name: licenseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Evidence-File-Name
+          in: header
+          required: true
+          schema: { type: string, maxLength: 540 }
+          description: Nombre original codificado con encodeURIComponent.
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema: { type: string, format: binary }
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Archivo privado almacenado y solicitud de verificación creada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProfessionalResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: El archivo supera el límite configurado.
+        '422': { $ref: '#/components/responses/ValidationError' }
   /admin/catalogs/specialties:
     post:
       tags: [Catalogs]
@@ -1113,6 +1162,28 @@ components:
           minLength: 8
           maxLength: 512
           description: Clave opaca de almacenamiento privado; nunca una URL pública.
+    EvidenceUploadPolicyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [mode]
+              properties:
+                mode: { type: string, const: DISABLED }
+            - type: object
+              additionalProperties: false
+              required: [mode, maximumBytes, acceptedContentTypes]
+              properties:
+                mode: { type: string, const: LOCAL_QA }
+                maximumBytes: { type: integer, minimum: 1024, maximum: 10485760 }
+                acceptedContentTypes:
+                  type: array
+                  uniqueItems: true
+                  items: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
     VerificationDecisionRequest:
       type: object
       additionalProperties: false

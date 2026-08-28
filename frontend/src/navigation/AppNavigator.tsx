@@ -13,6 +13,7 @@ import { HomeScreen } from '../screens/patient/HomeScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
+import { VerificationQueueScreen } from '../screens/admin/VerificationQueueScreen';
 import { MentaScreen } from '../screens/shared/MentaScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { HistoryScreen } from '../screens/shared/HistoryScreen';
@@ -181,6 +182,9 @@ export const AppNavigator: React.FC = () => {
   const canUsePsychologistWorkspace = userProfile?.capabilities.includes(
     'service_request:read:eligible'
   ) ?? false;
+  const canManageProfessionalVerifications = userProfile?.capabilities.includes(
+    'psychologist_verification:manage'
+  ) ?? false;
 
   useEffect(() => {
     void initializeSession();
@@ -202,6 +206,8 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
           </>
+        ) : canManageProfessionalVerifications ? (
+          <Stack.Screen name="AdminVerification" component={VerificationQueueScreen} />
         ) : role === 'psychologist' && canUsePsychologistWorkspace ? (
           <>
             <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />

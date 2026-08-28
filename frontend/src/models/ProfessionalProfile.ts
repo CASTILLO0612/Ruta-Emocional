@@ -42,3 +42,11 @@ export interface ProfessionalCatalogs {
   readonly modalities: readonly DirectoryModality[];
   readonly currencies: readonly string[];
 }
+
+export type EvidenceUploadPolicy =
+  | { readonly mode: 'DISABLED' }
+  | {
+      readonly mode: 'LOCAL_QA';
+      readonly maximumBytes: number;
+      readonly acceptedContentTypes: readonly ('application/pdf' | 'image/jpeg' | 'image/png')[];
+    };

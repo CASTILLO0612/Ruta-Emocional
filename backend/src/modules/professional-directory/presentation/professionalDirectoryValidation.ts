@@ -2,6 +2,8 @@ import { AppConfig } from '../../../config/env';
 import { AppError, FieldError } from '../../../shared/domain/appError';
 import {
   DirectoryFilters,
+  LOCAL_QA_EVIDENCE_CONTENT_TYPES,
+  LocalQaEvidenceContentType,
   MODALITIES,
   ProfessionalModality,
   ProfessionalVerificationDecision,
@@ -17,6 +19,18 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const EVIDENCE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{7,511}$/;
 const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/;
+
+function hasPrefix(bytes: Buffer, prefix: readonly number[]): boolean {
+  return bytes.length >= prefix.length && prefix.every((value, index) => bytes[index] === value);
+}
+
+function evidenceSignatureMatches(bytes: Buffer, contentType: LocalQaEvidenceContentType): boolean {
+  if (contentType === 'application/pdf') return hasPrefix(bytes, [0x25, 0x50, 0x44, 0x46, 0x2D]);
+  if (contentType === 'image/png') {
+    return hasPrefix(bytes, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  }
+  return hasPrefix(bytes, [0xFF, 0xD8, 0xFF]);
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -445,6 +459,66 @@ export function parseEvidenceSubmission(body: unknown): { licenseId: string; evi
   }
   throwIfErrors(errors);
   return { licenseId, evidenceObjectKey };
+}
+
+export function parseLocalQaEvidenceUpload(input: {
+  readonly body: unknown;
+  readonly contentType: string | undefined;
+  readonly encodedFileName: string | undefined;
+  readonly maximumBytes: number;
+}): {
+  readonly bytes: Buffer;
+  readonly contentType: LocalQaEvidenceContentType;
+  readonly originalFileName: string;
+} {
+  const errors: FieldError[] = [];
+  const bytes = Buffer.isBuffer(input.body) ? input.body : Buffer.alloc(0);
+  const normalizedContentType = input.contentType?.split(';', 1)[0].trim().toLowerCase() ?? '';
+  const supportedContentType = LOCAL_QA_EVIDENCE_CONTENT_TYPES.includes(
+    normalizedContentType as LocalQaEvidenceContentType
+  ) ? normalizedContentType as LocalQaEvidenceContentType : undefined;
+
+  let originalFileName = '';
+  try {
+    originalFileName = input.encodedFileName ? decodeURIComponent(input.encodedFileName).trim() : '';
+  } catch {
+    errors.push({ field: 'fileName', code: 'INVALID_FILE_NAME', message: 'El nombre del archivo no es válido.' });
+  }
+  if (
+    originalFileName.length < 1
+    || originalFileName.length > 180
+    || CONTROL_CHARACTERS.test(originalFileName)
+    || /[\\/]/.test(originalFileName)
+  ) {
+    errors.push({
+      field: 'fileName',
+      code: 'INVALID_FILE_NAME',
+      message: 'El nombre debe contener entre 1 y 180 caracteres y no incluir rutas.',
+    });
+  }
+  if (!supportedContentType) {
+    errors.push({
+      field: 'contentType',
+      code: 'UNSUPPORTED_EVIDENCE_TYPE',
+      message: 'Adjunta un archivo PDF, JPEG o PNG.',
+    });
+  }
+  if (bytes.length < 1 || bytes.length > input.maximumBytes) {
+    errors.push({
+      field: 'file',
+      code: 'INVALID_EVIDENCE_SIZE',
+      message: `El archivo debe pesar entre 1 byte y ${input.maximumBytes} bytes.`,
+    });
+  }
+  if (supportedContentType && bytes.length > 0 && !evidenceSignatureMatches(bytes, supportedContentType)) {
+    errors.push({
+      field: 'file',
+      code: 'EVIDENCE_SIGNATURE_MISMATCH',
+      message: 'El contenido del archivo no coincide con el tipo declarado.',
+    });
+  }
+  throwIfErrors(errors);
+  return { bytes, contentType: supportedContentType!, originalFileName };
 }
 
 export function parseVerificationDecision(body: unknown): {

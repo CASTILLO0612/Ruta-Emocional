@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   CurrentUser,
+  getCurrentUser,
   RegisterUserInput,
   UserRole,
   registerUser as registerUserRequest,
@@ -29,6 +30,7 @@ interface AuthState {
   initializeSession: () => Promise<void>;
   authenticate: (email: string, password: string) => Promise<void>;
   registerAccount: (input: RegisterUserInput) => Promise<void>;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
   signOutAll: () => Promise<void>;
   setUserProfile: (profile: UserProfile) => void;
@@ -142,6 +144,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   registerAccount: async (input) => {
     const user = await registerUserRequest(input);
     const profile = await adoptAuthenticatedUser(user);
+    set({
+      userProfile: profile,
+      isAuthenticated: true,
+      role: profile.role,
+      initializationError: null,
+    });
+  },
+
+  refreshProfile: async () => {
+    const user = await getCurrentUser();
+    const profile = toUserProfile(user, get().userProfile);
     set({
       userProfile: profile,
       isAuthenticated: true,

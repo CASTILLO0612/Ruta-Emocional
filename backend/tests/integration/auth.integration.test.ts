@@ -47,6 +47,12 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       publicRequestsPerMinute: 120,
       supportedCurrencies: ['NIO'],
     },
+    localQa: {
+      enabled: false,
+      evidenceDirectory: null,
+      evidenceMaximumBytes: 5_242_880,
+      evidenceUploadsPerMinute: 5,
+    },
     requestFlow: {
       minimumAmount: '100.00',
       maximumAmount: '10000.00',

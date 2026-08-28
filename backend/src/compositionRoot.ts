@@ -8,6 +8,7 @@ import { ScryptPasswordHasher } from './modules/identity/infrastructure/security
 import { SystemClock } from './shared/application/clock';
 import { ProfessionalDirectoryService } from './modules/professional-directory/application/professionalDirectoryService';
 import { PrismaProfessionalDirectoryRepository } from './modules/professional-directory/infrastructure/persistence/prismaProfessionalDirectoryRepository';
+import { LocalPrivateEvidenceStorage } from './modules/professional-directory/infrastructure/storage/localPrivateEvidenceStorage';
 import { ServiceRequestService } from './modules/service-request/application/serviceRequestService';
 import { PrismaServiceRequestRepository } from './modules/service-request/infrastructure/persistence/prismaServiceRequestRepository';
 import { MessagingService } from './modules/messaging/application/messagingService';
@@ -35,6 +36,9 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
     audience: config.jwt.audience,
     expiresInSeconds: config.jwt.accessTtlSeconds,
   });
+  const evidenceStorage = config.localQa.enabled && config.localQa.evidenceDirectory
+    ? new LocalPrivateEvidenceStorage(config.localQa.evidenceDirectory)
+    : undefined;
 
   return {
     identity: new IdentityService(
@@ -46,7 +50,9 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       config.jwt.refreshTtlDays
     ),
     professionalDirectory: new ProfessionalDirectoryService(
-      new PrismaProfessionalDirectoryRepository(prisma)
+      new PrismaProfessionalDirectoryRepository(prisma),
+      config.localQa,
+      evidenceStorage
     ),
     serviceRequests: new ServiceRequestService(
       new PrismaServiceRequestRepository(prisma, {

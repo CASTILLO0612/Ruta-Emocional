@@ -37,6 +37,12 @@ export interface AppConfig {
     readonly publicRequestsPerMinute: number;
     readonly supportedCurrencies: readonly string[];
   };
+  readonly localQa: {
+    readonly enabled: boolean;
+    readonly evidenceDirectory: string | null;
+    readonly evidenceMaximumBytes: number;
+    readonly evidenceUploadsPerMinute: number;
+  };
   readonly requestFlow: {
     readonly minimumAmount: string;
     readonly maximumAmount: string;
@@ -208,13 +214,21 @@ export function requireJwtAccessSecret(source: NodeJS.ProcessEnv = process.env):
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const environment = readEnvironment(source);
   const legacyEnabled = readBoolean(source, 'ENABLE_LEGACY_MONGO_ROUTES', false);
+  const localQaEnabled = readBoolean(source, 'ENABLE_LOCAL_QA', false);
   const legacyUri = source.MONGO_MIGRATION_URI?.trim() || source.MONGO_URI?.trim();
+  const localQaEvidenceDirectory = source.LOCAL_QA_EVIDENCE_DIRECTORY?.trim() || null;
 
   if (legacyEnabled && environment === 'production') {
     throw new ConfigurationError('Legacy MongoDB routes cannot be enabled in production');
   }
   if (legacyEnabled && !legacyUri) {
     throw new ConfigurationError('MONGO_MIGRATION_URI is required when legacy MongoDB routes are enabled');
+  }
+  if (localQaEnabled && environment !== 'development') {
+    throw new ConfigurationError('ENABLE_LOCAL_QA can only be enabled in development');
+  }
+  if (localQaEnabled && !localQaEvidenceDirectory) {
+    throw new ConfigurationError('LOCAL_QA_EVIDENCE_DIRECTORY is required when ENABLE_LOCAL_QA is enabled');
   }
 
   const supportedCurrencies = readCurrencies(source);
@@ -271,6 +285,26 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         1000
       ),
       supportedCurrencies,
+    },
+    localQa: {
+      enabled: localQaEnabled,
+      evidenceDirectory: localQaEvidenceDirectory
+        ? path.resolve(localQaEvidenceDirectory)
+        : null,
+      evidenceMaximumBytes: readInteger(
+        source,
+        'LOCAL_QA_EVIDENCE_MAXIMUM_BYTES',
+        5_242_880,
+        1_024,
+        10_485_760
+      ),
+      evidenceUploadsPerMinute: readInteger(
+        source,
+        'LOCAL_QA_EVIDENCE_UPLOADS_PER_MINUTE',
+        5,
+        1,
+        30
+      ),
     },
     requestFlow: {
       minimumAmount: minimumRequestAmount,

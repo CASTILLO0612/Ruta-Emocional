@@ -122,6 +122,25 @@ test('socket subscriptions require an authenticated conversation participant', a
     });
     assert.equal((await received).message.id, messageId);
 
+    const verificationReceived = new Promise<{ readonly status: string }>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Verification event timeout')), 2000);
+      participant.once('psychologist.verification.updated', (event) => {
+        clearTimeout(timeout);
+        resolve(event);
+      });
+    });
+    let outsiderReceivedVerification = false;
+    outsider.once('psychologist.verification.updated', () => {
+      outsiderReceivedVerification = true;
+    });
+    await publisher.publishPsychologistVerificationUpdated({
+      userId: participantId,
+      status: 'VERIFIED',
+    });
+    assert.deepEqual(await verificationReceived, { status: 'VERIFIED' });
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    assert.equal(outsiderReceivedVerification, false);
+
     participantAuthorized = false;
     await new Promise<void>((resolve) => setTimeout(resolve, 80));
     let deliveredAfterRevocation = false;

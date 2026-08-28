@@ -71,13 +71,21 @@ export function createApp(dependencies: AppDependencies): Express {
           EXISTS (
             SELECT 1
               FROM "outbox_events"
-             WHERE "event_type" = 'message.created'
+             WHERE "event_type" IN (
+               'message.created',
+               'psychologist.verification_approved',
+               'psychologist.verification_rejected'
+             )
                AND "dead_lettered_at" IS NOT NULL
           ) AS "deadLettered",
           EXISTS (
             SELECT 1
               FROM "outbox_events"
-             WHERE "event_type" = 'message.created'
+             WHERE "event_type" IN (
+               'message.created',
+               'psychologist.verification_approved',
+               'psychologist.verification_rejected'
+             )
                AND "published_at" IS NULL
                AND "dead_lettered_at" IS NULL
                AND "occurred_at" < ${lagCutoff}
@@ -111,7 +119,8 @@ export function createApp(dependencies: AppDependencies): Express {
     createProfessionalDirectoryRouter(
       services.identity,
       services.professionalDirectory,
-      config.professionalDirectory
+      config.professionalDirectory,
+      config.localQa
     )
   );
   app.use(

@@ -4,6 +4,21 @@ export type ProfessionalModality = typeof MODALITIES[number];
 export const VERIFICATION_DECISIONS = ['APPROVED', 'REJECTED'] as const;
 export type ProfessionalVerificationDecision = typeof VERIFICATION_DECISIONS[number];
 
+export const LOCAL_QA_EVIDENCE_CONTENT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+] as const;
+export type LocalQaEvidenceContentType = typeof LOCAL_QA_EVIDENCE_CONTENT_TYPES[number];
+
+export type EvidenceUploadPolicy =
+  | { readonly mode: 'DISABLED' }
+  | {
+      readonly mode: 'LOCAL_QA';
+      readonly maximumBytes: number;
+      readonly acceptedContentTypes: readonly LocalQaEvidenceContentType[];
+    };
+
 export interface MoneyView {
   readonly amount: string;
   readonly currency: string;

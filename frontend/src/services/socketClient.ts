@@ -9,6 +9,11 @@ interface MessageCreatedEvent {
 
 interface ServerEvents {
   'message.created': (event: MessageCreatedEvent) => void;
+  'psychologist.verification.updated': (event: PsychologistVerificationUpdatedEvent) => void;
+}
+
+export interface PsychologistVerificationUpdatedEvent {
+  readonly status: 'VERIFIED' | 'REJECTED';
 }
 
 interface SubscriptionAck {
@@ -133,6 +138,14 @@ export function subscribeToConversation(options: {
       subscriptionCounts.set(options.conversationId, remainingSubscriptions);
     }
   };
+}
+
+export function subscribeToPsychologistVerificationUpdates(
+  onUpdate: (event: PsychologistVerificationUpdatedEvent) => void
+): () => void {
+  const socket = getSocket();
+  socket.on('psychologist.verification.updated', onUpdate);
+  return () => socket.off('psychologist.verification.updated', onUpdate);
 }
 
 export function disconnectSocket(): void {

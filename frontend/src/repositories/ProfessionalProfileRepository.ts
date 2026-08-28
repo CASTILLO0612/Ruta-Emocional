@@ -1,11 +1,12 @@
 import { DirectoryModality } from '../models/Psychologist';
 import {
+  EvidenceUploadPolicy,
   ProfessionalCatalogs,
   ProfessionalProfile,
   SpecialtyCatalogItem,
   WeeklyAvailabilityRule,
 } from '../models/ProfessionalProfile';
-import { apiV1Request } from '../services/apiClient';
+import { apiV1BinaryRequest, apiV1Request } from '../services/apiClient';
 
 interface Envelope<T> {
   readonly data: T;
@@ -35,6 +36,31 @@ export async function getOwnProfessionalProfile(signal?: AbortSignal): Promise<P
     'GET',
     undefined,
     { signal }
+  );
+  return response.data;
+}
+
+export async function getEvidenceUploadPolicy(signal?: AbortSignal): Promise<EvidenceUploadPolicy> {
+  const response = await apiV1Request<Envelope<EvidenceUploadPolicy>>(
+    '/psychologists/me/verification-evidence/policy',
+    'GET',
+    undefined,
+    { signal }
+  );
+  return response.data;
+}
+
+export async function uploadLocalQaEvidence(input: {
+  readonly licenseId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly blob: Blob;
+}): Promise<ProfessionalProfile> {
+  const response = await apiV1BinaryRequest<Envelope<ProfessionalProfile>>(
+    `/psychologists/me/verification-evidence/local/${input.licenseId}`,
+    'PUT',
+    input.blob,
+    { contentType: input.contentType, fileName: input.fileName }
   );
   return response.data;
 }

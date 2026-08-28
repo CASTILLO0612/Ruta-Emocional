@@ -23,12 +23,21 @@ export function createErrorHandler(logger: Logger) {
   return (error: unknown, request: Request, response: Response, _next: NextFunction): void => {
     const requestId = getRequestId(response);
     const errorStatus = (error as { status?: unknown } | null)?.status;
+    const errorType = (error as { type?: unknown } | null)?.type;
     const isMalformedJson = error instanceof SyntaxError && errorStatus === 400;
+    const isPayloadTooLarge = errorStatus === 413 && errorType === 'entity.too.large';
     const appError = error instanceof AppError
       ? error
       : isMalformedJson
         ? AppError.badRequest('MALFORMED_JSON', 'El cuerpo JSON no es válido.')
-        : new AppError(500, 'INTERNAL_ERROR', 'Error interno', 'No pudimos completar la operación.');
+        : isPayloadTooLarge
+          ? new AppError(
+              413,
+              'PAYLOAD_TOO_LARGE',
+              'Archivo demasiado grande',
+              'El archivo supera el tamaño máximo permitido.'
+            )
+          : new AppError(500, 'INTERNAL_ERROR', 'Error interno', 'No pudimos completar la operación.');
 
     if (appError.status >= 500) {
       logger.error('http.request.failed', {

@@ -469,7 +469,10 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
     const dispatcher = new MessageOutboxDispatcher(
       prisma,
       buildApplicationServices(config, prisma).messaging,
-      { publishMessageCreated: async (message) => { deliveredMessages.push(message); } },
+      {
+        publishMessageCreated: async (message) => { deliveredMessages.push(message); },
+        publishPsychologistVerificationUpdated: async () => undefined,
+      },
       createLogger('test'),
       config.messaging
     );

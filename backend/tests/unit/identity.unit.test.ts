@@ -239,6 +239,15 @@ test('configuration fails closed for placeholders and wildcard origins', () => {
     () => loadConfig({ ...base, ALLOWED_ORIGINS: 'https://app.example.com', JWT_ACCESS_SECRET: 'replace_me'.repeat(5) }),
     ConfigurationError
   );
+  assert.throws(
+    () => loadConfig({
+      ...base,
+      ALLOWED_ORIGINS: 'https://app.example.com',
+      ENABLE_LOCAL_QA: 'true',
+      LOCAL_QA_EVIDENCE_DIRECTORY: './var/private/professional-evidence',
+    }),
+    ConfigurationError
+  );
 });
 
 test('scrypt hashes passwords and upgrades a valid legacy bcrypt hash', async () => {

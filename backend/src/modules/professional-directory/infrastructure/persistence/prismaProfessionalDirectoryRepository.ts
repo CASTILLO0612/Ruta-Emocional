@@ -551,6 +551,7 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
             include: {
               psychologistProfile: {
                 include: {
+                  user: { select: { id: true } },
                   modalities: { where: { isEnabled: true } },
                   specialties: { where: { isPrimary: true } },
                 },
@@ -610,7 +611,11 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
           eventType: decision === 'APPROVED'
             ? 'psychologist.verification_approved'
             : 'psychologist.verification_rejected',
-          payload: { submissionId, status },
+          payload: {
+            submissionId,
+            status,
+            userId: submission.professionalLicense.psychologistProfile.user.id,
+          },
         },
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

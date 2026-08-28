@@ -51,6 +51,12 @@ export interface ApiRequestOptions {
 
 type RefreshAccessToken = () => Promise<string | null>;
 
+interface PreparedRequestBody {
+  readonly value?: BodyInit;
+  readonly contentType?: string;
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
 let accessToken: string | null = null;
 let refreshAccessToken: RefreshAccessToken | null = null;
 
@@ -116,14 +122,14 @@ async function executeRequest<T>(
   baseUrl: string,
   endpoint: string,
   method: HttpMethod,
-  body: unknown,
+  body: PreparedRequestBody,
   options: ApiRequestOptions
 ): Promise<T> {
   validateEndpoint(endpoint);
 
   const authenticated = options.authenticated !== false;
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const headers: Record<string, string> = { Accept: 'application/json', ...body.headers };
+  if (body.contentType) headers['Content-Type'] = body.contentType;
   if (authenticated && accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
 
@@ -132,7 +138,7 @@ async function executeRequest<T>(
     response = await fetch(`${baseUrl}${endpoint}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body.value,
       signal: options.signal,
     });
   } catch (cause) {
@@ -170,7 +176,15 @@ export function apiRequest<T>(
   body?: unknown,
   options: ApiRequestOptions = {}
 ): Promise<T> {
-  return executeRequest<T>(getLegacyApiBaseUrl(), endpoint, method, body, options);
+  return executeRequest<T>(
+    getLegacyApiBaseUrl(),
+    endpoint,
+    method,
+    body === undefined
+      ? {}
+      : { value: JSON.stringify(body), contentType: 'application/json' },
+    options
+  );
 }
 
 export function apiV1Request<T>(
@@ -179,5 +193,35 @@ export function apiV1Request<T>(
   body?: unknown,
   options: ApiRequestOptions = {}
 ): Promise<T> {
-  return executeRequest<T>(getVersionOneApiBaseUrl(), endpoint, method, body, options);
+  return executeRequest<T>(
+    getVersionOneApiBaseUrl(),
+    endpoint,
+    method,
+    body === undefined
+      ? {}
+      : { value: JSON.stringify(body), contentType: 'application/json' },
+    options
+  );
+}
+
+export function apiV1BinaryRequest<T>(
+  endpoint: string,
+  method: 'POST' | 'PUT',
+  body: Blob,
+  options: ApiRequestOptions & {
+    readonly contentType: string;
+    readonly fileName: string;
+  }
+): Promise<T> {
+  return executeRequest<T>(
+    getVersionOneApiBaseUrl(),
+    endpoint,
+    method,
+    {
+      value: body,
+      contentType: options.contentType,
+      headers: { 'X-Evidence-File-Name': encodeURIComponent(options.fileName) },
+    },
+    options
+  );
 }

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
 import { AddressInfo } from 'node:net';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { createApp } from '../../src/app';
 import { buildApplicationServices } from '../../src/compositionRoot';
 import { AppConfig } from '../../src/config/env';
@@ -37,6 +40,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
   skip: !testDatabaseUrl,
 }, async () => {
   const databaseUrl = testDatabaseUrl!;
+  const evidenceDirectory = await mkdtemp(path.join(os.tmpdir(), 'ruta-emocional-evidence-'));
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   const config: AppConfig = {
     environment: 'test',
@@ -68,6 +72,12 @@ test('professional directory HTTP flow protects verification and exposes a minim
       maxWeeklyRules: 50,
       publicRequestsPerMinute: 120,
       supportedCurrencies: ['NIO'],
+    },
+    localQa: {
+      enabled: true,
+      evidenceDirectory,
+      evidenceMaximumBytes: 5_242_880,
+      evidenceUploadsPerMinute: 5,
     },
     requestFlow: {
       minimumAmount: '100.00',
@@ -282,6 +292,66 @@ test('professional directory HTTP flow protects verification and exposes a minim
 
     const detailResponse = await fetch(`${baseUrl}/psychologists/${psychologistProfileId}`);
     assert.equal(detailResponse.status, 200);
+
+    const localEvidenceBody = Buffer.from('%PDF-1.7\ncontrolled-local-evidence', 'utf8');
+    const localEvidenceUpload = await fetch(
+      `${baseUrl}/psychologists/me/verification-evidence/local/${licenseId}`,
+      {
+        method: 'PUT',
+        headers: {
+          authorization: `Bearer ${psychologist.data.tokens.accessToken}`,
+          'content-type': 'application/pdf',
+          'x-evidence-file-name': encodeURIComponent('licencia-local.pdf'),
+        },
+        body: localEvidenceBody,
+      }
+    );
+    assert.equal(localEvidenceUpload.status, 201);
+    const localSubmission = await prisma.professionalVerificationSubmission.findFirstOrThrow({
+      where: { professionalLicenseId: licenseId, decision: { is: null } },
+      orderBy: { submittedAt: 'desc' },
+    });
+    const localPrefix = 'local-qa/professional-evidence/';
+    assert.ok(localSubmission.evidenceObjectKey.startsWith(localPrefix));
+    const storedEvidence = await readFile(path.join(
+      evidenceDirectory,
+      localSubmission.evidenceObjectKey.slice(localPrefix.length)
+    ));
+    assert.deepEqual(storedEvidence, localEvidenceBody);
+
+    const secondApproval = await fetch(
+      `${baseUrl}/admin/psychologist-verifications/${localSubmission.id}/decision`,
+      {
+        method: 'POST',
+        headers: authorization(admin.data.tokens.accessToken),
+        body: JSON.stringify({ decision: 'APPROVED' }),
+      }
+    );
+    assert.equal(secondApproval.status, 204);
+    const verificationOutbox = await prisma.outboxEvent.findFirstOrThrow({
+      where: {
+        aggregateId: psychologistProfileId,
+        eventType: 'psychologist.verification_approved',
+        payload: { path: ['submissionId'], equals: localSubmission.id },
+      },
+    });
+    assert.equal(
+      (verificationOutbox.payload as { userId?: unknown }).userId,
+      psychologist.data.user.id
+    );
+    const verificationAudit = await prisma.auditEvent.findFirstOrThrow({
+      where: {
+        actorUserId: admin.data.user.id,
+        action: 'administrator.psychologist_verification_approved',
+        resourceType: 'professional_verification_decision',
+        metadata: { path: ['submissionId'], equals: localSubmission.id },
+      },
+      orderBy: { occurredAt: 'desc' },
+    });
+    assert.equal(
+      (verificationAudit.metadata as { decision?: unknown } | null)?.decision,
+      'APPROVED'
+    );
   } finally {
     if (createdUserIds.length > 0) {
       await prisma.$transaction(async (transaction) => {
@@ -317,5 +387,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
     }
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await prisma.$disconnect();
+    assert.ok(evidenceDirectory.startsWith(`${os.tmpdir()}${path.sep}`));
+    await rm(evidenceDirectory, { recursive: true, force: true });
   }
 });

@@ -21,10 +21,18 @@ interface SocketAck {
 
 export interface RealtimePublisher {
   publishMessageCreated(message: MessageView): Promise<void>;
+  publishPsychologistVerificationUpdated(event: {
+    readonly userId: string;
+    readonly status: 'VERIFIED' | 'REJECTED';
+  }): Promise<void>;
 }
 
 function roomName(conversationId: string): string {
   return `conversation:${conversationId}`;
+}
+
+function userRoomName(userId: string): string {
+  return `user:${userId}`;
 }
 
 function readHandshakeToken(socket: Socket): string | null {
@@ -65,6 +73,7 @@ export function setupSockets(
 
   io.on('connection', (socket) => {
     const data = socket.data as SocketData;
+    void socket.join(userRoomName(data.actor.user.id));
     logger.info('realtime.socket.connected', { socketId: socket.id, userId: data.actor.user.id });
 
     const revalidate = async (): Promise<void> => {
@@ -147,6 +156,11 @@ export function setupSockets(
       io.to(roomName(message.conversationId)).emit('message.created', {
         conversationId: message.conversationId,
         message,
+      });
+    },
+    async publishPsychologistVerificationUpdated(event): Promise<void> {
+      io.to(userRoomName(event.userId)).emit('psychologist.verification.updated', {
+        status: event.status,
       });
     },
   };

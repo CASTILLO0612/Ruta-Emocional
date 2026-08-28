@@ -4,6 +4,7 @@ import { AppError } from '../../src/shared/domain/appError';
 import {
   decodeCursor,
   parseDirectoryQuery,
+  parseLocalQaEvidenceUpload,
   parseModalityConfiguration,
   parseWeeklyAvailability,
 } from '../../src/modules/professional-directory/presentation/professionalDirectoryValidation';
@@ -86,5 +87,29 @@ test('weekly availability validates timezone and interval ordering', () => {
       rules: [{ weekday: 1, startTime: '12:00', endTime: '08:00', isActive: true }],
     }, config.maxWeeklyRules),
     AppError
+  );
+});
+
+test('local QA evidence accepts matching signatures and rejects disguised files', () => {
+  const pdf = Buffer.from('%PDF-1.7\ncontrolled-test-document', 'utf8');
+  const parsed = parseLocalQaEvidenceUpload({
+    body: pdf,
+    contentType: 'application/pdf',
+    encodedFileName: encodeURIComponent('licencia-prueba.pdf'),
+    maximumBytes: 1024,
+  });
+  assert.equal(parsed.contentType, 'application/pdf');
+  assert.equal(parsed.originalFileName, 'licencia-prueba.pdf');
+  assert.deepEqual(parsed.bytes, pdf);
+
+  assert.throws(
+    () => parseLocalQaEvidenceUpload({
+      body: Buffer.from('not-a-real-png', 'utf8'),
+      contentType: 'image/png',
+      encodedFileName: encodeURIComponent('licencia.png'),
+      maximumBytes: 1024,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.errors?.some(({ code }) => code === 'EVIDENCE_SIGNATURE_MISMATCH') === true
   );
 });

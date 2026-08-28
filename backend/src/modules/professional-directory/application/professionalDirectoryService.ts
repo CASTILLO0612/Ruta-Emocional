@@ -1,15 +1,27 @@
 import { AppError } from '../../../shared/domain/appError';
+import type { AppConfig } from '../../../config/env';
 import { AuthenticatedActor } from '../../identity/application/identityService';
-import { ProfessionalDirectoryRepository, RequestAuditContext } from './ports';
+import {
+  LocalQaEvidenceFile,
+  PrivateEvidenceStorage,
+  ProfessionalDirectoryRepository,
+  RequestAuditContext,
+} from './ports';
 import {
   DirectoryFilters,
+  EvidenceUploadPolicy,
+  LOCAL_QA_EVIDENCE_CONTENT_TYPES,
   ProfessionalModality,
   ProfessionalVerificationDecision,
   WeeklyAvailabilityInput,
 } from '../domain/professionalDirectoryTypes';
 
 export class ProfessionalDirectoryService {
-  constructor(private readonly repository: ProfessionalDirectoryRepository) {}
+  constructor(
+    private readonly repository: ProfessionalDirectoryRepository,
+    private readonly localQa: AppConfig['localQa'],
+    private readonly evidenceStorage?: PrivateEvidenceStorage
+  ) {}
 
   listSpecialties() {
     return this.repository.listSpecialties();
@@ -101,6 +113,48 @@ export class ProfessionalDirectoryService {
   ) {
     this.assertCapability(actor, 'psychologist_onboarding:update:self');
     return this.repository.submitVerificationEvidence(actor.user.id, licenseId, evidenceObjectKey, audit);
+  }
+
+  getEvidenceUploadPolicy(actor: AuthenticatedActor): EvidenceUploadPolicy {
+    this.assertCapability(actor, 'psychologist_onboarding:update:self');
+    if (!this.localQa.enabled || !this.evidenceStorage) return { mode: 'DISABLED' };
+    return {
+      mode: 'LOCAL_QA',
+      maximumBytes: this.localQa.evidenceMaximumBytes,
+      acceptedContentTypes: LOCAL_QA_EVIDENCE_CONTENT_TYPES,
+    };
+  }
+
+  async submitLocalQaVerificationEvidence(
+    actor: AuthenticatedActor,
+    file: Omit<LocalQaEvidenceFile, 'userId'>,
+    audit: RequestAuditContext
+  ) {
+    this.assertCapability(actor, 'psychologist_onboarding:update:self');
+    if (!this.localQa.enabled || !this.evidenceStorage) {
+      throw AppError.notFound(
+        'LOCAL_QA_EVIDENCE_NOT_AVAILABLE',
+        'La carga local de evidencia no está habilitada.'
+      );
+    }
+
+    const stored = await this.evidenceStorage.store({ ...file, userId: actor.user.id });
+    try {
+      return await this.repository.submitVerificationEvidence(
+        actor.user.id,
+        file.licenseId,
+        stored.objectKey,
+        audit
+      );
+    } catch (error) {
+      try {
+        await this.evidenceStorage.remove(stored.objectKey);
+      } catch {
+        // The original domain error remains authoritative; local QA storage is
+        // private and its orphan cleanup is an operational concern.
+      }
+      throw error;
+    }
   }
 
   listPendingVerifications(actor: AuthenticatedActor, cursor: string | undefined, limit: number) {

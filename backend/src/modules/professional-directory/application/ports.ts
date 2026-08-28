@@ -1,6 +1,7 @@
 import {
   DirectoryFilters,
   DirectoryPage,
+  LocalQaEvidenceContentType,
   ProfessionalModality,
   ProfessionalProfileView,
   ProfessionalVerificationDecision,
@@ -9,6 +10,19 @@ import {
   VerificationQueuePage,
   WeeklyAvailabilityInput,
 } from '../domain/professionalDirectoryTypes';
+
+export interface LocalQaEvidenceFile {
+  readonly userId: string;
+  readonly licenseId: string;
+  readonly originalFileName: string;
+  readonly contentType: LocalQaEvidenceContentType;
+  readonly bytes: Uint8Array;
+}
+
+export interface PrivateEvidenceStorage {
+  store(file: LocalQaEvidenceFile): Promise<{ readonly objectKey: string }>;
+  remove(objectKey: string): Promise<void>;
+}
 
 export interface RequestAuditContext {
   readonly actorUserId: string;

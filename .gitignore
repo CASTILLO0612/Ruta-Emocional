@@ -29,6 +29,7 @@ yarn-error.*
 *.tsbuildinfo
 backend/src/generated/prisma/
 backend/.test-dist/
+backend/var/
 
 /ios
 /android

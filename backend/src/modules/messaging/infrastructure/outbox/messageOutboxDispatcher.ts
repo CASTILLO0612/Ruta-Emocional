@@ -7,6 +7,7 @@ import type { MessagingService } from '../../application/messagingService';
 
 interface ClaimedEvent {
   readonly id: string;
+  readonly eventType: string;
   readonly payload: Prisma.JsonValue;
   readonly attempts: number;
 }
@@ -17,6 +18,19 @@ function messageIdFromPayload(payload: Prisma.JsonValue): string | null {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
   const value = (payload as Prisma.JsonObject).messageId;
   return typeof value === 'string' && UUID_PATTERN.test(value) ? value : null;
+}
+
+function verificationUpdateFromPayload(payload: Prisma.JsonValue): {
+  readonly userId: string;
+  readonly status: 'VERIFIED' | 'REJECTED';
+} | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const record = payload as Prisma.JsonObject;
+  const userId = record.userId;
+  const status = record.status;
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) return null;
+  if (status !== 'VERIFIED' && status !== 'REJECTED') return null;
+  return { userId: userId.toLowerCase(), status };
 }
 
 export class MessageOutboxDispatcher {
@@ -49,7 +63,11 @@ export class MessageOutboxDispatcher {
       WITH candidates AS (
         SELECT "id"
           FROM "outbox_events"
-         WHERE "event_type" = 'message.created'
+         WHERE "event_type" IN (
+           'message.created',
+           'psychologist.verification_approved',
+           'psychologist.verification_rejected'
+         )
            AND "published_at" IS NULL
            AND "dead_lettered_at" IS NULL
            AND "available_at" <= CURRENT_TIMESTAMP
@@ -64,7 +82,7 @@ export class MessageOutboxDispatcher {
              "attempts" = event."attempts" + 1
         FROM candidates
        WHERE event."id" = candidates."id"
-      RETURNING event."id", event."payload", event."attempts"
+      RETURNING event."id", event."event_type" AS "eventType", event."payload", event."attempts"
     `);
 
     for (const event of events) await this.deliver(event, claimToken);
@@ -75,7 +93,7 @@ export class MessageOutboxDispatcher {
     try {
       await this.drainOnce();
     } catch {
-      this.logger.error('outbox.message_dispatch.cycle_failed');
+      this.logger.error('outbox.realtime_dispatch.cycle_failed');
     } finally {
       if (!this.stopped) {
         this.timer = setTimeout(() => void this.runCycle(), this.config.outboxPollIntervalMs);
@@ -86,11 +104,17 @@ export class MessageOutboxDispatcher {
 
   private async deliver(event: ClaimedEvent, claimToken: string): Promise<void> {
     try {
-      const messageId = messageIdFromPayload(event.payload);
-      if (!messageId) throw new Error('INVALID_EVENT_PAYLOAD');
-      const message = await this.messaging.findMessageForDelivery(messageId);
-      if (!message) throw new Error('MESSAGE_NOT_FOUND');
-      await this.publisher.publishMessageCreated(message);
+      if (event.eventType === 'message.created') {
+        const messageId = messageIdFromPayload(event.payload);
+        if (!messageId) throw new Error('INVALID_MESSAGE_EVENT_PAYLOAD');
+        const message = await this.messaging.findMessageForDelivery(messageId);
+        if (!message) throw new Error('MESSAGE_NOT_FOUND');
+        await this.publisher.publishMessageCreated(message);
+      } else {
+        const update = verificationUpdateFromPayload(event.payload);
+        if (!update) throw new Error('INVALID_VERIFICATION_EVENT_PAYLOAD');
+        await this.publisher.publishPsychologistVerificationUpdated(update);
+      }
       await this.prisma.outboxEvent.updateMany({
         where: { id: event.id, claimToken },
         data: { publishedAt: new Date(), claimedAt: null, claimToken: null, lastError: null },
@@ -106,14 +130,15 @@ export class MessageOutboxDispatcher {
         data: {
           claimedAt: null,
           claimToken: null,
-          lastError: 'MESSAGE_DELIVERY_FAILED',
+          lastError: 'REALTIME_DELIVERY_FAILED',
           ...(deadLetter
             ? { deadLetteredAt: new Date() }
             : { availableAt: new Date(Date.now() + retryDelay) }),
         },
       });
-      this.logger.error('outbox.message_dispatch.delivery_failed', {
+      this.logger.error('outbox.realtime_dispatch.delivery_failed', {
         eventId: event.id,
+        eventType: event.eventType,
         attempt: event.attempts,
         deadLetter,
       });

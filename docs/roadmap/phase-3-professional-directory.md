@@ -115,3 +115,24 @@ almacenamiento privado. La elección del proveedor, emisión de URL de carga
 firmada, análisis antimalware y política física de retención son un gate de
 infraestructura previo a producción; no se sustituyeron por URLs públicas ni por
 archivos guardados en la base de datos.
+
+## Extensión de QA local
+
+El entorno de desarrollo puede habilitar explícitamente `ENABLE_LOCAL_QA` para
+probar el ciclo completo sin confundirlo con el proveedor productivo. El adaptador
+local almacena archivos fuera del directorio público, usa nombres aleatorios,
+limita tamaño y frecuencia, acepta únicamente PDF/JPEG/PNG y comprueba firmas
+mágicas. La aplicación rechaza el modo local fuera de `development`.
+
+La solicitud, autorización administrativa, decisión, auditoría y outbox utilizan
+los mismos casos de uso de producción. Una cuenta existente recibe el rol local
+de administrador mediante `local-qa:grant-admin`; nunca puede solicitarlo desde
+el payload de registro. La aprobación se publica en una sala WebSocket privada
+del usuario y el cliente renueva `/auth/me`, habilitando el espacio profesional
+sin sondeo periódico.
+
+Este adaptador no sustituye los gates de proveedor privado, URL firmada,
+cuarentena, antimalware ni retención legal exigidos antes de producción.
+
+La preparación y el recorrido operativo se documentan en
+`docs/runbooks/local-professional-verification.md`.

@@ -28,6 +28,7 @@ export type AppStackParamList = {
   PatientMain: NavigatorScreenParams<PatientTabParamList> | undefined;
   PsychologistMain: NavigatorScreenParams<PsychologistTabParamList> | undefined;
   PsychologistVerification: undefined;
+  AdminVerification: undefined;
   Radar: undefined;
   Consultation: { conversationId: string };
   Profile: undefined;

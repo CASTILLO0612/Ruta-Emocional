@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { AppConfig } from '../../../config/env';
 import { IdentityService } from '../../identity/application/identityService';
 import {
@@ -8,7 +8,7 @@ import {
   requireCapability,
 } from '../../identity/presentation/authMiddleware';
 import { ProfessionalDirectoryService } from '../application/professionalDirectoryService';
-import { MODALITIES } from '../domain/professionalDirectoryTypes';
+import { LOCAL_QA_EVIDENCE_CONTENT_TYPES, MODALITIES } from '../domain/professionalDirectoryTypes';
 import { asyncHandler } from '../../../shared/presentation/http/asyncHandler';
 import { createRateLimiter } from '../../../shared/presentation/http/rateLimiter';
 import { getRequestId } from '../../../shared/presentation/http/requestContext';
@@ -17,6 +17,7 @@ import {
   parseAvailabilityException,
   parseDirectoryQuery,
   parseEvidenceSubmission,
+  parseLocalQaEvidenceUpload,
   parseModality,
   parseModalityConfiguration,
   parseProfilePatch,
@@ -44,7 +45,8 @@ function envelope<T>(data: T, response: Parameters<typeof getRequestId>[0]) {
 export function createProfessionalDirectoryRouter(
   identity: IdentityService,
   service: ProfessionalDirectoryService,
-  config: AppConfig['professionalDirectory']
+  config: AppConfig['professionalDirectory'],
+  localQaConfig: AppConfig['localQa']
 ): Router {
   const router = Router();
   const authenticate = requireAuthentication(identity);
@@ -53,6 +55,15 @@ export function createProfessionalDirectoryRouter(
   const publicLimiter = createRateLimiter({
     windowMs: 60_000,
     maximum: config.publicRequestsPerMinute,
+  });
+  const localQaUploadLimiter = createRateLimiter({
+    windowMs: 60_000,
+    maximum: localQaConfig.evidenceUploadsPerMinute,
+    key: (request) => getActor(request as AuthenticatedRequest).user.id,
+  });
+  const localQaEvidenceBody = express.raw({
+    limit: localQaConfig.evidenceMaximumBytes,
+    type: [...LOCAL_QA_EVIDENCE_CONTENT_TYPES],
   });
 
   router.get('/catalogs/specialties', publicLimiter, asyncHandler(async (_request, response) => {
@@ -163,6 +174,36 @@ export function createProfessionalDirectoryRouter(
     );
     response.status(201).json(envelope(profile, response));
   }));
+
+  router.get('/psychologists/me/verification-evidence/policy', authenticate, onboarding, (
+    request: AuthenticatedRequest,
+    response
+  ) => {
+    response.json(envelope(service.getEvidenceUploadPolicy(getActor(request)), response));
+  });
+
+  router.put(
+    '/psychologists/me/verification-evidence/local/:licenseId',
+    authenticate,
+    onboarding,
+    localQaUploadLimiter,
+    localQaEvidenceBody,
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const licenseId = parseUuid(request.params.licenseId, 'licenseId');
+      const file = parseLocalQaEvidenceUpload({
+        body: request.body,
+        contentType: request.header('content-type'),
+        encodedFileName: request.header('x-evidence-file-name'),
+        maximumBytes: localQaConfig.evidenceMaximumBytes,
+      });
+      const profile = await service.submitLocalQaVerificationEvidence(
+        getActor(request),
+        { ...file, licenseId },
+        auditContext(request, response)
+      );
+      response.status(201).json(envelope(profile, response));
+    })
+  );
 
   router.get('/psychologists/:psychologistId', publicLimiter, asyncHandler(async (request, response) => {
     const id = parseUuid(request.params.psychologistId, 'psychologistId');
