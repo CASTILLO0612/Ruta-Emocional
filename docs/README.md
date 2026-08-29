@@ -23,6 +23,7 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 17. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
 18. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
 19. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
+20. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
 
 ## Decisiones vigentes
 

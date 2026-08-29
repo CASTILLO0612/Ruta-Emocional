@@ -1,199 +1,195 @@
 # Ruta Emocional
 
-Ruta Emocional es una aplicación móvil en evolución para conectar pacientes con profesionales de psicología verificados. El repositorio contiene un prototipo funcional y la base de una nueva arquitectura productiva sobre PostgreSQL. Las funciones clínicas, pagos, MENTA y llamadas permanecen sujetas a las puertas de seguridad descritas en [`docs/`](docs/README.md).
+Ruta Emocional es una aplicación móvil que conecta pacientes con profesionales de psicología verificados. El flujo demostrable permite registrar cuentas, verificar localmente a un profesional, publicar solicitudes de atención, presentar y aceptar ofertas, conversar, gestionar citas y documentar un expediente clínico básico.
 
----
+El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La evidencia de la categoría **Aficionado / Desarrollo** se encuentra en [`docs/Hackathon/desarrollo/`](docs/Hackathon/desarrollo/README.md).
 
-## Tabla de Contenidos
+## Capacidades demostrables
 
-- [Descripción General](#descripción-general)
-- [Características Principales](#características-principales)
-- [Arquitectura y Tecnologías](#arquitectura-y-tecnologías)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Requisitos Previos](#requisitos-previos)
-- [Instalación y Configuración](#instalación-y-configuración)
-- [Variables de Entorno](#variables-de-entorno)
-- [Ejecución](#ejecución)
-- [Licencia](#licencia)
+| Módulo | Estado actual |
+|---|---|
+| Identidad | registro de paciente o psicólogo, acceso, renovación y revocación de sesión en PostgreSQL |
+| Directorio profesional | perfil, especialidades, modalidades, disponibilidad y verificación controlada |
+| Solicitudes y ofertas | creación, búsqueda elegible, oferta, retiro, aceptación y cancelación transaccional |
+| Mensajería | conversaciones y mensajes persistidos, autorización por participante y entrega Socket.IO mediante outbox |
+| Agenda | disponibilidad, reserva, reprogramación y transiciones de cita con prevención de solapamientos |
+| Historia clínica | expedientes, encuentros, notas versionadas, firma, enmiendas y planes de tratamiento para el psicólogo autorizado |
+| Administración | cola local de verificación, decisión y auditoría sin acceso clínico implícito |
 
----
+MENTA, pagos y audio/video no forman parte del recorrido funcional que se presenta en Desarrollo: conservan componentes heredados o demostrativos y no deben mostrarse como servicios clínicos o financieros terminados.
 
-## Descripción General
+## Tecnologías y arquitectura
 
-El objetivo de Ruta Emocional es democratizar y agilizar el acceso a servicios de psicología clínica, eliminando barreras burocráticas y facilitando la negociación transparente de presupuestos entre el paciente y el especialista. Mediante un radar de geolocalización e inteligencia artificial para análisis preliminar de síntomas, la plataforma optimiza el tiempo de respuesta en situaciones de necesidad emocional inmediata o programada.
+### Aplicación móvil
 
----
+- React Native 0.86 y Expo SDK 57.
+- TypeScript, React Navigation y Zustand.
+- Socket.IO Client para notificaciones en tiempo real.
+- `expo-secure-store` para el refresh token en Android/iOS; el access token permanece en memoria.
+- Material Icons mediante Expo Vector Icons; la interfaz no depende de emojis como iconografía.
 
-## Estado de capacidades
+### API y datos
 
-| Capacidad | Prototipo actual | Objetivo MVP |
-|---|---|---|
-| Identidad | registro, acceso y cierre de sesión conectados a PostgreSQL | completar recuperación de cuenta, MFA administrativo y verificación documental |
-| Directorio/geolocalización | demostración y datos fallback | solo profesionales verificados, PostGIS y privacidad de ubicación |
-| Solicitudes/ofertas | REST/Socket.IO heredado | transacciones, autorización por objeto, idempotencia y outbox |
-| Mensajería | demostración | conversación autorizada, persistencia previa al evento y cursores |
-| Agenda | interfaz parcial | disponibilidad, citas y no solapamiento PostgreSQL |
-| Historia clínica | no disponible en UI | expediente mínimo versionado y auditado |
-| MENTA | demostración sin protocolo clínico completo | orientación con salvaguardas y revisión clínica |
-| Pagos | simulación | deshabilitados hasta elegir proveedor y webhooks firmados |
-| Audio/video | señalización visual, no media RTC real | deshabilitado hasta proveedor/arquitectura aprobados |
+- Node.js, Express, TypeScript y Socket.IO.
+- PostgreSQL/PostGIS con 18 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
+- Prisma como adaptador de persistencia dentro de módulos separados por dominio.
+- Contratos REST versionados bajo `/api/v1` y respuestas mediante DTO explícitos.
+- Sesiones rotativas, contraseñas con scrypt y pepper, límites de peticiones, CORS por lista permitida y auditoría de acciones sensibles.
+- Cifrado AES-256-GCM de contenido clínico mediante claves externas al repositorio.
 
-No deben presentarse las simulaciones como servicios reales o clínicamente validados.
+Los módulos canónicos siguen el flujo `presentación -> aplicación -> dominio/puertos -> infraestructura`. Los controladores no consultan Prisma directamente y los repositorios vuelven a aplicar propiedad o relación como defensa adicional.
 
----
-
-## Arquitectura y Tecnologías
-
-La aplicación está construida bajo una arquitectura modular desacoplada utilizando el patrón Repository, Zustand para la gestión de estado global y comunicación bidireccional en tiempo real mediante WebSockets.
-
-### Frontend (App Móvil)
-- **Framework Móvil actual**: React Native 0.86 con Expo SDK 57
-- **Lenguaje**: TypeScript
-- **Gestión de Estado**: Zustand
-- **Navegación**: React Navigation (Native Stack & Bottom Tabs)
-- **Componentes UI y Animaciones**:
-  - React Native Reanimated
-  - Gorhom Bottom Sheet
-  - Expo Vector Icons
-- **Servicios de Mapas**: React Native Maps (Google Maps Provider & Web iframe Fallback)
-- **Comunicación en Tiempo Real**: Socket.io Client (eventos bidireccionales con autenticación JWT)
-- **Sesión**: access token solo en memoria y refresh token en `expo-secure-store` en Android/iOS; la sesión web se mantiene únicamente en memoria
-
-### Backend (API REST + WebSockets)
-- **Runtime**: Node.js con Express
-- **Base de datos objetivo**: PostgreSQL en tercera forma normal con PostGIS
-- **Acceso a datos objetivo**: Prisma y SQL versionado para capacidades avanzadas
-- **Base heredada temporal**: MongoDB Atlas, conservada solo mientras se migra
-- **Autenticación v1**: access token corto, refresh token opaco y rotativo, sesiones PostgreSQL y scrypt; bcrypt se admite solo para rehash de datos heredados
-- **Tiempo Real**: Socket.io Server (señalización de llamadas, bidding, chat, geolocalización)
-- **Inteligencia Artificial**: Google Gemini API (`gemini-1.5-flash`) procesada de forma segura desde el servidor
-
----
-
-## Estructura del Proyecto
+## Estructura del repositorio
 
 ```text
 Ruta Emocional/
-├── frontend/                # Aplicación React Native/Expo
-├── backend/                 # API REST, Socket.IO y migración PostgreSQL
+├── frontend/                   # Aplicación React Native/Expo
+│   └── src/
+│       ├── screens/            # Flujos de paciente, psicólogo y administrador
+│       ├── repositories/       # Acceso tipado a la API
+│       ├── services/           # HTTP, sesión y Socket.IO
+│       └── store/              # Estado de aplicación con Zustand
+├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma    # Modelo relacional canónico
-│   │   └── migrations/      # Migraciones SQL inmutables
-│   ├── tests/               # Pruebas unitarias e integración PostgreSQL
-│   └── src/                 # Monolito modular TypeScript
-├── docs/
-│   ├── product/             # Alcance y puertas del MVP
-│   ├── domain/              # Reglas y máquinas de estado
-│   ├── security/            # Autorización, privacidad y amenazas
-│   ├── api/                 # Contratos HTTP/WebSocket y OpenAPI
-│   ├── operations/          # Rendimiento y confiabilidad
-│   ├── roadmap/             # Ejecución incremental
-│   ├── architecture/        # ADR y decisiones técnicas
-│   └── database/            # Evidencia y reglas de normalización
-├── compose.yaml             # PostgreSQL/PostGIS local
-└── package.json             # Scripts de coordinación del monorepo
+│   │   ├── schema.prisma       # Modelo relacional canónico
+│   │   └── migrations/         # Historial SQL inmutable
+│   ├── src/modules/            # Identidad, directorio, solicitudes, mensajería, agenda y clínica
+│   └── tests/                  # Pruebas unitarias e integración
+├── docs/                       # Arquitectura, seguridad, API, reglas y entregables
+├── output/pdf/                 # DER conceptual exportado
+├── compose.yaml                # PostgreSQL/PostGIS local
+└── package.json                # Scripts del monorepositorio
 ```
 
----
+## Requisitos
 
-## Requisitos Previos
+- Git.
+- Node.js en una versión LTS compatible con Expo SDK 57 y npm.
+- PostgreSQL con PostGIS, instalado localmente o mediante Docker Desktop.
+- Para Android/iOS: dispositivo o emulador compatible. La demostración también puede ejecutarse en web.
 
-Asegúrese de contar con los siguientes entornos en su sistema antes de continuar:
+## Instalación
 
-- **Node.js**: v22.13.0 o superior, requerido por el objetivo Expo SDK 57
-- **npm**: compatible con la versión instalada de Node.js
-- **PostgreSQL/PostGIS**: disponible localmente o mediante Docker
-- **Expo CLI**: Incluido en la ejecución mediante `npx`
-- **Dispositivo Físico o Emulador**:
-  - Expo Go (Android / iOS)
-  - Android Studio (Emulador Android) o Xcode (Simulador iOS para macOS)
-
----
-
-## Instalación y Configuración
-
-1. **Clonar el repositorio:**
+1. Clonar el repositorio.
 
    ```bash
-   git clone https://github.com/tu-usuario/ruta-emocional.git
-   cd "ruta-emocional"
+   git clone https://github.com/CASTILLO0612/Ruta-Emocional.git
+   cd Ruta-Emocional
+   git switch postgresql-migration
    ```
 
-2. **Instalar dependencias:**
+2. Instalar las dependencias bloqueadas.
 
    ```bash
-   npm --prefix frontend ci
    npm --prefix backend ci
+   npm --prefix frontend ci
    ```
 
-3. **Preparar PostgreSQL:**
+3. Crear los archivos locales de configuración, sin confirmarlos en Git.
+
+   ```bash
+   cp .env.example .env
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env.local
+   ```
+
+   En PowerShell, use `Copy-Item` en lugar de `cp` si lo prefiere. Cambie todos los valores de ejemplo, especialmente contraseñas, secretos JWT, pepper y clave de cifrado clínico.
+
+4. Iniciar PostgreSQL/PostGIS y aplicar las migraciones.
 
    ```bash
    docker compose up -d postgres
    npm run db:migrate:deploy
+   npm run db:validate
    ```
 
----
+Si utiliza PostgreSQL 16 ya instalado, cree una base vacía, habilite PostGIS, configure `DATABASE_URL` en `backend/.env` y ejecute los dos últimos comandos. No necesita levantar el contenedor.
 
-## Variables de Entorno
+## Configuración mínima
 
-Cree `.env` a partir de `.env.example` en la raíz y en `backend/`. Cree
-`frontend/.env.local` a partir de `frontend/.env.example`. Los archivos reales
-no deben confirmarse en Git.
-
-Backend:
+Las plantillas completas y comentadas están en [`.env.example`](.env.example), [`backend/.env.example`](backend/.env.example) y [`frontend/.env.example`](frontend/.env.example). Como mínimo, el backend requiere:
 
 ```env
 DATABASE_URL=postgresql://usuario:password@localhost:5432/ruta_emocional?schema=public
-JWT_ACCESS_SECRET=<secreto-aleatorio>
-PASSWORD_PEPPER=<otro-secreto-aleatorio>
-JWT_ACCESS_TTL_SECONDS=900
-JWT_REFRESH_TTL_DAYS=30
-GEMINI_API_KEY=<api-key>
+JWT_ACCESS_SECRET=<32_o_mas_caracteres_aleatorios>
+PASSWORD_PEPPER=<otro_valor_aleatorio_diferente>
+CLINICAL_CONTENT_ENCRYPTION_KEYS=1:<clave_base64_de_32_bytes>
+CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION=1
 ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006
+ENABLE_LEGACY_MONGO_ROUTES=false
 ```
 
-Frontend; indique únicamente el origen, sin agregar `/api`:
+El frontend necesita el origen del servidor, sin agregar `/api`:
 
 ```env
 EXPO_PUBLIC_API_URL=http://localhost:5000
 ```
 
----
+En un teléfono físico, `localhost` apunta al propio teléfono; use la IP local del equipo que ejecuta el backend.
 
-## Ejecución
+## Ejecución local
 
-Para iniciar cada aplicación desde la raíz:
+Abra dos terminales desde la raíz:
 
 ```bash
 npm run start:backend
+```
+
+```bash
 npm run start:frontend
 ```
 
-Para comprobar el modelo PostgreSQL:
+El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://localhost:5000/api/v1/health/ready`. Expo mostrará las opciones para web, Android o iOS.
+
+### Recorrido recomendado
+
+1. Registrar un paciente y un psicólogo.
+2. Completar el perfil profesional y adjuntar una evidencia de prueba controlada.
+3. Conceder el rol administrador local siguiendo [`docs/runbooks/local-professional-verification.md`](docs/runbooks/local-professional-verification.md).
+4. Aprobar la verificación desde la cola administrativa e iniciar sesión nuevamente como psicólogo.
+5. Crear una solicitud como paciente, ofertar como psicólogo y aceptar la oferta.
+6. Probar conversación, agenda y expediente clínico desde la relación creada.
+
+## Endpoints representativos
+
+| Método | Ruta | Propósito |
+|---|---|---|
+| `POST` | `/api/v1/auth/register/patient` | registrar paciente |
+| `POST` | `/api/v1/auth/register/psychologist` | solicitar cuenta profesional |
+| `POST` | `/api/v1/auth/login` | iniciar sesión |
+| `GET` | `/api/v1/psychologists` | consultar directorio público |
+| `POST` | `/api/v1/service-requests` | crear solicitud autenticada |
+| `POST` | `/api/v1/service-requests/:requestId/offers` | crear oferta elegible |
+| `GET` | `/api/v1/conversations` | listar conversaciones propias |
+| `POST` | `/api/v1/appointments` | reservar cita autorizada |
+| `POST` | `/api/v1/clinical/encounters` | registrar encuentro clínico autorizado |
+
+El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
+
+## Verificación de calidad
 
 ```bash
-npm run db:validate
-```
-
-Para validar el cliente Expo:
-
-```bash
-npm --prefix frontend run typecheck
-npx expo-doctor@latest
-```
-
-Para verificar el primer flujo de identidad:
-
-```bash
+npm --prefix backend run build
 npm --prefix backend test
-TEST_DATABASE_URL=<url-postgresql-de-pruebas> npm --prefix backend run test:integration
+npm --prefix frontend run typecheck
 ```
 
-La documentación normativa comienza en [`docs/README.md`](docs/README.md). La arquitectura base está en [`ADR-001`](docs/architecture/ADR-001-postgresql-clean-architecture.md) y la evidencia de normalización en [`normalization-3nf.md`](docs/database/normalization-3nf.md).
+Con una base de pruebas configurada de forma separada:
 
----
+```bash
+TEST_DATABASE_URL=<url_postgresql_de_pruebas> npm --prefix backend run test:integration
+```
+
+La evidencia de tercera forma normal está en [`docs/database/normalization-3nf.md`](docs/database/normalization-3nf.md); las reglas de autorización están en [`docs/security/authorization-matrix.md`](docs/security/authorization-matrix.md).
+
+## Seguridad de la demostración
+
+- No confirme archivos `.env`, contraseñas, tokens, evidencias profesionales ni claves de cifrado.
+- Active `ENABLE_LOCAL_QA` solo en `development`; el servidor rechaza ese flujo en producción.
+- Mantenga `ENABLE_LEGACY_MONGO_ROUTES=false` durante el recorrido PostgreSQL.
+- Use datos ficticios en la historia clínica y en la evidencia profesional del hackathon.
+- El administrador operativo no recibe acceso clínico por su rol.
 
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia MIT. Consulte el archivo [LICENSE](LICENSE) para obtener más información.
+Este proyecto se distribuye bajo la licencia MIT. Consulte [LICENSE](LICENSE).
