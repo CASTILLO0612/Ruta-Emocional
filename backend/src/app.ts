@@ -18,6 +18,7 @@ import { createProfessionalDirectoryRouter } from './modules/professional-direct
 import { createServiceRequestRouter } from './modules/service-request/presentation/serviceRequestRoutes';
 import { createMessagingRouter } from './modules/messaging/presentation/messagingRoutes';
 import { createAppointmentRouter } from './modules/appointment/presentation/appointmentRoutes';
+import { createClinicalRecordRouter } from './modules/clinical-record/presentation/clinicalRecordRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -147,6 +148,10 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(
     '/api/v1',
     createAppointmentRouter(services.identity, services.appointments, config.appointments)
+  );
+  app.use(
+    '/api/v1',
+    createClinicalRecordRouter(services.identity, services.clinicalRecords, config.clinical)
   );
   app.use('/api/auth', createLegacyIdentityRouter(services.identity));
 

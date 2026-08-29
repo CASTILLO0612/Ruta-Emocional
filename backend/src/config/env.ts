@@ -94,6 +94,25 @@ export interface AppConfig {
     readonly serializableRetryBaseDelayMs: number;
     readonly reminderMinutesBefore: readonly number[];
   };
+  readonly clinical: {
+    readonly contentEncryptionKeys: Readonly<Record<number, string>>;
+    readonly activeContentEncryptionKeyVersion: number;
+    readonly maximumNoteLength: number;
+    readonly maximumEncounterReasonLength: number;
+    readonly maximumTreatmentSummaryLength: number;
+    readonly maximumGoalLength: number;
+    readonly maximumGoalsPerPlan: number;
+    readonly minimumAmendmentReasonLength: number;
+    readonly maximumAmendmentReasonLength: number;
+    readonly maximumEncounterDurationMinutes: number;
+    readonly encounterFutureSkewMinutes: number;
+    readonly defaultPageSize: number;
+    readonly maximumPageSize: number;
+    readonly mutationsPerMinute: number;
+    readonly idempotencyTtlHours: number;
+    readonly serializableMaxRetries: number;
+    readonly serializableRetryBaseDelayMs: number;
+  };
 }
 
 export class ConfigurationError extends Error {
@@ -242,6 +261,36 @@ function assertSecret(name: string, value: string): string {
     throw new ConfigurationError(`${name} contains a known placeholder`);
   }
   return value;
+}
+
+function readBase64KeyRing(
+  source: NodeJS.ProcessEnv,
+  name: string,
+  expectedBytes: number
+): Readonly<Record<number, string>> {
+  const entries = readRequired(source, name).split(',').map((entry) => entry.trim());
+  const keys: Record<number, string> = {};
+  for (const entry of entries) {
+    const separator = entry.indexOf(':');
+    const version = Number(entry.slice(0, separator));
+    const value = entry.slice(separator + 1);
+    const decoded = Buffer.from(value, 'base64');
+    if (
+      separator < 1
+      || !Number.isInteger(version)
+      || version < 1
+      || version > 2_147_483_647
+      || decoded.length !== expectedBytes
+      || decoded.toString('base64') !== value
+      || keys[version]
+    ) {
+      throw new ConfigurationError(
+        `${name} must contain unique version:base64 entries encoding ${expectedBytes} bytes`
+      );
+    }
+    keys[version] = value;
+  }
+  return Object.freeze(keys);
 }
 
 export function requireJwtAccessSecret(source: NodeJS.ProcessEnv = process.env): string {
@@ -525,6 +574,74 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         10080
       ),
     },
+    clinical: {
+      contentEncryptionKeys: readBase64KeyRing(
+        source,
+        'CLINICAL_CONTENT_ENCRYPTION_KEYS',
+        32
+      ),
+      activeContentEncryptionKeyVersion: readRequiredInteger(
+        source,
+        'CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION',
+        1,
+        2_147_483_647
+      ),
+      maximumNoteLength: readRequiredInteger(source, 'CLINICAL_MAXIMUM_NOTE_LENGTH', 100, 100_000),
+      maximumEncounterReasonLength: readRequiredInteger(
+        source,
+        'CLINICAL_MAXIMUM_ENCOUNTER_REASON_LENGTH',
+        20,
+        500
+      ),
+      maximumTreatmentSummaryLength: readRequiredInteger(
+        source,
+        'CLINICAL_MAXIMUM_TREATMENT_SUMMARY_LENGTH',
+        100,
+        20_000
+      ),
+      maximumGoalLength: readRequiredInteger(source, 'CLINICAL_MAXIMUM_GOAL_LENGTH', 20, 2_000),
+      maximumGoalsPerPlan: readRequiredInteger(source, 'CLINICAL_MAXIMUM_GOALS_PER_PLAN', 1, 50),
+      minimumAmendmentReasonLength: readRequiredInteger(
+        source,
+        'CLINICAL_MINIMUM_AMENDMENT_REASON_LENGTH',
+        10,
+        200
+      ),
+      maximumAmendmentReasonLength: readRequiredInteger(
+        source,
+        'CLINICAL_MAXIMUM_AMENDMENT_REASON_LENGTH',
+        20,
+        500
+      ),
+      maximumEncounterDurationMinutes: readRequiredInteger(
+        source,
+        'CLINICAL_MAXIMUM_ENCOUNTER_DURATION_MINUTES',
+        15,
+        1_440
+      ),
+      encounterFutureSkewMinutes: readRequiredInteger(
+        source,
+        'CLINICAL_ENCOUNTER_FUTURE_SKEW_MINUTES',
+        0,
+        1_440
+      ),
+      defaultPageSize: readRequiredInteger(source, 'CLINICAL_DEFAULT_PAGE_SIZE', 1, 100),
+      maximumPageSize: readRequiredInteger(source, 'CLINICAL_MAXIMUM_PAGE_SIZE', 1, 200),
+      mutationsPerMinute: readRequiredInteger(source, 'CLINICAL_MUTATIONS_PER_MINUTE', 1, 300),
+      idempotencyTtlHours: readRequiredInteger(source, 'CLINICAL_IDEMPOTENCY_TTL_HOURS', 1, 168),
+      serializableMaxRetries: readRequiredInteger(
+        source,
+        'CLINICAL_SERIALIZABLE_MAX_RETRIES',
+        0,
+        5
+      ),
+      serializableRetryBaseDelayMs: readRequiredInteger(
+        source,
+        'CLINICAL_SERIALIZABLE_RETRY_BASE_DELAY_MS',
+        1,
+        2_000
+      ),
+    },
   };
 
   if (config.requestFlow.scheduledOfferCutoffMinutes >= config.requestFlow.scheduledLeadMinutes) {
@@ -555,6 +672,21 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (config.appointments.slotIntervalMinutes > config.appointments.durationMinutes) {
     throw new ConfigurationError(
       'APPOINTMENT_SLOT_INTERVAL_MINUTES cannot exceed APPOINTMENT_DURATION_MINUTES'
+    );
+  }
+  if (config.clinical.defaultPageSize > config.clinical.maximumPageSize) {
+    throw new ConfigurationError(
+      'CLINICAL_DEFAULT_PAGE_SIZE cannot exceed CLINICAL_MAXIMUM_PAGE_SIZE'
+    );
+  }
+  if (config.clinical.minimumAmendmentReasonLength > config.clinical.maximumAmendmentReasonLength) {
+    throw new ConfigurationError(
+      'CLINICAL_MINIMUM_AMENDMENT_REASON_LENGTH cannot exceed CLINICAL_MAXIMUM_AMENDMENT_REASON_LENGTH'
+    );
+  }
+  if (!config.clinical.contentEncryptionKeys[config.clinical.activeContentEncryptionKeyVersion]) {
+    throw new ConfigurationError(
+      'CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION must reference CLINICAL_CONTENT_ENCRYPTION_KEYS'
     );
   }
 

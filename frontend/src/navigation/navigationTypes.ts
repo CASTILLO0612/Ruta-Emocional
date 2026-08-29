@@ -16,7 +16,7 @@ export type PatientTabParamList = {
 
 export type PsychologistTabParamList = {
   Dashboard: undefined;
-  Menta: undefined;
+  Clinical: undefined;
   Messages: undefined;
   History: undefined;
   Profile: undefined;

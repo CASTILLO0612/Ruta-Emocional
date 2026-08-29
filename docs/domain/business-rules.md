@@ -147,6 +147,11 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **CL-014**. Toda lectura, exportación, firma, enmienda o cambio de diagnóstico genera evento de auditoría.
 - **CL-015**. Exportar un expediente requiere autenticación reciente, autorización y registro de propósito.
 - **CL-016**. La eliminación física de información clínica no se ejecuta sin resolver conservación legal y solicitudes del titular.
+- **CL-017**. El encuentro conserva la relación asistencial que justificó su creación y sus participantes deben coincidir con el expediente y profesional.
+- **CL-018**. Notas, motivos clínicos, resúmenes de plan y objetivos se cifran antes de persistir con contexto autenticado por recurso y llave versionada.
+- **CL-019**. Hasta aprobar compartición clínica, un profesional solo proyecta encuentros, notas y planes de su propia autoría dentro de una relación activa.
+- **CL-020**. Dos escrituras sobre la misma versión no se fusionan silenciosamente; una debe fallar por conflicto y exigir recarga.
+- **CL-021**. Un objetivo pendiente solo avanza a en progreso o cancelado; uno en progreso solo avanza a logrado o cancelado, y un estado terminal no se reabre.
 
 ## 10. Consentimientos
 

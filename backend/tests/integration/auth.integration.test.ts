@@ -76,6 +76,7 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
     },
     messaging: createTestConfig(databaseUrl, 'auth-integration').messaging,
     appointments: createTestConfig(databaseUrl, 'auth-integration').appointments,
+    clinical: createTestConfig(databaseUrl, 'auth-integration').clinical,
   };
 
   const logger = createLogger('test');

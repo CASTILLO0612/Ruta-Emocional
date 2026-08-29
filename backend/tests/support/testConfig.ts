@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { AppConfig } from '../../src/config/env';
 
 export function createTestConfig(databaseUrl: string, namespace: string): AppConfig {
@@ -88,6 +89,27 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       serializableMaxRetries: 3,
       serializableRetryBaseDelayMs: 5,
       reminderMinutesBefore: [1440, 60],
+    },
+    clinical: {
+      contentEncryptionKeys: {
+        1: createHash('sha256').update(namespace).digest('base64'),
+      },
+      activeContentEncryptionKeyVersion: 1,
+      maximumNoteLength: 20_000,
+      maximumEncounterReasonLength: 500,
+      maximumTreatmentSummaryLength: 5_000,
+      maximumGoalLength: 1_000,
+      maximumGoalsPerPlan: 20,
+      minimumAmendmentReasonLength: 10,
+      maximumAmendmentReasonLength: 500,
+      maximumEncounterDurationMinutes: 480,
+      encounterFutureSkewMinutes: 15,
+      defaultPageSize: 20,
+      maximumPageSize: 50,
+      mutationsPerMinute: 60,
+      idempotencyTtlHours: 24,
+      serializableMaxRetries: 3,
+      serializableRetryBaseDelayMs: 5,
     },
   };
 }

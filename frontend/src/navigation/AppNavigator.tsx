@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Colors } from '../theme/colors';
@@ -14,6 +14,7 @@ import { RadarScreen } from '../screens/patient/RadarScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
 import { VerificationQueueScreen } from '../screens/admin/VerificationQueueScreen';
+import { ClinicalRecordsScreen } from '../screens/psychologist/ClinicalRecordsScreen';
 import { MentaScreen } from '../screens/shared/MentaScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { AgendaScreen } from '../screens/shared/AgendaScreen';
@@ -134,12 +135,12 @@ function PsychologistTabs() {
         }}
       />
       <PsychologistTab.Screen
-        name="Menta"
-        component={MentaScreen}
+        name="Clinical"
+        component={ClinicalRecordsScreen}
         options={{
-          tabBarLabel: 'MENTA',
+          tabBarLabel: 'Pacientes',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="psychology" size={size} color={color} />
+            <MaterialIcons name="folder-shared" size={size} color={color} />
           ),
         }}
       />

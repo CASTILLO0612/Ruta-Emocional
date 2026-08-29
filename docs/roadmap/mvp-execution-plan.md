@@ -202,6 +202,9 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 
 ### Fase 7 — Historia clínica
 
+**Estado:** completada técnicamente el 28 de agosto de 2026. Evidencia y límites
+en [`phase-7-secure-clinical-records.md`](phase-7-secure-clinical-records.md).
+
 **Trabajo**
 
 - revisión clínica/jurídica de campos;
@@ -221,6 +224,21 @@ La prioridad no es reemplazar archivos por capas, sino mover autoridad y garanti
 - admin no lee contenido;
 - profesional ajeno no accede;
 - exportación requiere autenticación reciente y queda auditada.
+
+**Resultado verificado**
+
+- expediente, encuentro, vínculo asistencial, notas, versiones, eventos, planes
+  y objetivos operan en PostgreSQL 3FN;
+- notas, resúmenes de plan y objetivos se cifran con AES-256-GCM, AAD por recurso
+  y llavero versionado;
+- firma y enmienda son transacciones serializables, idempotentes y protegidas
+  contra versiones concurrentes;
+- versiones y eventos son append-only también en PostgreSQL;
+- paciente, administrador y profesional ajeno quedan cerrados por defecto;
+- el panel profesional reemplaza la ausencia de historia clínica con una vista
+  privada, limpia y sin datos simulados;
+- exportación, diagnósticos, consentimiento y acceso paciente permanecen gates
+  explícitos sujetos a revisión clínica/legal.
 
 ### Fase 8 — MENTA segura
 
@@ -341,8 +359,8 @@ El trabajo de ingeniería puede avanzar con adaptadores y feature flags, pero ni
 
 ## 6. Prioridad inmediata
 
-El siguiente incremento funcional es la Fase 7: historia clínica normalizada,
-versionada y autorizada por propósito. En paralelo, antes de cualquier despliegue productivo deben
+El siguiente incremento funcional es la Fase 8: MENTA segura, con triaje
+determinista, minimización de datos y límites clínicos. En paralelo, antes de cualquier despliegue productivo deben
 cerrarse los gates de almacenamiento privado de evidencia, rol PostgreSQL de
 aplicación, gestión externa de secretos, rotación de credenciales, backup/restore
 y alertas externas. Ninguno se considera resuelto por usar valores locales de

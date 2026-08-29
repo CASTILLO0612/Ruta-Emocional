@@ -27,7 +27,13 @@ GRANT SELECT, INSERT, UPDATE ON TABLE
   specialties,
   psychologist_modalities,
   service_requests,
-  offers
+  offers,
+  appointments,
+  clinical_records,
+  clinical_encounters,
+  clinical_notes,
+  treatment_plans,
+  treatment_goals
 TO :"application_role";
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
@@ -44,6 +50,12 @@ GRANT SELECT, INSERT ON TABLE
   professional_verification_decisions,
   care_relationships,
   care_relationship_sources,
+  appointment_events,
+  appointment_care_relationships,
+  appointment_requests,
+  clinical_encounter_appointments,
+  clinical_note_versions,
+  clinical_note_events,
   conversations,
   request_conversations,
   conversation_participants,
@@ -54,7 +66,11 @@ TO :"application_role";
 
 GRANT SELECT ON TABLE
   roles,
-  appointments,
+  diagnosis_catalog,
+  clinical_diagnoses,
+  clinical_diagnosis_sources,
+  consent_documents,
+  patient_consents,
   reviews
 TO :"application_role";
 

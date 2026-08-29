@@ -110,6 +110,15 @@ enum ClinicalNoteStatus {
   @@map("clinical_note_status")
 }
 
+enum ClinicalNoteEventType {
+  CREATED
+  DRAFT_UPDATED
+  SIGNED
+  AMENDED
+
+  @@map("clinical_note_event_type")
+}
+
 enum DiagnosisStatus {
   PROVISIONAL
   CONFIRMED
@@ -189,6 +198,7 @@ model User {
   authSessions          AuthSession[]
   conversationMembers   ConversationParticipant[]
   clinicalNoteVersions  ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
+  clinicalNoteEvents    ClinicalNoteEvent[]                @relation("ClinicalNoteEventActor")
   auditEvents           AuditEvent[]                       @relation("AuditActor")
   verificationDecisions ProfessionalVerificationDecision[] @relation("VerificationReviewer")
   idempotencyRecords    IdempotencyRecord[]
@@ -415,6 +425,7 @@ model CareRelationship {
   psychologistProfile   PsychologistProfile           @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
   source                CareRelationshipSource?
   appointments          AppointmentCareRelationship[]
+  clinicalEncounters    ClinicalEncounter[]
 
   @@index([patientProfileId, psychologistProfileId, status])
   @@map("care_relationships")
@@ -540,16 +551,21 @@ model ClinicalEncounter {
   id                    String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clinicalRecordId      String                        @map("clinical_record_id") @db.Uuid
   psychologistProfileId String                        @map("psychologist_profile_id") @db.Uuid
+  careRelationshipId    String?                       @map("care_relationship_id") @db.Uuid
   startedAt             DateTime                      @map("started_at") @db.Timestamptz(3)
   endedAt               DateTime?                     @map("ended_at") @db.Timestamptz(3)
-  reason                String?                       @db.VarChar(500)
+  reason                String?                       @db.Text
+  createdAt             DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
   clinicalRecord        ClinicalRecord                @relation(fields: [clinicalRecordId], references: [id], onDelete: Restrict)
   psychologistProfile   PsychologistProfile           @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  careRelationship      CareRelationship?             @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
   appointmentLink       ClinicalEncounterAppointment?
   notes                 ClinicalNote[]
   diagnosisSources      ClinicalDiagnosisSource[]
 
   @@index([clinicalRecordId, startedAt])
+  @@index([careRelationshipId, startedAt])
+  @@index([psychologistProfileId, startedAt])
   @@map("clinical_encounters")
 }
 
@@ -568,8 +584,10 @@ model ClinicalNote {
   status              ClinicalNoteStatus    @default(DRAFT)
   signedAt            DateTime?             @map("signed_at") @db.Timestamptz(3)
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   clinicalEncounter   ClinicalEncounter     @relation(fields: [clinicalEncounterId], references: [id], onDelete: Restrict)
   versions            ClinicalNoteVersion[]
+  events              ClinicalNoteEvent[]
 
   @@index([clinicalEncounterId, createdAt])
   @@map("clinical_notes")
@@ -581,13 +599,30 @@ model ClinicalNoteVersion {
   versionNumber   Int          @map("version_number")
   authorUserId    String       @map("author_user_id") @db.Uuid
   content         String       @db.Text
-  amendmentReason String?      @map("amendment_reason") @db.VarChar(500)
+  amendmentReason String?      @map("amendment_reason") @db.Text
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   clinicalNote    ClinicalNote @relation(fields: [clinicalNoteId], references: [id], onDelete: Restrict)
   author          User         @relation("ClinicalNoteVersionAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
 
   @@unique([clinicalNoteId, versionNumber])
   @@map("clinical_note_versions")
+}
+
+model ClinicalNoteEvent {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalNoteId String                @map("clinical_note_id") @db.Uuid
+  actorUserId    String                @map("actor_user_id") @db.Uuid
+  type           ClinicalNoteEventType
+  fromStatus     ClinicalNoteStatus?   @map("from_status")
+  toStatus       ClinicalNoteStatus    @map("to_status")
+  versionNumber  Int                   @map("version_number")
+  occurredAt     DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  clinicalNote   ClinicalNote          @relation(fields: [clinicalNoteId], references: [id], onDelete: Restrict)
+  actor          User                  @relation("ClinicalNoteEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([clinicalNoteId, occurredAt, id])
+  @@index([actorUserId, occurredAt])
+  @@map("clinical_note_events")
 }
 
 model DiagnosisCatalog {
@@ -636,6 +671,8 @@ model TreatmentPlan {
   summary               String?             @db.Text
   startsAt              DateTime            @default(now()) @map("starts_at") @db.Timestamptz(3)
   endsAt                DateTime?           @map("ends_at") @db.Timestamptz(3)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   clinicalRecord        ClinicalRecord      @relation(fields: [clinicalRecordId], references: [id], onDelete: Restrict)
   psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
   goals                 TreatmentGoal[]

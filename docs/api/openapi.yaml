@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Ruta Emocional API
   version: 1.0.0-draft
-  description: Contrato ejecutable de identidad, directorio profesional, verificación, solicitudes, ofertas y mensajería segura.
+  description: Contrato ejecutable de identidad, directorio, solicitudes, mensajería, agenda e historia clínica segura.
 servers:
   - url: http://localhost:5000/api/v1
     description: Desarrollo local
@@ -15,6 +15,8 @@ tags:
   - name: Professional verification
   - name: Service requests
   - name: Messaging
+  - name: Appointments
+  - name: Clinical records
 paths:
   /health/live:
     get:
@@ -912,6 +914,233 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/policy:
+    get:
+      tags: [Clinical records]
+      operationId: getClinicalPolicy
+      responses:
+        '200':
+          description: Límites clínicos controlados por el servidor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalPolicyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /clinical/patients:
+    get:
+      tags: [Clinical records]
+      operationId: listAuthorizedClinicalPatients
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Pacientes con relación asistencial activa para el profesional autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalPatientPageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /clinical/patients/{patientUserId}/record:
+    get:
+      tags: [Clinical records]
+      operationId: getAuthorizedClinicalRecord
+      parameters:
+        - $ref: '#/components/parameters/PatientUserId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Expediente limitado a encuentros y planes propios del profesional.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalRecordResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /clinical/notes/{noteId}/versions:
+    get:
+      tags: [Clinical records]
+      operationId: listClinicalNoteVersions
+      parameters:
+        - $ref: '#/components/parameters/ClinicalNoteId'
+      responses:
+        '200':
+          description: Versiones append-only de una nota autorizada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalNoteVersionListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /clinical/encounters:
+    post:
+      tags: [Clinical records]
+      operationId: createClinicalEncounter
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateClinicalEncounterRequest' }
+      responses:
+        '201':
+          description: Encuentro y primera versión de nota creados transaccionalmente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalRecordResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/notes/{noteId}/draft:
+    put:
+      tags: [Clinical records]
+      operationId: updateClinicalNoteDraft
+      parameters:
+        - $ref: '#/components/parameters/ClinicalNoteId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateClinicalDraftRequest' }
+      responses:
+        '200':
+          description: Nueva versión de borrador agregada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalRecordResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/notes/{noteId}/sign:
+    post:
+      tags: [Clinical records]
+      operationId: signClinicalNote
+      parameters:
+        - $ref: '#/components/parameters/ClinicalNoteId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignClinicalNoteRequest' }
+      responses:
+        '200':
+          description: Nota firmada sin alterar su contenido versionado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalRecordResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/notes/{noteId}/amendments:
+    post:
+      tags: [Clinical records]
+      operationId: amendClinicalNote
+      parameters:
+        - $ref: '#/components/parameters/ClinicalNoteId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AmendClinicalNoteRequest' }
+      responses:
+        '201':
+          description: Enmienda append-only con motivo y autoría.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicalRecordResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/treatment-plans:
+    post:
+      tags: [Clinical records]
+      operationId: createTreatmentPlan
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTreatmentPlanRequest' }
+      responses:
+        '201':
+          description: Plan de tratamiento cifrado creado en borrador.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreatmentPlanResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/treatment-plans/{planId}/transitions:
+    post:
+      tags: [Clinical records]
+      operationId: transitionTreatmentPlan
+      parameters:
+        - $ref: '#/components/parameters/TreatmentPlanId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TreatmentPlanTransitionRequest' }
+      responses:
+        '200':
+          description: Estado del plan actualizado y auditado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreatmentPlanResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /clinical/treatment-goals/{goalId}/status:
+    patch:
+      tags: [Clinical records]
+      operationId: updateTreatmentGoalStatus
+      parameters:
+        - $ref: '#/components/parameters/TreatmentGoalId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TreatmentGoalStatusRequest' }
+      responses:
+        '200':
+          description: Estado del objetivo actualizado y auditado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreatmentPlanResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 components:
   securitySchemes:
     bearerAuth:
@@ -936,6 +1165,26 @@ components:
       schema: { type: string, format: uuid }
     AppointmentId:
       name: appointmentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PatientUserId:
+      name: patientUserId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ClinicalNoteId:
+      name: noteId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TreatmentPlanId:
+      name: planId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TreatmentGoalId:
+      name: goalId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1807,6 +2056,223 @@ components:
       required: [startsAt]
       properties:
         startsAt: { type: string, format: date-time }
+    ClinicalPolicy:
+      type: object
+      additionalProperties: false
+      required: [maximumNoteLength, maximumEncounterReasonLength, maximumTreatmentSummaryLength, maximumGoalLength, maximumGoalsPerPlan, minimumAmendmentReasonLength, maximumAmendmentReasonLength]
+      properties:
+        maximumNoteLength: { type: integer, minimum: 100, maximum: 100000 }
+        maximumEncounterReasonLength: { type: integer, minimum: 20, maximum: 500 }
+        maximumTreatmentSummaryLength: { type: integer, minimum: 100, maximum: 20000 }
+        maximumGoalLength: { type: integer, minimum: 20, maximum: 2000 }
+        maximumGoalsPerPlan: { type: integer, minimum: 1, maximum: 50 }
+        minimumAmendmentReasonLength: { type: integer, minimum: 10, maximum: 200 }
+        maximumAmendmentReasonLength: { type: integer, minimum: 20, maximum: 500 }
+    ClinicalPolicyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ClinicalPolicy' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ClinicalPatient:
+      type: object
+      additionalProperties: false
+      required: [patientUserId, careRelationshipId, displayName, photoUrl, recordId, recordStatus, lastEncounterAt, draftNotesCount]
+      properties:
+        patientUserId: { type: string, format: uuid }
+        careRelationshipId: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        photoUrl: { type: [string, 'null'], format: uri }
+        recordId: { type: [string, 'null'], format: uuid }
+        recordStatus: { type: [string, 'null'], enum: [OPEN, CLOSED, ARCHIVED, null] }
+        lastEncounterAt: { type: [string, 'null'], format: date-time }
+        draftNotesCount: { type: integer, minimum: 0 }
+    ClinicalPatientPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ClinicalPatient' }
+        meta:
+          type: object
+          required: [requestId, nextCursor]
+          properties:
+            requestId: { type: string, format: uuid }
+            nextCursor: { type: [string, 'null'] }
+    ClinicalNote:
+      type: object
+      additionalProperties: false
+      required: [id, status, latestVersionNumber, content, signedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [DRAFT, SIGNED, AMENDED] }
+        latestVersionNumber: { type: integer, minimum: 1 }
+        content: { type: string, minLength: 1, maxLength: 100000 }
+        signedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ClinicalEncounter:
+      type: object
+      additionalProperties: false
+      required: [id, careRelationshipId, appointmentId, startedAt, endedAt, reason, createdAt, note]
+      properties:
+        id: { type: string, format: uuid }
+        careRelationshipId: { type: string, format: uuid }
+        appointmentId: { type: [string, 'null'], format: uuid }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: [string, 'null'], format: date-time }
+        reason: { type: [string, 'null'], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        note: { $ref: '#/components/schemas/ClinicalNote' }
+    TreatmentGoal:
+      type: object
+      additionalProperties: false
+      required: [id, description, targetDate, status]
+      properties:
+        id: { type: string, format: uuid }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+        targetDate: { type: [string, 'null'], format: date }
+        status: { type: string, enum: [PENDING, IN_PROGRESS, ACHIEVED, CANCELLED] }
+    TreatmentPlan:
+      type: object
+      additionalProperties: false
+      required: [id, status, summary, startsAt, endsAt, createdAt, updatedAt, goals]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [DRAFT, ACTIVE, COMPLETED, CANCELLED] }
+        summary: { type: string, minLength: 1, maxLength: 20000 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        goals:
+          type: array
+          items: { $ref: '#/components/schemas/TreatmentGoal' }
+    ClinicalRecord:
+      type: object
+      additionalProperties: false
+      required: [id, status, openedAt, patient, careRelationshipId, encounters, treatmentPlans, nextCursor]
+      properties:
+        id: { type: [string, 'null'], format: uuid }
+        status: { type: [string, 'null'], enum: [OPEN, CLOSED, ARCHIVED, null] }
+        openedAt: { type: [string, 'null'], format: date-time }
+        patient:
+          type: object
+          additionalProperties: false
+          required: [userId, displayName, photoUrl]
+          properties:
+            userId: { type: string, format: uuid }
+            displayName: { type: string, minLength: 1, maxLength: 160 }
+            photoUrl: { type: [string, 'null'], format: uri }
+        careRelationshipId: { type: string, format: uuid }
+        encounters:
+          type: array
+          items: { $ref: '#/components/schemas/ClinicalEncounter' }
+        treatmentPlans:
+          type: array
+          items: { $ref: '#/components/schemas/TreatmentPlan' }
+        nextCursor: { type: [string, 'null'] }
+    ClinicalRecordResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ClinicalRecord' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ClinicalNoteVersion:
+      type: object
+      additionalProperties: false
+      required: [id, versionNumber, content, amendmentReason, createdAt, author]
+      properties:
+        id: { type: string, format: uuid }
+        versionNumber: { type: integer, minimum: 1 }
+        content: { type: string, minLength: 1, maxLength: 100000 }
+        amendmentReason: { type: [string, 'null'], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        author:
+          type: object
+          additionalProperties: false
+          required: [userId, displayName]
+          properties:
+            userId: { type: string, format: uuid }
+            displayName: { type: string, minLength: 1, maxLength: 160 }
+    ClinicalNoteVersionListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ClinicalNoteVersion' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CreateClinicalEncounterRequest:
+      type: object
+      additionalProperties: false
+      required: [patientUserId, startedAt, noteContent]
+      properties:
+        patientUserId: { type: string, format: uuid }
+        appointmentId: { type: string, format: uuid }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        noteContent: { type: string, minLength: 1, maxLength: 100000 }
+    UpdateClinicalDraftRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, content]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        content: { type: string, minLength: 1, maxLength: 100000 }
+    SignClinicalNoteRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+    AmendClinicalNoteRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, content, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        content: { type: string, minLength: 1, maxLength: 100000 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+    CreateTreatmentPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [patientUserId, summary, goals]
+      properties:
+        patientUserId: { type: string, format: uuid }
+        summary: { type: string, minLength: 1, maxLength: 20000 }
+        startsAt: { type: string, format: date-time }
+        goals:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [description]
+            properties:
+              description: { type: string, minLength: 1, maxLength: 2000 }
+              targetDate: { type: string, format: date }
+    TreatmentPlanResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/TreatmentPlan' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    TreatmentPlanTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [transition]
+      properties:
+        transition: { type: string, enum: [ACTIVATE, COMPLETE, CANCEL] }
+    TreatmentGoalStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [PENDING, IN_PROGRESS, ACHIEVED, CANCELLED] }
     HealthResponse:
       type: object
       required: [status]

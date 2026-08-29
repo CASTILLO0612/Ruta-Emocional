@@ -5,6 +5,9 @@ export const Colors = {
   primaryDark: '#0D1B3E',
   primaryFaded: 'transparent',
   primarySubtle: 'transparent',
+  primaryTint: '#EEF2FF',
+  primaryTintStrong: '#DCE4FA',
+  primaryOverlay: 'rgba(255, 255, 255, 0.16)',
 
   // Accent verde — reservado solo para estados "live" y éxito
   accent: '#22C55E',
@@ -16,6 +19,8 @@ export const Colors = {
   background: '#FFFFFF',
   surface: '#FFFFFF',
   surfaceMuted: '#FFFFFF',
+  surfaceRaised: '#FCFCFD',
+  surfaceSoft: '#F8FAFC',
   overlay: 'rgba(13, 27, 62, 0.65)',
 
   // Texto — jerarquía clara de 4 niveles
@@ -31,6 +36,9 @@ export const Colors = {
   warning: '#F59E0B',
   error: '#EF4444',
   errorFaded: 'transparent',
+  errorSurface: '#FEF2F2',
+  errorBorder: '#FECACA',
+  warningSurface: '#FFF7ED',
   info: '#3B82F6',
 
   // Bordes — mucho más sutiles

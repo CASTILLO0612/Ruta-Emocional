@@ -111,6 +111,12 @@ Inventario mínimo:
 - credenciales de object storage, antimalware, IA, pagos, RTC y notificaciones;
 - llaves de cifrado/KMS y credenciales de backup.
 
+La Fase 7 introduce `CLINICAL_CONTENT_ENCRYPTION_KEYS` como llavero versionado y
+`CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION` como versión de escritura. En
+producción ambos deben provenir de KMS/secret manager. Rotar exige conservar las
+versiones anteriores mientras existan sobres cifrados con ellas; retirar una
+llave sin re-cifrado verificado vuelve ilegible la historia correspondiente.
+
 Controles de salida:
 
 - acceso por identidad de workload cuando el proveedor lo permita;

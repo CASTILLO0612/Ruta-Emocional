@@ -15,6 +15,9 @@ import { MessagingService } from './modules/messaging/application/messagingServi
 import { PrismaMessagingRepository } from './modules/messaging/infrastructure/persistence/prismaMessagingRepository';
 import { AppointmentService } from './modules/appointment/application/appointmentService';
 import { PrismaAppointmentRepository } from './modules/appointment/infrastructure/persistence/prismaAppointmentRepository';
+import { ClinicalRecordService } from './modules/clinical-record/application/clinicalRecordService';
+import { PrismaClinicalRecordRepository } from './modules/clinical-record/infrastructure/persistence/prismaClinicalRecordRepository';
+import { AesGcmClinicalContentCipher } from './modules/clinical-record/infrastructure/security/aesGcmClinicalContentCipher';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
@@ -22,6 +25,7 @@ export interface ApplicationServices {
   readonly serviceRequests: ServiceRequestService;
   readonly messaging: MessagingService;
   readonly appointments: AppointmentService;
+  readonly clinicalRecords: ClinicalRecordService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -42,6 +46,10 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
   const evidenceStorage = config.localQa.enabled && config.localQa.evidenceDirectory
     ? new LocalPrivateEvidenceStorage(config.localQa.evidenceDirectory)
     : undefined;
+  const clinicalContentCipher = new AesGcmClinicalContentCipher(
+    config.clinical.contentEncryptionKeys,
+    config.clinical.activeContentEncryptionKeyVersion
+  );
 
   return {
     identity: new IdentityService(
@@ -73,6 +81,19 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       }),
       new SystemClock(),
       config.appointments
+    ),
+    clinicalRecords: new ClinicalRecordService(
+      new PrismaClinicalRecordRepository(
+        prisma,
+        clinicalContentCipher,
+        {
+          maximumRetries: config.clinical.serializableMaxRetries,
+          baseDelayMs: config.clinical.serializableRetryBaseDelayMs,
+          projectionLimit: config.clinical.maximumPageSize,
+        }
+      ),
+      new SystemClock(),
+      config.clinical
     ),
   };
 }

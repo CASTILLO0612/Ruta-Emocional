@@ -293,6 +293,7 @@ export class IdentityService {
         capabilities.add('availability:manage:self');
         capabilities.add('appointment:manage:self');
         capabilities.add('clinical:write:authorized');
+        capabilities.add('clinical:read:authorized');
         capabilities.add('conversation:read:self');
         capabilities.add('conversation:send:self');
       }

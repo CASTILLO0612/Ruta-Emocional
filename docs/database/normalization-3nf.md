@@ -38,8 +38,11 @@ evitar modelar relaciones o atributos clínicos.
 | `appointments` | `id -> patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
 | `appointment_events` | `id -> appointment_id, actor_user_id, type, estados, intervalo_anterior, reason, occurred_at` |
 | `clinical_records` | `id -> patient_profile_id, opened_at, status` |
-| `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, appointment_id` |
+| `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, care_relationship_id, fechas, reason` |
 | `clinical_note_versions` | `(clinical_note_id, version_number) -> content, author_user_id, created_at` |
+| `clinical_note_events` | `id -> clinical_note_id, actor_user_id, type, estados, version_number, occurred_at` |
+| `treatment_plans` | `id -> clinical_record_id, psychologist_profile_id, status, summary, fechas` |
+| `treatment_goals` | `id -> treatment_plan_id, description, target_date, status` |
 | `request_conversations` | `service_request_id -> conversation_id` y `conversation_id -> service_request_id` |
 | `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
 | `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
@@ -164,6 +167,28 @@ dependencias transitivas; el módulo cumple al menos 3FN.
 
 El agregado mantiene 1FN, 2FN y 3FN y usa constraints GiST para una invariante
 de concurrencia que no requiere desnormalización.
+
+## Decisión de normalización de la Fase 7
+
+- un paciente conserva como máximo un `clinical_record`; el expediente no repite
+  nombre, contacto ni datos del profesional;
+- cada encuentro referencia el expediente, el psicólogo responsable y la
+  relación asistencial que justificó el acceso. La cita opcional permanece en la
+  tabla uno a uno `clinical_encounter_appointments`;
+- `clinical_notes` conserva solamente estado y fechas. El contenido depende de
+  la clave candidata `(clinical_note_id, version_number)` y vive en
+  `clinical_note_versions`;
+- `clinical_note_events` conserva las transiciones sin copiar contenido clínico;
+- objetivos pertenecen a un plan mediante `treatment_plan_id`; no se almacenan
+  como JSON ni como lista delimitada;
+- los textos cifrados siguen siendo valores atómicos de sus atributos. El
+  cifrado no introduce duplicación ni convierte auditoría en fuente de verdad;
+- conteos de borradores, último encuentro y línea temporal son proyecciones
+  calculadas e indexadas, no columnas derivadas.
+
+Las versiones y eventos son append-only. La migración valida participantes de
+encuentro contra expediente, profesional y relación mediante una restricción
+diferible, preservando integridad incluso fuera del caso de uso HTTP.
 
 ## Verificación en revisiones
 

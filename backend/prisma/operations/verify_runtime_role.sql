@@ -34,6 +34,12 @@ SELECT has_table_privilege(:'application_role', 'public.users', 'SELECT')
    AND has_table_privilege(:'application_role', 'public.conversation_participants', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.messages', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.outbox_events', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.appointments', 'UPDATE')
+   AND has_table_privilege(:'application_role', 'public.clinical_encounters', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.clinical_notes', 'UPDATE')
+   AND has_table_privilege(:'application_role', 'public.clinical_note_versions', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.clinical_note_events', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.treatment_plans', 'UPDATE')
   AS check_passed \gset
 \if :check_passed
 \else
@@ -56,6 +62,10 @@ SELECT NOT has_table_privilege(:'application_role', 'public.audit_events', 'DELE
    AND NOT has_table_privilege(:'application_role', 'public.outbox_events', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.messages', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.messages', 'TRUNCATE')
+   AND NOT has_table_privilege(:'application_role', 'public.clinical_note_versions', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.clinical_note_versions', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.clinical_note_events', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.clinical_records', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.users', 'TRIGGER')
   AS check_passed \gset
 \if :check_passed

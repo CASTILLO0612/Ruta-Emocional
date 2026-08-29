@@ -17,10 +17,12 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 11. [Cierre de la Fase 4](roadmap/phase-4-service-requests-and-offers.md)
 12. [Cierre de la Fase 5](roadmap/phase-5-secure-messaging.md)
 13. [Cierre de la Fase 6](roadmap/phase-6-secure-agenda.md)
-14. [Gates de preparación productiva](operations/production-gates.md)
-15. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
-16. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
-17. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
+14. [Cierre de la Fase 7](roadmap/phase-7-secure-clinical-records.md)
+15. [Gates de preparación productiva](operations/production-gates.md)
+16. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
+17. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
+18. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
+19. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
 
 ## Decisiones vigentes
 

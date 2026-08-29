@@ -169,6 +169,23 @@ La posesión de un `conversationId`, `requestId` o `roomId` no constituye autori
 
 El administrador de plataforma no hereda acceso clínico. La autorización clínica debe resolver campos permitidos, no solo filas.
 
+### Contrato implementado para historia clínica
+
+- `clinical:read:authorized` y `clinical:write:authorized` solo se conceden a un
+  psicólogo verificado; el repositorio exige además cuenta activa y relación
+  asistencial activa en cada lectura y mutación.
+- la vista actual proyecta únicamente encuentros, notas y planes escritos por el
+  psicólogo autenticado. Compartir notas entre profesionales permanece cerrado
+  hasta definir consentimiento y transferencia clínica.
+- paciente, administrador, psicólogo pendiente y profesional ajeno no reciben
+  contenido clínico. Los UUID sensibles ajenos responden como no encontrados.
+- cada lectura de expediente o versiones y cada escritura generan auditoría sin
+  incluir texto clínico, diagnóstico, motivo o contenido cifrado.
+- una nota firmada solo admite una enmienda append-only; el frontend no puede
+  enviar autor, psicólogo, relación, estado ni número de versión nuevo.
+- la vista del paciente y la exportación permanecen deshabilitadas hasta aprobar
+  política clínica/legal y autenticación reciente.
+
 ## 9. MENTA y triaje
 
 | Operación | Paciente | Psic. vinculado | Admin | Auditor | Proveedor IA | Sistema de crisis |
