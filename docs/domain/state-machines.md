@@ -102,12 +102,14 @@ ACTIVE ◄────────► PAUSED
 
 | De | A | Actor | Efecto |
 |---|---|---|---|
-| — | `ACTIVE` | Sistema | Se crea al aceptar una oferta o por alta autorizada |
+| — | `ACTIVE` | Sistema | Se crea al aceptar exactamente una oferta |
 | `ACTIVE` | `PAUSED` | Paciente, psicólogo o administrador | Bloquea nuevas actividades según motivo |
 | `PAUSED` | `ACTIVE` | Actor autorizado | Restablece acceso operativo |
 | `ACTIVE`, `PAUSED` | `ENDED` | Paciente, psicólogo o administrador | Cierra nuevas actividades, conserva historial |
 
 `ENDED` es terminal. Una nueva atención crea otra relación para conservar periodos y fuentes.
+El MVP no permite alta directa; una futura incorporación administrativa deberá
+modelar su propia fuente antes de habilitarse.
 
 ## 6. Cita
 
@@ -180,10 +182,14 @@ Completar o cancelar un plan no elimina objetivos, diagnósticos ni encuentros.
 ## 10. Consentimiento
 
 ```text
-GRANTED ──► WITHDRAWN
+REJECTED     GRANTED ──► WITHDRAWN
+    │            ▲            │
+    └────────────┴────────────┘  (nueva decisión, nunca sobrescritura)
 ```
 
-Una nueva concesión después de retirar crea una nueva decisión vinculada a la versión vigente del documento; no revierte el registro anterior.
+Rechazar, otorgar o retirar crea un registro nuevo vinculado a la versión exacta
+y al contexto aplicable. Retirar exige una concesión vigente. Una nueva
+concesión después de rechazar o retirar no revierte registros anteriores.
 
 ## 11. Pago
 

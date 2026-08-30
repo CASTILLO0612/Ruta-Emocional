@@ -105,50 +105,104 @@ ENTITY_GROUPS: Sequence[tuple[str, Sequence[str]]] = (
     ),
     (
         "Consentimiento y orientación",
-        ("Documento de consentimiento", "Decisión de consentimiento", "Evaluación de triaje"),
+        (
+            "Documento de consentimiento",
+            "Decisión de consentimiento",
+            "Evaluación de triaje",
+            "Regla de triaje",
+        ),
     ),
     ("Plataforma", ("Evento de auditoría", "Evento de salida", "Registro de idempotencia")),
 )
 
 
 ATTRIBUTES: dict[str, tuple[str, str]] = {
-    "Usuario": ("Identificador", "correo, nombre, teléfono, estado, fechas"),
+    "Usuario": ("Identificador", "correo, nombre visible, teléfono, estado, creación"),
     "Rol": ("Código", "nombre, descripción"),
     "Sesión": ("Identificador", "dispositivo, expiración, revocación, creación"),
-    "Paciente": ("Identificador", "fecha de nacimiento, fechas"),
-    "Psicólogo": ("Identificador", "verificación, presentación, ubicación, fechas"),
-    "Licencia profesional": ("Autoridad + número", "estado, evidencia, verificación, creación"),
-    "Especialidad": ("Código", "nombre, vigencia"),
-    "Modalidad de atención": ("Código", "nombre, vigencia"),
+    "Paciente": ("Identificador", "fecha de nacimiento, creación, actualización"),
+    "Psicólogo": (
+        "Identificador",
+        "estado de verificación, presentación, ubicación pública aproximada, creación, actualización",
+    ),
+    "Licencia profesional": (
+        "Autoridad + número",
+        "estado, evidencia referenciada, verificada en, creación",
+    ),
+    "Especialidad": ("Código", "nombre, estado de catálogo, creación, actualización"),
+    "Modalidad de atención": ("Código", "nombre, estado de catálogo"),
     "Solicitud de verificación": ("Identificador", "evidencia privada, fecha de envío"),
-    "Decisión de verificación": ("Identificador", "resultado, motivos, fecha"),
-    "Regla de disponibilidad": ("Identificador", "día, intervalo, zona, vigencia, estado"),
-    "Excepción de disponibilidad": ("Identificador", "intervalo, tipo, motivo"),
-    "Solicitud de atención": ("Identificador", "necesidad, modalidad, presupuesto, estado, vigencia"),
-    "Oferta": ("Identificador", "importe, mensaje, estado, fechas"),
-    "Relación asistencial": ("Identificador", "estado, inicio, finalización"),
-    "Cita": ("Identificador", "modalidad, intervalo, zona, estado, motivo"),
-    "Evento de cita": ("Identificador", "tipo, transición, intervalo anterior, motivo, fecha"),
-    "Reseña": ("Identificador", "puntuación, comentario, fecha"),
-    "Pago": ("Identificador", "importe, moneda, método, transacción, estado"),
-    "Evento de pago": ("Identificador", "transición, referencia externa, fecha"),
+    "Decisión de verificación": (
+        "Identificador",
+        "resultado, motivo público, motivo interno, decidida en",
+    ),
+    "Regla de disponibilidad": (
+        "Identificador",
+        "día, hora inicial, hora final, zona horaria IANA, vigente desde, vigente hasta, estado",
+    ),
+    "Excepción de disponibilidad": ("Identificador", "inicio, fin, tipo, motivo"),
+    "Solicitud de atención": (
+        "Identificador",
+        "necesidad, presupuesto, moneda, estado, programada para, vence en, ubicación temporal, ubicación vence en",
+    ),
+    "Oferta": ("Identificador", "importe, mensaje, estado, creación, actualización"),
+    "Relación asistencial": ("Identificador", "estado, iniciada en, finalizada en"),
+    "Cita": (
+        "Identificador",
+        "inicio, fin, zona horaria IANA, estado, motivo de cancelación, creación",
+    ),
+    "Evento de cita": (
+        "Identificador",
+        "tipo, estado anterior, estado nuevo, inicio anterior, fin anterior, motivo, ocurrencia, origen",
+    ),
+    "Reseña": ("Identificador", "puntuación, comentario, creación"),
+    "Pago": ("Identificador", "importe, moneda, método, referencia de transacción, estado, creación"),
+    "Evento de pago": (
+        "Identificador",
+        "estado anterior, estado nuevo, referencia externa, ocurrencia, origen",
+    ),
     "Conversación": ("Identificador", "fecha de creación"),
-    "Mensaje": ("Identificador", "identificador cliente, tipo, contenido, fechas"),
-    "Expediente clínico": ("Identificador", "estado, apertura, cierre"),
+    "Mensaje": (
+        "Identificador",
+        "identificador de cliente, tipo, contenido, enviado en, editado en, origen",
+    ),
+    "Expediente clínico": ("Identificador", "estado, abierto en, cerrado en"),
     "Encuentro clínico": ("Identificador", "inicio, fin, motivo, creación"),
-    "Nota clínica": ("Identificador", "estado, firma, fechas"),
+    "Nota clínica": ("Identificador", "estado, firmada en, creación, actualización"),
     "Versión de nota": ("Nota + número", "contenido, motivo de enmienda, creación"),
-    "Evento de nota": ("Identificador", "tipo, transición, versión, fecha"),
+    "Evento de nota": ("Identificador", "tipo, estado anterior, estado nuevo, ocurrencia"),
     "Concepto diagnóstico": ("Sistema + código", "nombre"),
-    "Diagnóstico clínico": ("Identificador", "estado, observaciones, fecha"),
-    "Plan de tratamiento": ("Identificador", "estado, resumen, intervalo, fechas"),
+    "Diagnóstico clínico": ("Identificador", "estado, observaciones, diagnosticado en"),
+    "Plan de tratamiento": (
+        "Identificador",
+        "estado, resumen, inicio, fin, creación, actualización",
+    ),
     "Objetivo terapéutico": ("Identificador", "descripción, fecha meta, estado"),
-    "Documento de consentimiento": ("Código + versión", "título, huella, publicación"),
-    "Decisión de consentimiento": ("Identificador", "decisión, fecha, dirección de red"),
-    "Evaluación de triaje": ("Identificador", "reglas, necesidad, recomendación, riesgo, revisión"),
-    "Evento de auditoría": ("Identificador", "acción, recurso, petición, metadatos, fecha"),
-    "Evento de salida": ("Identificador", "agregado, tipo, disponibilidad, publicación, intentos"),
-    "Registro de idempotencia": ("Actor + operación + clave", "huella, resultado, creación, expiración"),
+    "Documento de consentimiento": (
+        "Código + versión",
+        "título, huella del contenido, alcance, publicación",
+    ),
+    "Decisión de consentimiento": ("Identificador", "decisión, ocurrencia, dirección de red"),
+    "Evaluación de triaje": (
+        "Identificador",
+        "proveedor, modelo, versión del evaluador, necesidad, rango presupuestario, riesgo, revisada en, creación",
+    ),
+    "Regla de triaje": (
+        "Código + versión",
+        "nombre, nivel de riesgo, vigente desde, vigente hasta, estado",
+    ),
+    "Evento de auditoría": (
+        "Identificador",
+        "acción, recurso, resultado, correlación, dirección de red, metadatos, ocurrencia, origen",
+    ),
+    "Evento de salida": (
+        "Identificador",
+        "agregado, tipo, ocurrencia, disponible en, publicada en, intentos, último error",
+    ),
+    "Registro de idempotencia": (
+        "Usuario + operación + clave",
+        "huella de petición, recurso resultante, creación, expiración",
+    ),
 }
 
 
@@ -156,9 +210,7 @@ ATTRIBUTES: dict[str, tuple[str, str]] = {
 RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
     ("Identidad", "Usuario", "tiene asignado", "Rol", "1..N", "0..N"),
     ("Identidad", "Usuario", "mantiene", "Sesión", "0..N", "1"),
-    ("Identidad", "Usuario", "se especializa como", "Paciente", "0..1", "1"),
-    ("Identidad", "Usuario", "se especializa como", "Psicólogo", "0..1", "1"),
-    ("Directorio", "Psicólogo", "acredita", "Licencia profesional", "1..N", "1"),
+    ("Directorio", "Psicólogo", "acredita", "Licencia profesional", "0..N", "1"),
     ("Directorio", "Psicólogo", "ejerce en", "Especialidad", "0..N", "0..N"),
     ("Directorio", "Psicólogo", "ofrece", "Modalidad de atención", "0..N", "0..N"),
     ("Verificación", "Licencia profesional", "recibe", "Solicitud de verificación", "0..N", "1"),
@@ -167,54 +219,75 @@ RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
     ("Disponibilidad", "Psicólogo", "define", "Regla de disponibilidad", "0..N", "1"),
     ("Disponibilidad", "Psicólogo", "registra", "Excepción de disponibilidad", "0..N", "1"),
     ("Atención", "Paciente", "crea", "Solicitud de atención", "0..N", "1"),
+    ("Atención", "Solicitud de atención", "requiere", "Modalidad de atención", "1", "0..N"),
     ("Atención", "Solicitud de atención", "recibe", "Oferta", "0..N", "1"),
     ("Atención", "Psicólogo", "presenta", "Oferta", "0..N", "1"),
+    ("Atención", "Oferta", "origina", "Relación asistencial", "0..1", "1"),
     ("Atención", "Paciente", "participa en", "Relación asistencial", "0..N", "1"),
     ("Atención", "Psicólogo", "participa en", "Relación asistencial", "0..N", "1"),
-    ("Atención", "Solicitud de atención", "origina", "Relación asistencial", "0..1", "0..1"),
     ("Agenda", "Paciente", "agenda", "Cita", "0..N", "1"),
     ("Agenda", "Psicólogo", "atiende", "Cita", "0..N", "1"),
-    ("Agenda", "Solicitud de atención", "origina", "Cita", "0..1", "0..1"),
-    ("Agenda", "Relación asistencial", "contextualiza", "Cita", "0..N", "0..1"),
+    ("Agenda", "Relación asistencial", "agenda", "Cita", "0..N", "1"),
+    ("Agenda", "Cita", "usa", "Modalidad de atención", "1", "0..N"),
     ("Agenda", "Cita", "registra", "Evento de cita", "1..N", "1"),
-    ("Agenda", "Usuario", "ejecuta", "Evento de cita", "0..N", "1"),
+    ("Agenda", "Usuario", "ejecuta", "Evento de cita", "0..N", "0..1"),
     ("Reputación", "Cita", "recibe", "Reseña", "0..1", "1"),
-    ("Pagos", "Oferta", "genera", "Pago", "0..1", "1"),
-    ("Pagos", "Pago", "registra", "Evento de pago", "0..N", "1"),
-    ("Mensajería", "Solicitud de atención", "abre", "Conversación", "0..1", "0..1"),
-    ("Mensajería", "Cita", "dispone de", "Conversación", "0..1", "0..1"),
-    ("Mensajería", "Usuario", "participa en", "Conversación", "0..N", "0..N"),
+    ("Reputación", "Paciente", "escribe", "Reseña", "0..N", "1"),
+    ("Pagos", "Cita", "genera", "Pago", "0..N", "1"),
+    ("Pagos", "Pago", "registra", "Evento de pago", "1..N", "1"),
+    ("Mensajería", "Relación asistencial", "mantiene", "Conversación", "1", "1"),
+    ("Mensajería", "Usuario", "participa en", "Conversación", "0..N", "2"),
     ("Mensajería", "Conversación", "contiene", "Mensaje", "0..N", "1"),
-    ("Mensajería", "Usuario", "envía", "Mensaje", "0..N", "1"),
-    ("Clínica", "Paciente", "posee", "Expediente clínico", "0..1", "1"),
-    ("Clínica", "Expediente clínico", "agrupa", "Encuentro clínico", "0..N", "1"),
-    ("Clínica", "Psicólogo", "realiza", "Encuentro clínico", "0..N", "1"),
-    ("Clínica", "Relación asistencial", "autoriza", "Encuentro clínico", "0..N", "1"),
-    ("Clínica", "Cita", "se materializa como", "Encuentro clínico", "0..1", "0..1"),
-    ("Clínica", "Encuentro clínico", "contiene", "Nota clínica", "1..N", "1"),
-    ("Clínica", "Nota clínica", "conserva", "Versión de nota", "1..N", "1"),
-    ("Clínica", "Usuario", "redacta", "Versión de nota", "0..N", "1"),
-    ("Clínica", "Nota clínica", "registra", "Evento de nota", "1..N", "1"),
-    ("Clínica", "Usuario", "ejecuta", "Evento de nota", "0..N", "1"),
-    ("Clínica", "Expediente clínico", "contiene", "Diagnóstico clínico", "0..N", "1"),
-    ("Clínica", "Concepto diagnóstico", "clasifica", "Diagnóstico clínico", "0..N", "1"),
-    ("Clínica", "Psicólogo", "formula", "Diagnóstico clínico", "0..N", "1"),
-    ("Clínica", "Encuentro clínico", "sustenta", "Diagnóstico clínico", "0..N", "0..1"),
-    ("Clínica", "Expediente clínico", "organiza", "Plan de tratamiento", "0..N", "1"),
-    ("Clínica", "Psicólogo", "dirige", "Plan de tratamiento", "0..N", "1"),
-    ("Clínica", "Plan de tratamiento", "define", "Objetivo terapéutico", "1..N", "1"),
+    ("Mensajería", "Usuario", "envía", "Mensaje", "0..N", "0..1"),
+    ("Clínica I", "Paciente", "posee", "Expediente clínico", "0..1", "1"),
+    ("Clínica I", "Expediente clínico", "agrupa", "Encuentro clínico", "0..N", "1"),
+    ("Clínica I", "Psicólogo", "realiza", "Encuentro clínico", "0..N", "1"),
+    ("Clínica I", "Relación asistencial", "autoriza", "Encuentro clínico", "0..N", "1"),
+    ("Clínica I", "Cita", "se materializa como", "Encuentro clínico", "0..1", "0..1"),
+    ("Clínica I", "Encuentro clínico", "contiene", "Nota clínica", "1..N", "1"),
+    ("Clínica I", "Nota clínica", "conserva", "Versión de nota", "1..N", "1"),
+    ("Clínica I", "Psicólogo", "redacta", "Versión de nota", "0..N", "1"),
+    ("Clínica I", "Nota clínica", "registra", "Evento de nota", "1..N", "1"),
+    ("Clínica I", "Psicólogo", "ejecuta", "Evento de nota", "0..N", "1"),
+    ("Clínica I", "Versión de nota", "es afectada por", "Evento de nota", "1..N", "1"),
+    ("Clínica II", "Expediente clínico", "contiene", "Diagnóstico clínico", "0..N", "1"),
+    ("Clínica II", "Concepto diagnóstico", "clasifica", "Diagnóstico clínico", "0..N", "1"),
+    ("Clínica II", "Psicólogo", "formula", "Diagnóstico clínico", "0..N", "1"),
+    ("Clínica II", "Encuentro clínico", "sustenta", "Diagnóstico clínico", "0..N", "0..1"),
+    ("Clínica II", "Relación asistencial", "contextualiza", "Diagnóstico clínico", "0..N", "1"),
+    ("Clínica II", "Expediente clínico", "organiza", "Plan de tratamiento", "0..N", "1"),
+    ("Clínica II", "Psicólogo", "dirige", "Plan de tratamiento", "0..N", "1"),
+    ("Clínica II", "Relación asistencial", "contextualiza", "Plan de tratamiento", "0..N", "1"),
+    ("Clínica II", "Plan de tratamiento", "aborda", "Diagnóstico clínico", "0..N", "0..N"),
+    ("Clínica II", "Plan de tratamiento", "define", "Objetivo terapéutico", "1..N", "1"),
     ("Consentimiento", "Paciente", "expresa", "Decisión de consentimiento", "0..N", "1"),
     ("Consentimiento", "Documento de consentimiento", "fundamenta", "Decisión de consentimiento", "0..N", "1"),
+    ("Consentimiento", "Relación asistencial", "contextualiza", "Decisión de consentimiento", "0..N", "0..1"),
     ("Orientación", "Paciente", "recibe", "Evaluación de triaje", "0..N", "1"),
     ("Orientación", "Psicólogo", "revisa", "Evaluación de triaje", "0..N", "0..1"),
     ("Orientación", "Evaluación de triaje", "informa", "Solicitud de atención", "0..1", "0..N"),
+    ("Orientación", "Evaluación de triaje", "recomienda", "Modalidad de atención", "1", "0..N"),
+    ("Orientación", "Evaluación de triaje", "aplica", "Regla de triaje", "1..N", "0..N"),
     ("Plataforma", "Usuario", "origina", "Evento de auditoría", "0..N", "0..1"),
     ("Plataforma", "Usuario", "delimita", "Registro de idempotencia", "0..N", "1"),
 )
 
 
+# Una jerarquía EER, no dos relaciones 1:1 ordinarias.
+SPECIALIZATION = {
+    "supertype": "Usuario",
+    "subtypes": ("Paciente", "Psicólogo"),
+    "completeness": "parcial",
+    "disjointness": "superpuesta",
+}
+
+
 RELATIONSHIP_ATTRIBUTES: dict[tuple[str, str, str], tuple[str, ...]] = {
-    ("Usuario", "tiene asignado", "Rol"): ("fecha de asignación",),
+    ("Usuario", "tiene asignado", "Rol"): (
+        "asignada en",
+        "finalizada en",
+        "estado",
+    ),
     ("Psicólogo", "ejerce en", "Especialidad"): ("es principal",),
     ("Psicólogo", "ofrece", "Modalidad de atención"): (
         "precio por hora",
@@ -222,6 +295,10 @@ RELATIONSHIP_ATTRIBUTES: dict[tuple[str, str, str], tuple[str, ...]] = {
         "habilitación",
     ),
     ("Usuario", "participa en", "Conversación"): ("ingreso", "salida"),
+    ("Evaluación de triaje", "aplica", "Regla de triaje"): (
+        "resultado",
+        "evidencia minimizada",
+    ),
 }
 
 
@@ -239,6 +316,22 @@ def wrap_lines(text: str, width: float, font: str, size: float) -> list[str]:
     if current:
         lines.append(current)
     return lines
+
+
+def cardinality_is_many(cardinality: str) -> bool:
+    """Indica si el máximo conceptual permite más de una instancia."""
+
+    maximum = cardinality.rsplit("..", maxsplit=1)[-1]
+    return maximum == "N" or (maximum.isdigit() and int(maximum) > 1)
+
+
+def many_to_many_relationships() -> tuple[tuple[str, str, str, str, str, str], ...]:
+    return tuple(
+        relationship
+        for relationship in RELATIONSHIPS
+        if cardinality_is_many(relationship[4])
+        and cardinality_is_many(relationship[5])
+    )
 
 
 def draw_centered_lines(
@@ -356,8 +449,8 @@ def draw_relation_row(
     center_x = x + width / 2
     center_y = entity_y + entity_height / 2
 
-    a_is_many = a_per_b.endswith("N")
-    b_is_many = b_per_a.endswith("N")
+    a_is_many = cardinality_is_many(a_per_b)
+    b_is_many = cardinality_is_many(b_per_a)
     classification = "N:N" if a_is_many and b_is_many else "1:N" if a_is_many or b_is_many else "1:1"
 
     draw_entity(pdf, left_x, entity_y, entity_width, entity_height, entity_a)
@@ -433,10 +526,11 @@ def draw_cover(pdf: canvas.Canvas, page_number: int) -> None:
     pdf.setFillColor(MUTED)
     pdf.drawString(50, PAGE_HEIGHT - 172, "Entregable Aficionado · Desarrollo · Hackathon Nicaragua 2026")
 
+    entity_count = sum(len(entities) for _, entities in ENTITY_GROUPS)
     summary = (
-        ("37", "entidades conceptuales"),
-        ("56", "relaciones semánticas"),
-        ("4", "relaciones N:N explícitas"),
+        (str(entity_count), "entidades conceptuales"),
+        (str(len(RELATIONSHIPS)), "asociaciones semánticas"),
+        (str(len(many_to_many_relationships())), "relaciones N:N explícitas"),
         ("0", "tablas lógicas en el DER"),
     )
     card_width = 250
@@ -474,6 +568,7 @@ def draw_cover(pdf: canvas.Canvas, page_number: int) -> None:
         "La participación mínima cero es opcional; mínima uno es obligatoria.",
         "El identificador conceptual no equivale a exponer una PK física.",
         "Cada atributo aparece en un óvalo propio; el identificador conceptual se subraya.",
+        "Paciente y Psicólogo forman una especialización ISA parcial y superpuesta de Usuario.",
         "Las relaciones N:N permanecen sin resolver hasta la transformación al modelo lógico.",
     )
     y = PAGE_HEIGHT - 505
@@ -544,16 +639,86 @@ def draw_master_map(pdf: canvas.Canvas, page_number: int) -> None:
     draw_footer(pdf)
 
 
+def draw_specialization_panel(pdf: canvas.Canvas, x: float, y: float, width: float, height: float) -> None:
+    """Dibuja la jerarquía ISA de Usuario como una sola especialización EER."""
+
+    pdf.setFillColor(SURFACE)
+    pdf.setStrokeColor(LINE)
+    pdf.roundRect(x, y, width, height, 8, fill=1, stroke=1)
+    pdf.setFillColor(NAVY)
+    pdf.setFont(FONT_BOLD, 10.5)
+    pdf.drawString(x + 14, y + height - 24, "Especialización de Usuario")
+
+    entity_width = 142
+    entity_height = 35
+    center_x = x + width / 2
+    user_y = y + height - 78
+    draw_entity(
+        pdf,
+        center_x - entity_width / 2,
+        user_y,
+        entity_width,
+        entity_height,
+        SPECIALIZATION["supertype"],
+    )
+
+    triangle_center_y = y + height / 2 - 4
+    triangle_half_width = 24
+    triangle_height = 34
+    path = pdf.beginPath()
+    path.moveTo(center_x, triangle_center_y + triangle_height / 2)
+    path.lineTo(center_x + triangle_half_width, triangle_center_y - triangle_height / 2)
+    path.lineTo(center_x - triangle_half_width, triangle_center_y - triangle_height / 2)
+    path.close()
+    pdf.setFillColor(MAGENTA_SOFT)
+    pdf.setStrokeColor(MAGENTA)
+    pdf.setLineWidth(1.1)
+    pdf.drawPath(path, fill=1, stroke=1)
+    pdf.setFillColor(MAGENTA)
+    pdf.setFont(FONT_BOLD, 7.5)
+    pdf.drawCentredString(center_x, triangle_center_y - 4, "ISA")
+    pdf.setStrokeColor(LINE)
+    pdf.line(center_x, user_y, center_x, triangle_center_y + triangle_height / 2)
+
+    subtype_gap = 30
+    subtypes_width = entity_width * 2 + subtype_gap
+    subtype_start_x = center_x - subtypes_width / 2
+    subtype_y = y + 36
+    for index, subtype in enumerate(SPECIALIZATION["subtypes"]):
+        subtype_x = subtype_start_x + index * (entity_width + subtype_gap)
+        draw_entity(pdf, subtype_x, subtype_y, entity_width, entity_height, subtype)
+        pdf.setStrokeColor(LINE)
+        pdf.line(
+            center_x,
+            triangle_center_y - triangle_height / 2,
+            subtype_x + entity_width / 2,
+            subtype_y + entity_height,
+        )
+
+    qualifier = f"{SPECIALIZATION['completeness']} · {SPECIALIZATION['disjointness']}"
+    pdf.setFillColor(MUTED)
+    pdf.setFont(FONT_BOLD, 7.5)
+    pdf.drawCentredString(center_x, y + 18, qualifier)
+
+
 def draw_relation_pages(pdf: canvas.Canvas, start_page: int) -> int:
-    chunks = (
-        ("Relaciones: identidad y directorio", RELATIONSHIPS[0:12]),
-        ("Relaciones: atención, agenda y pagos", RELATIONSHIPS[12:27]),
-        ("Relaciones: mensajería e historia clínica I", RELATIONSHIPS[27:42]),
-        ("Relaciones: historia clínica II, consentimiento y orientación", RELATIONSHIPS[42:54]),
-        ("Relaciones: plataforma", RELATIONSHIPS[54:]),
+    page_definitions = (
+        (
+            "Relaciones: identidad y directorio",
+            {"Identidad", "Directorio", "Verificación", "Disponibilidad"},
+        ),
+        ("Relaciones: solicitudes y ofertas", {"Atención"}),
+        ("Relaciones: agenda, reputación y pagos", {"Agenda", "Reputación", "Pagos"}),
+        ("Relaciones: mensajería e historia clínica I", {"Mensajería", "Clínica I"}),
+        ("Relaciones: historia clínica II", {"Clínica II"}),
+        ("Relaciones: consentimiento y orientación", {"Consentimiento", "Orientación"}),
+        ("Relaciones: plataforma", {"Plataforma"}),
     )
     page_number = start_page
-    for title, relationships in chunks:
+    for title, areas in page_definitions:
+        relationships = tuple(
+            relationship for relationship in RELATIONSHIPS if relationship[0] in areas
+        )
         draw_header(
             pdf,
             title,
@@ -570,6 +735,14 @@ def draw_relation_pages(pdf: canvas.Canvas, start_page: int) -> int:
             x = 32 + column * (column_width + 24)
             y = top_y - row * row_height
             draw_relation_row(pdf, x, y, column_width, relationship)
+        if "Identidad" in areas:
+            draw_specialization_panel(
+                pdf,
+                32 + column_width + 24,
+                155,
+                column_width,
+                355,
+            )
         if len(relationships) <= 2:
             pdf.setFillColor(SURFACE)
             pdf.setStrokeColor(LINE)
@@ -595,7 +768,11 @@ def draw_relation_pages(pdf: canvas.Canvas, start_page: int) -> int:
 
 def draw_attribute_catalog(pdf: canvas.Canvas, page_number: int) -> int:
     items = list(ATTRIBUTES.items())
-    chunks = tuple(items[index:index + 10] for index in range(0, len(items), 10))
+    items_per_page = 8
+    chunks = tuple(
+        items[index:index + items_per_page]
+        for index in range(0, len(items), items_per_page)
+    )
     for chunk_index, chunk in enumerate(chunks):
         draw_header(
             pdf,
@@ -605,7 +782,7 @@ def draw_attribute_catalog(pdf: canvas.Canvas, page_number: int) -> int:
         )
         left = 32.0
         top = PAGE_HEIGHT - 92
-        row_height = 69
+        row_height = 84
         entity_x = left + 10
         entity_width = 190
         entity_height = 35
@@ -639,12 +816,15 @@ def draw_attribute_catalog(pdf: canvas.Canvas, page_number: int) -> int:
             declared_attributes = (identifier,) + tuple(
                 value.strip() for value in attributes.split(",") if value.strip()
             )
-            one_row = len(declared_attributes) <= attribute_columns
+            attribute_rows = (
+                len(declared_attributes) + attribute_columns - 1
+            ) // attribute_columns
+            row_offset = (attribute_rows - 1) * 11
             for attribute_index, attribute in enumerate(declared_attributes):
                 column = attribute_index % attribute_columns
                 row = attribute_index // attribute_columns
                 attribute_x = attribute_area_x + column * (attribute_width + attribute_gap)
-                attribute_center_y = center_y if one_row else center_y + 15 - row * 30
+                attribute_center_y = center_y + row_offset - row * 22
 
                 pdf.setStrokeColor(LINE)
                 pdf.setLineWidth(0.7)
@@ -699,24 +879,26 @@ def draw_attribute_catalog(pdf: canvas.Canvas, page_number: int) -> int:
 
 def validate_model() -> None:
     entities = {entity for _, group in ENTITY_GROUPS for entity in group}
-    if len(entities) != 37:
-        raise ValueError(f"Se esperaban 37 entidades conceptuales y se obtuvieron {len(entities)}")
+    if len(entities) != 38:
+        raise ValueError(f"Se esperaban 38 entidades conceptuales y se obtuvieron {len(entities)}")
     if set(ATTRIBUTES) != entities:
         missing = sorted(entities - set(ATTRIBUTES))
         extra = sorted(set(ATTRIBUTES) - entities)
         raise ValueError(f"Catálogo inconsistente. Faltan={missing}; sobran={extra}")
-    if len(RELATIONSHIPS) != 56:
-        raise ValueError(f"Se esperaban 56 relaciones y se obtuvieron {len(RELATIONSHIPS)}")
+    if len(RELATIONSHIPS) != 62:
+        raise ValueError(f"Se esperaban 62 relaciones y se obtuvieron {len(RELATIONSHIPS)}")
     referenced = {item for relationship in RELATIONSHIPS for item in (relationship[1], relationship[3])}
     if not referenced.issubset(entities):
         raise ValueError(f"Relaciones con entidades desconocidas: {sorted(referenced - entities)}")
-    many_to_many = [
-        relationship
-        for relationship in RELATIONSHIPS
-        if relationship[4].endswith("N") and relationship[5].endswith("N")
-    ]
-    if len(many_to_many) != 4:
-        raise ValueError(f"Se esperaban 4 relaciones N:N y se obtuvieron {len(many_to_many)}")
+    many_to_many = many_to_many_relationships()
+    if len(many_to_many) != 6:
+        raise ValueError(f"Se esperaban 6 relaciones N:N y se obtuvieron {len(many_to_many)}")
+    specialization_entities = {
+        SPECIALIZATION["supertype"],
+        *SPECIALIZATION["subtypes"],
+    }
+    if not specialization_entities.issubset(entities):
+        raise ValueError("La jerarquía ISA contiene entidades desconocidas")
     for entity_a, verb, entity_b in RELATIONSHIP_ATTRIBUTES:
         if not any(
             relationship[1:4] == (entity_a, verb, entity_b)

@@ -86,7 +86,7 @@ Procesos automáticos que envían notificaciones, expiran solicitudes, ejecutan 
 
 #### Comunicación
 
-- Conversación vinculada a una solicitud o cita.
+- Una conversación longitudinal por relación de atención, creada al aceptar la oferta.
 - Participantes autorizados por el servidor.
 - Mensajes de texto con paginación y deduplicación.
 - Entrega en tiempo real mediante eventos emitidos por el servidor.
@@ -161,8 +161,11 @@ Hasta entonces, la interfaz debe describirse como demostración o la función de
 4. El servidor notifica únicamente a psicólogos verificados y elegibles.
 5. Los psicólogos envían ofertas dentro de sus modalidades habilitadas.
 6. El paciente consulta ofertas de su propia solicitud.
-7. Al aceptar una oferta, una transacción acepta una, rechaza las demás, crea la relación de atención y prepara la conversación/cita.
+7. Al aceptar una oferta, una transacción acepta una, rechaza las demás, crea la relación de atención y su conversación longitudinal.
 8. Los eventos de tiempo real se publican después de confirmar la transacción.
+
+La cita se agenda posteriormente dentro de la relación activa. Aceptar una
+oferta no reserva un horario de manera implícita.
 
 ### Paciente programa atención
 

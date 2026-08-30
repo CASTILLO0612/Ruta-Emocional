@@ -16,6 +16,14 @@ Los campos JSON de `audit_events` y `outbox_events` son sobres técnicos de even
 no la representación canónica de entidades del negocio. No deben usarse para
 evitar modelar relaciones o atributos clínicos.
 
+## Alcance de conformidad
+
+Las dependencias que siguen describen el esquema lógico vigente. La
+[`revisión conceptual del Hackathon`](../Hackathon/desarrollo/revision-decisiones-modelo-conceptual.md)
+aprobó relaciones adicionales que todavía requieren migraciones incrementales.
+Por tanto, 3FN está verificada para las tablas actuales, pero no se afirma que
+el lógico ya materialice por completo el DER objetivo.
+
 ## Dependencias funcionales principales
 
 | Relación | Dependencia funcional |
@@ -74,6 +82,13 @@ Las relaciones multivaluadas se representan con tablas asociativas:
 
 No se almacenarán arrays de roles, especialidades o modalidades dentro de una
 fila del núcleo transaccional.
+
+La transformación lógica siguiente añadirá asociaciones normalizadas para
+`Plan de tratamiento-Diagnóstico clínico` y `Evaluación de triaje-Regla de triaje`.
+Sus atributos dependerán de la clave completa de cada pareja, preservando 2FN y
+3FN. También sustituirá las dependencias conceptuales obsoletas
+`Oferta-Pago`, `Solicitud-Cita` y `Solicitud-Conversación` por `Cita-Pago`,
+`Relación-Cita` y `Relación-Conversación`.
 
 ## Decisión de normalización de la Fase 3
 

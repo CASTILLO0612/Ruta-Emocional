@@ -19,10 +19,12 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **ID-013**. Cerrar sesión revoca la sesión actual; cerrar todas revoca todas las sesiones del usuario.
 - **ID-014**. El cambio de contraseña revoca las demás sesiones.
 - **ID-015**. Los secretos y tokens nunca se escriben en logs, respuestas de error o eventos analíticos.
+- **ID-016**. Todo usuario operativo conserva al menos un rol activo. La asignación registra inicio, finalización y estado; retirar el último rol activo está prohibido.
+- **ID-017**. Paciente y psicólogo son especializaciones parciales y superpuestas de usuario. Tener ambos perfiles no mezcla permisos, propósito ni contexto clínico.
 
 ## 2. Perfiles y verificación profesional
 
-- **PR-001**. Un usuario puede tener como máximo un perfil de paciente y uno de psicólogo.
+- **PR-001**. Un usuario puede tener como máximo un perfil de paciente y uno de psicólogo, y puede tener ambos simultáneamente.
 - **PR-002**. Crear un perfil de psicólogo no implica estar verificado.
 - **PR-003**. Un psicólogo pendiente o rechazado no aparece en el directorio ni puede ofertar o atender.
 - **PR-004**. La licencia se identifica por autoridad y número; esa combinación es única.
@@ -30,7 +32,7 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **PR-006**. Un administrador puede verificar o rechazar; no puede alterar el documento original sin dejar auditoría.
 - **PR-007**. La expiración, suspensión o revocación de una credencial impide nuevas ofertas y citas. Las citas existentes pasan a revisión operativa.
 - **PR-008**. Un psicólogo debe habilitar al menos una modalidad con precio positivo antes de estar disponible.
-- **PR-009**. Solo una especialidad puede marcarse como principal.
+- **PR-009**. Solo una especialidad puede marcarse como principal; un psicólogo verificado y habilitado debe conservar exactamente una principal activa.
 - **PR-010**. La calificación y cantidad de reseñas se calculan desde reseñas persistidas; el cliente no las envía al crear ofertas.
 - **PR-011**. La ubicación pública debe degradarse o agregarse para evitar revelar una dirección precisa salvo necesidad presencial y consentimiento.
 
@@ -71,13 +73,15 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 ## 5. Relación de atención
 
 - **CR-001**. Una relación vincula exactamente un paciente y un psicólogo.
-- **CR-002**. Una solicitud aceptada puede originar como máximo una relación.
+- **CR-002**. La oferta aceptada origina exactamente una relación; la solicitud conserva como máximo una oferta aceptada.
 - **CR-003**. Solo puede existir una relación activa para la misma pareja.
 - **CR-004**. La relación puede estar activa, pausada o finalizada.
 - **CR-005**. Pausar bloquea nuevas citas y mensajes según la causa, pero no elimina el historial.
 - **CR-006**. Finalizar requiere actor, motivo y fecha.
 - **CR-007**. Finalizar la relación no elimina obligaciones de conservación ni autoría clínica.
 - **CR-008**. La relación habilita acceso operativo; el acceso clínico además depende del propósito, consentimiento y autoría.
+- **CR-009**. En el marketplace MVP no existen relaciones sin oferta aceptada. Cualquier alta administrativa futura requiere una fuente de origen explícita y un caso de uso separado.
+- **CR-010**. Aceptar crea una conversación longitudinal para la relación, pero no crea automáticamente una cita.
 
 ## 6. Disponibilidad y citas
 
@@ -100,11 +104,13 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **AP-017**. Todos los instantes se almacenan en UTC; la zona IANA usada para interpretar la intención también se conserva.
 - **AP-018**. Los recordatorios se programan con anticipaciones configurables; antes de entregarlos se comprueba estado y horario canónicos para descartar eventos obsoletos.
 - **AP-019**. El cliente no define duración, fin, zona, participantes ni estado al reservar.
+- **AP-020**. Toda cita pertenece a una relación activa; la primera cita y las posteriores se programan por el mismo flujo.
+- **AP-021**. Crear una cita y su evento inicial es una operación atómica. Los eventos automáticos registran origen de sistema y no un usuario ficticio.
 
 ## 7. Conversaciones y mensajes
 
 - **MS-001**. Una conversación se crea por un caso de uso del servidor, no por una sala arbitraria enviada por el cliente.
-- **MS-002**. Una conversación de solicitud o cita conserva su contexto mediante una relación normalizada.
+- **MS-002**. La conversación creada al aceptar pertenece directamente a la relación asistencial y continúa a través de sus citas.
 - **MS-003**. Solo participantes persistidos pueden consultar mensajes o unirse al canal en tiempo real.
 - **MS-004**. El remitente se obtiene de la sesión; nombre y rol no se aceptan como autoridad desde el cliente.
 - **MS-005**. El servidor persiste el mensaje antes de emitir el evento.
@@ -116,10 +122,12 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **MS-011**. Los WebSockets rechazan conexiones sin sesión y validan autorización en cada unión y evento.
 - **MS-012**. Los eventos de dominio parten del servidor; un cliente no puede emitir `offer_accepted` o `request_status_changed` como hecho autorizado.
 - **MS-013**. El contenido de mensajes no se escribe en logs.
+- **MS-014**. La conversación del MVP conserva exactamente dos participantes y un único intervalo de pertenencia por usuario. Grupos y reingresos múltiples requieren un modelo de episodios separado.
+- **MS-015**. Un mensaje automático usa tipo y origen de sistema; no se atribuye a una cuenta humana ficticia.
 
 ## 8. Pagos
 
-- **PY-001**. El importe se deriva de la oferta aceptada y la política vigente.
+- **PY-001**. Cada pago corresponde a una cita. El importe inicial se deriva de la oferta aceptada y la política vigente.
 - **PY-002**. El cliente nunca envía el importe definitivo de una captura o devolución.
 - **PY-003**. Un pago usa moneda ISO 4217 y decimal exacto.
 - **PY-004**. Cada operación externa tiene clave de idempotencia y referencia única.
@@ -128,6 +136,7 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **PY-007**. Una devolución no supera el importe capturado.
 - **PY-008**. Datos de tarjeta completos y CVV nunca atraviesan ni se almacenan en los servidores de Ruta Emocional.
 - **PY-009**. Sin proveedor configurado, el módulo se marca como simulación y permanece deshabilitado en producción.
+- **PY-010**. Una cita puede conservar varios pagos o intentos; cada pago crea su evento inicial en la misma transacción.
 
 ## 9. Historia clínica
 
@@ -152,6 +161,9 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **CL-019**. Hasta aprobar compartición clínica, un profesional solo proyecta encuentros, notas y planes de su propia autoría dentro de una relación activa.
 - **CL-020**. Dos escrituras sobre la misma versión no se fusionan silenciosamente; una debe fallar por conflicto y exigir recarga.
 - **CL-021**. Un objetivo pendiente solo avanza a en progreso o cancelado; uno en progreso solo avanza a logrado o cancelado, y un estado terminal no se reabre.
+- **CL-022**. Cada diagnóstico y plan conserva la relación asistencial que autorizó su creación.
+- **CL-023**. Un plan puede abordar varios diagnósticos y un diagnóstico puede ser abordado por varios planes.
+- **CL-024**. Cada evento de nota referencia la versión afectada. Solo un profesional responsable o delegado puede redactar versiones y ejecutar transiciones clínicas.
 
 ## 10. Consentimientos
 
@@ -161,6 +173,8 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **CO-004**. Funciones opcionales como ubicación continua, proveedor externo de IA o grabación requieren consentimiento separado cuando corresponda.
 - **CO-005**. El consentimiento no sustituye otra base jurídica ni autoriza acceso ilimitado.
 - **CO-006**. Los textos de consentimiento deben ser comprensibles y estar disponibles para consulta posterior.
+- **CO-007**. Una decisión puede ser otorgada, rechazada o retirada; la vigente es la última decisión válida para paciente, versión y contexto.
+- **CO-008**. Cuando el documento tiene alcance clínico, la decisión conserva la relación asistencial concreta a la que aplica.
 
 ## 11. MENTA y triaje
 
@@ -176,6 +190,8 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **MT-010**. El nivel de riesgo, reglas aplicadas y versión del evaluador pueden auditarse sin registrar texto innecesario.
 - **MT-011**. Incorporar un resultado al expediente requiere revisión profesional y trazabilidad de autoría.
 - **MT-012**. Los precios sugeridos no se consideran recomendación clínica y deben separarse de la evaluación de necesidad.
+- **MT-013**. Las reglas deterministas tienen código y versión. Cada evaluación registra qué reglas aplicó y el resultado minimizado de cada una.
+- **MT-014**. Una solicitud puede conservar varias evaluaciones inmutables; la más reciente anterior a la aceptación es la vigente para orientación.
 
 ## 12. Auditoría y datos
 
