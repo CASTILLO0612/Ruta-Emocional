@@ -27,8 +27,14 @@ Por ello, el DER utiliza:
 - óvalo: atributo conceptual;
 - atributo subrayado: identificador conceptual;
 - `(mínimo, máximo)`: participación y cardinalidad;
+- `1:1`, `1:N` o `N:N` dentro del rombo: tipo global de relación;
 - la especialización de `Usuario` en `Paciente` y `Psicólogo` se expresa como
   una asociación conceptual con cardinalidad uno a cero-o-uno.
+
+Cada atributo se dibuja en su propio óvalo. Los atributos de una relación se
+conectan al rombo correspondiente. Una relación `N:N` no se sustituye por una
+entidad asociativa en el DER: su resolución se realiza posteriormente al
+transformar el modelo conceptual al modelo lógico.
 
 No se incluyen tipos SQL, longitudes, columnas foráneas, nombres `snake_case`,
 índices, triggers, políticas de borrado, cifrado ni detalles de Prisma. Esos
@@ -43,14 +49,16 @@ Fuentes metodológicas:
 
 ## 3. Resultado de la consolidación
 
-Los 48 modelos persistidos se expresan como:
+La consolidación conceptual produce:
 
-- **38 tipos de entidad conceptual** con identidad o ciclo de vida propio;
-- **10 relaciones conceptuales** que PostgreSQL implementa mediante tablas de
-  asociación para preservar 3FN;
+- **37 tipos de entidad conceptual** con identidad o ciclo de vida propio;
 - **56 asociaciones semánticas** con cardinalidad y participación definidas;
+- **4 relaciones N:N explícitas**, todavía sin resolver en el DER;
 - **20 dominios de estado o clasificación**, representados como atributos y no
   como entidades artificiales.
+
+Los 48 modelos Prisma se usan únicamente para comprobar cobertura. Su
+transformación relacional no se dibuja dentro del DER.
 
 ## 4. Catálogo de entidades conceptuales
 
@@ -66,7 +74,7 @@ exponiendo una llave primaria física.
 | Identidad | Psicólogo | Identificador de psicólogo | estado de verificación, presentación, ubicación aproximada, alta, actualización |
 | Directorio | Licencia profesional | Autoridad + número | estado, referencia de evidencia, fecha de verificación, creación |
 | Directorio | Especialidad | Código de especialidad | nombre, vigencia |
-| Directorio | Configuración de modalidad | Psicólogo + modalidad | precio por hora, moneda, habilitación |
+| Directorio | Modalidad de atención | Código de modalidad | nombre, vigencia |
 | Verificación | Solicitud de verificación | Identificador de solicitud | referencia privada de evidencia, fecha de envío |
 | Verificación | Decisión de verificación | Identificador de decisión | resultado, motivo público, motivo interno, fecha |
 | Disponibilidad | Regla de disponibilidad | Identificador de regla | día, hora inicial, hora final, zona horaria, vigencia, estado |
@@ -78,7 +86,6 @@ exponiendo una llave primaria física.
 | Agenda | Evento de cita | Identificador de evento | tipo, estado anterior, estado nuevo, intervalo anterior, motivo, fecha |
 | Reputación | Reseña | Identificador de reseña | puntuación, comentario, fecha |
 | Mensajería | Conversación | Identificador de conversación | fecha de creación |
-| Mensajería | Participación | Identificador de participación | ingreso, salida |
 | Mensajería | Mensaje | Identificador de mensaje | identificador del cliente, tipo, contenido, envío, edición |
 | Clínica | Expediente clínico | Identificador de expediente | estado, apertura, cierre |
 | Clínica | Encuentro clínico | Identificador de encuentro | inicio, fin, motivo, creación |
@@ -113,7 +120,7 @@ una instancia de A. `A por cada B` expresa la dirección inversa.
 | Usuario | se especializa como | Psicólogo | 0..1 | 1 |
 | Psicólogo | acredita | Licencia profesional | 1..N | 1 |
 | Psicólogo | ejerce en | Especialidad | 0..N | 0..N |
-| Psicólogo | configura | Configuración de modalidad | 0..N | 1 |
+| Psicólogo | ofrece | Modalidad de atención | 0..N | 0..N |
 | Licencia profesional | recibe | Solicitud de verificación | 0..N | 1 |
 | Solicitud de verificación | se resuelve mediante | Decisión de verificación | 0..1 | 1 |
 | Usuario | revisa | Decisión de verificación | 0..N | 1 |
@@ -150,9 +157,9 @@ y Psicólogo sean excluyentes.
 |---|---|---|---:|---:|
 | Solicitud de atención | abre | Conversación | 0..1 | 0..1 |
 | Cita | dispone de | Conversación | 0..1 | 0..1 |
-| Conversación | incluye | Participación | 2..N | 1 |
-| Usuario | asume | Participación | 0..N | 1 |
-| Participación | envía | Mensaje | 0..N | 1 |
+| Usuario | participa en | Conversación | 0..N | 0..N |
+| Conversación | contiene | Mensaje | 0..N | 1 |
+| Usuario | envía | Mensaje | 0..N | 1 |
 
 ### 5.4 Historia clínica
 
@@ -192,22 +199,29 @@ y Psicólogo sean excluyentes.
 el evento. No se dibuja una relación ficticia con todas las entidades porque no
 existe una asociación única de dominio ni una llave foránea correspondiente.
 
-## 6. Tablas de asociación que vuelven a ser relaciones
+## 6. Relaciones N:N y transformación lógica posterior
 
-Esta tabla demuestra por qué el DER no es una copia del modelo relacional.
+El DER conserva las cuatro relaciones muchos-a-muchos como rombos. Sus
+atributos pertenecen a la relación, no a una tabla conceptual inventada.
 
-| Modelo Prisma | Representación conceptual | Atributo propio de la relación |
-|---|---|---|
-| `UserRole` | Usuario tiene asignado Rol | fecha de asignación |
-| `PsychologistSpecialty` | Psicólogo ejerce en Especialidad | indicador de especialidad principal |
-| `CareRelationshipSource` | Solicitud origina Relación asistencial | ninguno |
-| `AppointmentRequest` | Solicitud origina Cita | ninguno |
-| `AppointmentCareRelationship` | Relación asistencial contextualiza Cita | ninguno |
-| `ClinicalEncounterAppointment` | Cita se materializa como Encuentro | ninguno |
-| `ClinicalDiagnosisSource` | Encuentro sustenta Diagnóstico | ninguno |
-| `RequestConversation` | Solicitud abre Conversación | ninguno |
-| `AppointmentConversation` | Cita dispone de Conversación | ninguno |
-| `RequestTriageAssessment` | Evaluación de triaje informa Solicitud | ninguno |
+| Entidad A | Relación N:N | Entidad B | Atributos de la relación |
+|---|---|---|---|
+| Usuario | tiene asignado | Rol | fecha de asignación |
+| Psicólogo | ejerce en | Especialidad | indicador de especialidad principal |
+| Psicólogo | ofrece | Modalidad de atención | precio por hora, moneda, habilitación |
+| Usuario | participa en | Conversación | ingreso, salida |
+
+Al derivar el modelo lógico, cada N:N se resuelve mediante una estructura
+asociativa que contiene las referencias de ambos extremos y los atributos de la
+relación. En PostgreSQL esta transformación corresponde a `UserRole`,
+`PsychologistSpecialty`, `PsychologistModality` y `ConversationParticipant`.
+Estos nombres se documentan aquí como trazabilidad lógica, pero no aparecen en
+el DER conceptual.
+
+Las demás asociaciones implementadas mediante modelos auxiliares, como
+`AppointmentRequest` o `ClinicalEncounterAppointment`, no son problemas N:N:
+materializan asociaciones opcionales 1:1 o 1:N y tampoco deben confundirse con
+entidades conceptuales.
 
 ## 7. Reglas de integridad visibles en el DER
 

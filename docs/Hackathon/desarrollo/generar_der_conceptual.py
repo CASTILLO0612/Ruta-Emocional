@@ -35,33 +35,30 @@ SURFACE = colors.HexColor("#F7F9FC")
 WHITE = colors.white
 
 
-def register_document_fonts() -> tuple[str, str, str]:
+def register_document_fonts() -> tuple[str, str]:
     """Registra fuentes TrueType con mapa Unicode para un PDF buscable."""
 
     candidates = (
         (
             Path("C:/Windows/Fonts/arial.ttf"),
             Path("C:/Windows/Fonts/arialbd.ttf"),
-            Path("C:/Windows/Fonts/consolab.ttf"),
         ),
         (
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-            Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"),
         ),
     )
 
-    for regular_path, bold_path, mono_path in candidates:
-        if all(path.is_file() for path in (regular_path, bold_path, mono_path)):
+    for regular_path, bold_path in candidates:
+        if all(path.is_file() for path in (regular_path, bold_path)):
             pdfmetrics.registerFont(TTFont("RutaSans", str(regular_path)))
             pdfmetrics.registerFont(TTFont("RutaSans-Bold", str(bold_path)))
-            pdfmetrics.registerFont(TTFont("RutaMono-Bold", str(mono_path)))
-            return "RutaSans", "RutaSans-Bold", "RutaMono-Bold"
+            return "RutaSans", "RutaSans-Bold"
 
-    return "Helvetica", "Helvetica-Bold", "Courier-Bold"
+    return "Helvetica", "Helvetica-Bold"
 
 
-FONT_REGULAR, FONT_BOLD, FONT_MONO_BOLD = register_document_fonts()
+FONT_REGULAR, FONT_BOLD = register_document_fonts()
 
 
 ENTITY_GROUPS: Sequence[tuple[str, Sequence[str]]] = (
@@ -71,7 +68,7 @@ ENTITY_GROUPS: Sequence[tuple[str, Sequence[str]]] = (
         (
             "Licencia profesional",
             "Especialidad",
-            "Configuración de modalidad",
+            "Modalidad de atención",
             "Solicitud de verificación",
             "Decisión de verificación",
             "Regla de disponibilidad",
@@ -91,7 +88,7 @@ ENTITY_GROUPS: Sequence[tuple[str, Sequence[str]]] = (
             "Evento de pago",
         ),
     ),
-    ("Mensajería", ("Conversación", "Participación", "Mensaje")),
+    ("Mensajería", ("Conversación", "Mensaje")),
     (
         "Historia clínica",
         (
@@ -122,7 +119,7 @@ ATTRIBUTES: dict[str, tuple[str, str]] = {
     "Psicólogo": ("Identificador", "verificación, presentación, ubicación, fechas"),
     "Licencia profesional": ("Autoridad + número", "estado, evidencia, verificación, creación"),
     "Especialidad": ("Código", "nombre, vigencia"),
-    "Configuración de modalidad": ("Psicólogo + modalidad", "precio, moneda, habilitación"),
+    "Modalidad de atención": ("Código", "nombre, vigencia"),
     "Solicitud de verificación": ("Identificador", "evidencia privada, fecha de envío"),
     "Decisión de verificación": ("Identificador", "resultado, motivos, fecha"),
     "Regla de disponibilidad": ("Identificador", "día, intervalo, zona, vigencia, estado"),
@@ -136,7 +133,6 @@ ATTRIBUTES: dict[str, tuple[str, str]] = {
     "Pago": ("Identificador", "importe, moneda, método, transacción, estado"),
     "Evento de pago": ("Identificador", "transición, referencia externa, fecha"),
     "Conversación": ("Identificador", "fecha de creación"),
-    "Participación": ("Identificador", "ingreso, salida"),
     "Mensaje": ("Identificador", "identificador cliente, tipo, contenido, fechas"),
     "Expediente clínico": ("Identificador", "estado, apertura, cierre"),
     "Encuentro clínico": ("Identificador", "inicio, fin, motivo, creación"),
@@ -164,7 +160,7 @@ RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
     ("Identidad", "Usuario", "se especializa como", "Psicólogo", "0..1", "1"),
     ("Directorio", "Psicólogo", "acredita", "Licencia profesional", "1..N", "1"),
     ("Directorio", "Psicólogo", "ejerce en", "Especialidad", "0..N", "0..N"),
-    ("Directorio", "Psicólogo", "configura", "Configuración de modalidad", "0..N", "1"),
+    ("Directorio", "Psicólogo", "ofrece", "Modalidad de atención", "0..N", "0..N"),
     ("Verificación", "Licencia profesional", "recibe", "Solicitud de verificación", "0..N", "1"),
     ("Verificación", "Solicitud de verificación", "se resuelve mediante", "Decisión de verificación", "0..1", "1"),
     ("Verificación", "Usuario", "revisa", "Decisión de verificación", "0..N", "1"),
@@ -187,9 +183,9 @@ RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
     ("Pagos", "Pago", "registra", "Evento de pago", "0..N", "1"),
     ("Mensajería", "Solicitud de atención", "abre", "Conversación", "0..1", "0..1"),
     ("Mensajería", "Cita", "dispone de", "Conversación", "0..1", "0..1"),
-    ("Mensajería", "Conversación", "incluye", "Participación", "2..N", "1"),
-    ("Mensajería", "Usuario", "asume", "Participación", "0..N", "1"),
-    ("Mensajería", "Participación", "envía", "Mensaje", "0..N", "1"),
+    ("Mensajería", "Usuario", "participa en", "Conversación", "0..N", "0..N"),
+    ("Mensajería", "Conversación", "contiene", "Mensaje", "0..N", "1"),
+    ("Mensajería", "Usuario", "envía", "Mensaje", "0..N", "1"),
     ("Clínica", "Paciente", "posee", "Expediente clínico", "0..1", "1"),
     ("Clínica", "Expediente clínico", "agrupa", "Encuentro clínico", "0..N", "1"),
     ("Clínica", "Psicólogo", "realiza", "Encuentro clínico", "0..N", "1"),
@@ -217,18 +213,16 @@ RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
 )
 
 
-BRIDGES: Sequence[tuple[str, str]] = (
-    ("UserRole", "Usuario tiene asignado Rol"),
-    ("PsychologistSpecialty", "Psicólogo ejerce en Especialidad"),
-    ("CareRelationshipSource", "Solicitud origina Relación asistencial"),
-    ("AppointmentRequest", "Solicitud origina Cita"),
-    ("AppointmentCareRelationship", "Relación asistencial contextualiza Cita"),
-    ("ClinicalEncounterAppointment", "Cita se materializa como Encuentro"),
-    ("ClinicalDiagnosisSource", "Encuentro sustenta Diagnóstico"),
-    ("RequestConversation", "Solicitud abre Conversación"),
-    ("AppointmentConversation", "Cita dispone de Conversación"),
-    ("RequestTriageAssessment", "Evaluación de triaje informa Solicitud"),
-)
+RELATIONSHIP_ATTRIBUTES: dict[tuple[str, str, str], tuple[str, ...]] = {
+    ("Usuario", "tiene asignado", "Rol"): ("fecha de asignación",),
+    ("Psicólogo", "ejerce en", "Especialidad"): ("es principal",),
+    ("Psicólogo", "ofrece", "Modalidad de atención"): (
+        "precio por hora",
+        "moneda",
+        "habilitación",
+    ),
+    ("Usuario", "participa en", "Conversación"): ("ingreso", "salida"),
+}
 
 
 def wrap_lines(text: str, width: float, font: str, size: float) -> list[str]:
@@ -283,7 +277,7 @@ def draw_footer(pdf: canvas.Canvas) -> None:
     pdf.setFont(FONT_REGULAR, 7.5)
     pdf.setFillColor(MUTED)
     pdf.drawString(32, 15, "DER conceptual: sin tipos SQL, llaves foráneas, índices ni detalles del motor.")
-    pdf.drawRightString(PAGE_WIDTH - 32, 15, "Fuente canónica: schema.prisma · 48 modelos · 18 migraciones")
+    pdf.drawRightString(PAGE_WIDTH - 32, 15, "Nivel conceptual · transformación lógica documentada por separado")
 
 
 def draw_entity(pdf: canvas.Canvas, x: float, y: float, width: float, height: float, name: str) -> None:
@@ -302,6 +296,7 @@ def draw_relationship_diamond(
     width: float,
     height: float,
     label: str,
+    classification: str | None = None,
 ) -> None:
     points = (
         center_x,
@@ -324,7 +319,12 @@ def draw_relationship_diamond(
     pdf.setLineWidth(1.1)
     pdf.drawPath(path, fill=1, stroke=1)
     lines = wrap_lines(label, width * 0.58, FONT_BOLD, 6.8)
-    draw_centered_lines(pdf, lines[:3], center_x, center_y, FONT_BOLD, 6.8, 7.6, MAGENTA)
+    label_center_y = center_y - 3 if classification else center_y
+    draw_centered_lines(pdf, lines[:3], center_x, label_center_y, FONT_BOLD, 6.8, 7.6, MAGENTA)
+    if classification:
+        pdf.setFillColor(NAVY)
+        pdf.setFont(FONT_BOLD, 5.8)
+        pdf.drawCentredString(center_x, center_y + 15, classification)
 
 
 def draw_attribute_legend(pdf: canvas.Canvas, x: float, y: float) -> None:
@@ -356,8 +356,20 @@ def draw_relation_row(
     center_x = x + width / 2
     center_y = entity_y + entity_height / 2
 
+    a_is_many = a_per_b.endswith("N")
+    b_is_many = b_per_a.endswith("N")
+    classification = "N:N" if a_is_many and b_is_many else "1:N" if a_is_many or b_is_many else "1:1"
+
     draw_entity(pdf, left_x, entity_y, entity_width, entity_height, entity_a)
-    draw_relationship_diamond(pdf, center_x, center_y, diamond_width, diamond_height, verb)
+    draw_relationship_diamond(
+        pdf,
+        center_x,
+        center_y,
+        diamond_width,
+        diamond_height,
+        verb,
+        classification,
+    )
     draw_entity(pdf, right_x, entity_y, entity_width, entity_height, entity_b)
 
     pdf.setStrokeColor(LINE)
@@ -372,6 +384,39 @@ def draw_relation_row(
     pdf.setFillColor(MUTED)
     pdf.setFont(FONT_REGULAR, 6.5)
     pdf.drawCentredString(center_x, y - 6, area)
+
+    relationship_attributes = RELATIONSHIP_ATTRIBUTES.get((entity_a, verb, entity_b), ())
+    if relationship_attributes:
+        attribute_width = 70
+        attribute_height = 15
+        gap = 5
+        total_width = len(relationship_attributes) * attribute_width + (len(relationship_attributes) - 1) * gap
+        start_x = center_x - total_width / 2
+        attribute_y = center_y + diamond_height / 2 + 6
+        for index, attribute in enumerate(relationship_attributes):
+            attribute_x = start_x + index * (attribute_width + gap)
+            pdf.setStrokeColor(MAGENTA)
+            pdf.setLineWidth(0.6)
+            pdf.line(center_x, center_y + diamond_height / 2, attribute_x + attribute_width / 2, attribute_y)
+            pdf.setFillColor(WHITE)
+            pdf.ellipse(
+                attribute_x,
+                attribute_y,
+                attribute_x + attribute_width,
+                attribute_y + attribute_height,
+                fill=1,
+                stroke=1,
+            )
+            draw_centered_lines(
+                pdf,
+                wrap_lines(attribute, attribute_width - 8, FONT_REGULAR, 5.2)[:2],
+                attribute_x + attribute_width / 2,
+                attribute_y + attribute_height / 2,
+                FONT_REGULAR,
+                5.2,
+                5.6,
+                INK,
+            )
 
 
 def draw_cover(pdf: canvas.Canvas, page_number: int) -> None:
@@ -389,10 +434,10 @@ def draw_cover(pdf: canvas.Canvas, page_number: int) -> None:
     pdf.drawString(50, PAGE_HEIGHT - 172, "Entregable Aficionado · Desarrollo · Hackathon Nicaragua 2026")
 
     summary = (
-        ("38", "entidades conceptuales"),
+        ("37", "entidades conceptuales"),
         ("56", "relaciones semánticas"),
-        ("10", "tablas puente reinterpretadas"),
-        ("48", "modelos Prisma trazados"),
+        ("4", "relaciones N:N explícitas"),
+        ("0", "tablas lógicas en el DER"),
     )
     card_width = 250
     gap = 22
@@ -428,7 +473,8 @@ def draw_cover(pdf: canvas.Canvas, page_number: int) -> None:
         "La cardinalidad situada junto a una entidad expresa cuántas instancias de esa entidad pueden asociarse con una instancia del extremo opuesto.",
         "La participación mínima cero es opcional; mínima uno es obligatoria.",
         "El identificador conceptual no equivale a exponer una PK física.",
-        "Los atributos completos y la evidencia de 3FN acompañan este PDF en la documentación técnica.",
+        "Cada atributo aparece en un óvalo propio; el identificador conceptual se subraya.",
+        "Las relaciones N:N permanecen sin resolver hasta la transformación al modelo lógico.",
     )
     y = PAGE_HEIGHT - 505
     for note in notes:
@@ -549,157 +595,112 @@ def draw_relation_pages(pdf: canvas.Canvas, start_page: int) -> int:
 
 def draw_attribute_catalog(pdf: canvas.Canvas, page_number: int) -> int:
     items = list(ATTRIBUTES.items())
-    chunks = (items[:19], items[19:])
+    chunks = tuple(items[index:index + 10] for index in range(0, len(items), 10))
     for chunk_index, chunk in enumerate(chunks):
         draw_header(
             pdf,
-            f"Atributos conceptuales por entidad {chunk_index + 1}/2",
-            "Rectángulo = entidad · óvalo amarillo subrayado = identificador · óvalo gris = atributos significativos",
+            f"Entidades y atributos {chunk_index + 1}/{len(chunks)}",
+            "Cada atributo se declara en un óvalo independiente; el identificador conceptual aparece subrayado",
             page_number,
         )
         left = 32.0
-        top = PAGE_HEIGHT - 102
-        row_height = 34
-        identifier_width = 210
-        entity_width = 205
-        gap = 24
-        identifier_x = left
-        entity_x = identifier_x + identifier_width + gap
-        attributes_x = entity_x + entity_width + gap
-        attributes_width = PAGE_WIDTH - left - attributes_x
+        top = PAGE_HEIGHT - 92
+        row_height = 69
+        entity_x = left + 10
+        entity_width = 190
+        entity_height = 35
+        attribute_area_x = entity_x + entity_width + 38
+        attribute_area_width = PAGE_WIDTH - left - attribute_area_x
+        attribute_columns = 3
+        attribute_gap = 10
+        attribute_width = (
+            attribute_area_width - attribute_gap * (attribute_columns - 1)
+        ) / attribute_columns
+        attribute_height = 23
 
         for index, (entity, (identifier, attributes)) in enumerate(chunk):
             row_top = top - index * row_height
             center_y = row_top - row_height / 2
-            shape_height = 25
 
             if index % 2 == 1:
                 pdf.setFillColor(SURFACE)
                 pdf.setStrokeColor(SURFACE)
                 pdf.rect(left, row_top - row_height, PAGE_WIDTH - 2 * left, row_height, fill=1, stroke=0)
 
-            pdf.setStrokeColor(LINE)
-            pdf.setLineWidth(0.9)
-            pdf.line(identifier_x + identifier_width, center_y, entity_x, center_y)
-            pdf.line(entity_x + entity_width, center_y, attributes_x, center_y)
-
-            pdf.setFillColor(YELLOW)
-            pdf.setStrokeColor(colors.HexColor("#C9A70B"))
-            pdf.ellipse(
-                identifier_x,
-                center_y - shape_height / 2,
-                identifier_x + identifier_width,
-                center_y + shape_height / 2,
-                fill=1,
-                stroke=1,
-            )
-            identifier_lines = wrap_lines(identifier, identifier_width - 22, FONT_BOLD, 7.4)[:2]
-            draw_centered_lines(
-                pdf,
-                identifier_lines,
-                identifier_x + identifier_width / 2,
-                center_y,
-                FONT_BOLD,
-                7.4,
-                8.2,
-            )
-            underline_width = min(stringWidth(identifier_lines[-1], FONT_BOLD, 7.4), identifier_width - 28)
-            pdf.setStrokeColor(INK)
-            pdf.setLineWidth(0.55)
-            pdf.line(
-                identifier_x + (identifier_width - underline_width) / 2,
-                center_y - 5.2,
-                identifier_x + (identifier_width + underline_width) / 2,
-                center_y - 5.2,
-            )
-
             draw_entity(
                 pdf,
                 entity_x,
-                center_y - shape_height / 2,
+                center_y - entity_height / 2,
                 entity_width,
-                shape_height,
+                entity_height,
                 entity,
             )
 
-            pdf.setFillColor(WHITE)
-            pdf.setStrokeColor(LINE)
-            pdf.ellipse(
-                attributes_x,
-                center_y - shape_height / 2,
-                attributes_x + attributes_width,
-                center_y + shape_height / 2,
-                fill=1,
-                stroke=1,
+            declared_attributes = (identifier,) + tuple(
+                value.strip() for value in attributes.split(",") if value.strip()
             )
-            attribute_lines = wrap_lines(attributes, attributes_width - 24, FONT_REGULAR, 7.4)[:2]
-            draw_centered_lines(
-                pdf,
-                attribute_lines,
-                attributes_x + attributes_width / 2,
-                center_y,
-                FONT_REGULAR,
-                7.4,
-                8.2,
-            )
+            one_row = len(declared_attributes) <= attribute_columns
+            for attribute_index, attribute in enumerate(declared_attributes):
+                column = attribute_index % attribute_columns
+                row = attribute_index // attribute_columns
+                attribute_x = attribute_area_x + column * (attribute_width + attribute_gap)
+                attribute_center_y = center_y if one_row else center_y + 15 - row * 30
+
+                pdf.setStrokeColor(LINE)
+                pdf.setLineWidth(0.7)
+                pdf.line(
+                    entity_x + entity_width,
+                    center_y,
+                    attribute_x,
+                    attribute_center_y,
+                )
+                is_identifier = attribute_index == 0
+                pdf.setFillColor(YELLOW if is_identifier else WHITE)
+                pdf.setStrokeColor(colors.HexColor("#C9A70B") if is_identifier else LINE)
+                pdf.ellipse(
+                    attribute_x,
+                    attribute_center_y - attribute_height / 2,
+                    attribute_x + attribute_width,
+                    attribute_center_y + attribute_height / 2,
+                    fill=1,
+                    stroke=1,
+                )
+                font = FONT_BOLD if is_identifier else FONT_REGULAR
+                font_size = 7.1
+                lines = wrap_lines(attribute, attribute_width - 18, font, font_size)[:2]
+                draw_centered_lines(
+                    pdf,
+                    lines,
+                    attribute_x + attribute_width / 2,
+                    attribute_center_y,
+                    font,
+                    font_size,
+                    7.8,
+                )
+                if is_identifier:
+                    underline_width = min(
+                        stringWidth(lines[-1], font, font_size),
+                        attribute_width - 26,
+                    )
+                    underline_y = attribute_center_y - (7.0 if len(lines) > 1 else 5.0)
+                    pdf.setStrokeColor(INK)
+                    pdf.setLineWidth(0.55)
+                    pdf.line(
+                        attribute_x + (attribute_width - underline_width) / 2,
+                        underline_y,
+                        attribute_x + (attribute_width + underline_width) / 2,
+                        underline_y,
+                    )
         draw_footer(pdf)
         pdf.showPage()
         page_number += 1
     return page_number
 
 
-def draw_bridge_traceability(pdf: canvas.Canvas, page_number: int) -> None:
-    draw_header(
-        pdf,
-        "Trazabilidad sin confundir modelos",
-        "Diez tablas relacionales se representan como relaciones conceptuales, no como entidades artificiales",
-        page_number,
-    )
-    left = 55
-    top = PAGE_HEIGHT - 115
-    table_width = PAGE_WIDTH - 110
-    row_height = 48
-    first_width = 330
-    second_width = table_width - first_width
-    pdf.setFillColor(NAVY)
-    pdf.rect(left, top - 34, table_width, 34, fill=1, stroke=0)
-    pdf.setFillColor(WHITE)
-    pdf.setFont(FONT_BOLD, 10)
-    pdf.drawString(left + 12, top - 22, "Implementación relacional")
-    pdf.drawString(left + first_width + 12, top - 22, "Significado en el DER conceptual")
-    y = top - 34
-    for index, (model, meaning) in enumerate(BRIDGES):
-        y -= row_height
-        pdf.setFillColor(WHITE if index % 2 == 0 else SURFACE)
-        pdf.setStrokeColor(LINE)
-        pdf.rect(left, y, table_width, row_height, fill=1, stroke=1)
-        pdf.setFillColor(INK)
-        pdf.setFont(FONT_MONO_BOLD, 9)
-        pdf.drawString(left + 12, y + 18, model)
-        pdf.setFont(FONT_REGULAR, 9)
-        pdf.drawString(left + first_width + 12, y + 18, meaning)
-
-    pdf.setFillColor(YELLOW)
-    pdf.setStrokeColor(colors.HexColor("#C9A70B"))
-    pdf.roundRect(left, 88, table_width, 76, 8, fill=1, stroke=1)
-    pdf.setFillColor(INK)
-    pdf.setFont(FONT_BOLD, 10)
-    pdf.drawString(left + 15, 137, "Conclusión")
-    conclusion = (
-        "La normalización 3FN se demuestra en el modelo relacional. El DER conserva la semántica: una tabla puente sin identidad propia vuelve a ser un rombo de relación."
-    )
-    pdf.setFont(FONT_REGULAR, 9)
-    yy = 118
-    for line in wrap_lines(conclusion, table_width - 30, FONT_REGULAR, 9):
-        pdf.drawString(left + 15, yy, line)
-        yy -= 13
-    draw_footer(pdf)
-
-
 def validate_model() -> None:
     entities = {entity for _, group in ENTITY_GROUPS for entity in group}
-    if len(entities) != 38:
-        raise ValueError(f"Se esperaban 38 entidades conceptuales y se obtuvieron {len(entities)}")
+    if len(entities) != 37:
+        raise ValueError(f"Se esperaban 37 entidades conceptuales y se obtuvieron {len(entities)}")
     if set(ATTRIBUTES) != entities:
         missing = sorted(entities - set(ATTRIBUTES))
         extra = sorted(set(ATTRIBUTES) - entities)
@@ -709,8 +710,19 @@ def validate_model() -> None:
     referenced = {item for relationship in RELATIONSHIPS for item in (relationship[1], relationship[3])}
     if not referenced.issubset(entities):
         raise ValueError(f"Relaciones con entidades desconocidas: {sorted(referenced - entities)}")
-    if len(BRIDGES) != 10:
-        raise ValueError("La trazabilidad debe contener las 10 tablas de asociación")
+    many_to_many = [
+        relationship
+        for relationship in RELATIONSHIPS
+        if relationship[4].endswith("N") and relationship[5].endswith("N")
+    ]
+    if len(many_to_many) != 4:
+        raise ValueError(f"Se esperaban 4 relaciones N:N y se obtuvieron {len(many_to_many)}")
+    for entity_a, verb, entity_b in RELATIONSHIP_ATTRIBUTES:
+        if not any(
+            relationship[1:4] == (entity_a, verb, entity_b)
+            for relationship in RELATIONSHIPS
+        ):
+            raise ValueError(f"Atributos declarados para una relación inexistente: {entity_a} {verb} {entity_b}")
 
 
 def generate(output: Path) -> None:
@@ -729,8 +741,7 @@ def generate(output: Path) -> None:
     pdf.showPage()
     page_number += 1
     page_number = draw_relation_pages(pdf, page_number)
-    page_number = draw_attribute_catalog(pdf, page_number)
-    draw_bridge_traceability(pdf, page_number)
+    draw_attribute_catalog(pdf, page_number)
     pdf.save()
 
 
