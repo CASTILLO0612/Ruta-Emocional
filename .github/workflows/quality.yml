@@ -39,10 +39,10 @@ jobs:
       ADMIN_DATABASE_URL: postgresql://ruta_emocional_ci:ci-only-password@localhost:5432/ruta_emocional_ci
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -89,7 +89,29 @@ jobs:
 
       - name: Run PostgreSQL integration tests
         working-directory: backend
-        run: npm run test:integration
+        shell: bash
+        run: |
+          set -o pipefail
+          integration_log="$RUNNER_TEMP/ruta-emocional-integration-tests.log"
+
+          if npm run test:integration 2>&1 | tee "$integration_log"; then
+            exit 0
+          fi
+
+          {
+            echo '## PostgreSQL integration test failure'
+            echo
+            echo '```text'
+            tail -n 160 "$integration_log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          failure_excerpt="$(tail -n 60 "$integration_log")"
+          failure_excerpt="${failure_excerpt//'%'/'%25'}"
+          failure_excerpt="${failure_excerpt//$'\r'/'%0D'}"
+          failure_excerpt="${failure_excerpt//$'\n'/'%0A'}"
+          echo "::error title=PostgreSQL integration tests failed::$failure_excerpt"
+          exit 1
 
       - name: Audit production dependencies
         working-directory: backend
@@ -101,10 +123,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.13.0
           cache: npm
