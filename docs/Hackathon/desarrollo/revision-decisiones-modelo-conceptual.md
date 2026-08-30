@@ -151,8 +151,12 @@ Las extensiones todavía fuera del recorrido del MVP permanecen explícitas:
 
 1. facturación por cita, pagos parciales y reembolsos;
 2. mensajes y actores de sistema de propósito general;
-3. relación N:N entre planes y diagnósticos;
-4. reglas de triaje versionadas y estructuradas.
+3. relación N:N entre planes y diagnósticos.
+
+Las reglas de triaje versionadas, el consentimiento exacto, las modalidades
+opcionales y la evaluación congelada ya están materializados por la migración
+`20260830001000_secure_triage_menta`. Su proveedor externo permanece fuera del
+modelo operativo hasta ser aprobado.
 
 La matriz de trazabilidad entre decisiones conceptuales, esquema y restricciones
 está en

@@ -7,7 +7,7 @@ lógico ejecutable. Cada diferencia tiene una decisión, una fase responsable y
 un criterio de cierre. Una diferencia explícitamente diferida no autoriza a
 inventar una relación alternativa en código.
 
-## Consolidado previo a la Fase 8
+## Consolidado después de la Fase 8
 
 | Área conceptual | Estado lógico después de Fase 7.5 | Decisión |
 |---|---|---|
@@ -21,9 +21,10 @@ inventar una relación alternativa en código.
 | Relación asistencial–Cita | Implementado | `appointments.care_relationship_id` es obligatorio; se retiró la asociación transitoria y la cita no depende de la solicitud. |
 | Relación asistencial–Encuentro | Implementado | La FK es obligatoria y una restricción cruzada valida expediente, paciente y profesional. |
 | Relación asistencial–Plan | Implementado | Todo plan conserva la relación que autorizó su creación y la unicidad de plan abierto se delimita por esa relación. |
-| Consentimiento con contexto | Preparado, flujo no habilitado | Se admite decisión otorgada, rechazada o retirada y contexto asistencial opcional. La vigencia y UI pertenecen a Fase 8/revisión legal. |
+| Consentimiento con contexto | Implementado para MENTA | La evaluación referencia la decisión otorgada sobre la versión exacta. Otros alcances y la política legal general permanecen pendientes. |
 | Diagnóstico con contexto | Preparado, flujo no habilitado | Existe FK opcional a relación para migración compatible. Se hará obligatoria al habilitar diagnósticos. |
-| Catálogo/reglas de triaje | Pendiente deliberado | Las reglas versionadas y su N:N con evaluaciones se implementan en Fase 8 junto con el motor determinista. |
+| Catálogo/reglas de triaje | Implementado | Preguntas, opciones, necesidades y reglas son catálogos normalizados; la N:N conserva resultado y evidencia minimizada para todas las reglas vigentes. |
+| Triaje–Solicitud–Relación | Implementado | Una solicitud conserva 0..N evaluaciones; la aceptación congela la más reciente anterior al vínculo en `care_relationship_sources.triage_assessment_id`. |
 | Plan–Diagnóstico N:N | Pendiente deliberado | La tabla asociativa se crea cuando diagnósticos sean aprobados y habilitados; no se agrega una relación sin caso de uso. |
 | Cita–Pago 1:N | Pendiente deliberado | El modelo financiero inicial sigue aislado y ningún endpoint de pago está montado. Fase 9 migrará datos compatibles o abortará ante ambigüedad. |
 | Mensajes/eventos de sistema | Parcial | Auditoría admite actor nulo. Mensajes visibles de sistema no se habilitan hasta definir origen, contenido permitido y autorización. |
@@ -39,10 +40,11 @@ inventar una relación alternativa en código.
    filas históricas.
 5. Ningún campo JSON sustituye una relación del dominio.
 6. Las funciones deshabilitadas no conservan endpoints simulados como respaldo.
-7. La Fase 8 debe consumir `care_modalities` y no crear otro catálogo de
-   modalidades.
+7. MENTA consume `care_modalities`; no mantiene otro catálogo de modalidades.
+8. Una fase futura no puede mutar una evaluación histórica; debe crear una nueva
+   evaluación y conservar la regla/versiones aplicadas.
 
-## Gates para iniciar Fase 8
+## Evidencia de cierre de Fase 8
 
 - migraciones completas desde una base vacía;
 - compilación y pruebas unitarias en verde;
@@ -50,5 +52,10 @@ inventar una relación alternativa en código.
   clínica en verde;
 - cero dependencia `mongoose` y cero rutas MongoDB en el proceso;
 - esquema y grants runtime actualizados para las tablas consolidadas;
-- CI obligatorio sobre la rama de trabajo;
-- cualquier gate externo no resuelto permanece deshabilitado y documentado.
+- migración de triaje aplicada como la número 20 desde una base vacía;
+- motor, autorización, congelación temporal e inmutabilidad cubiertos por
+  pruebas PostgreSQL;
+- grants runtime incluyen inserción de resultados y actualización limitada de
+  revisión;
+- cualquier gate externo no resuelto permanece deshabilitado y documentado en
+  [`phase-8-secure-menta.md`](../roadmap/phase-8-secure-menta.md).

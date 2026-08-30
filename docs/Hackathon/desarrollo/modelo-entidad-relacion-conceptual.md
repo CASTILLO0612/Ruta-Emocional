@@ -56,9 +56,9 @@ Fuentes metodológicas:
 La revisión de las 62 observaciones produce:
 
 - **38 tipos de entidad conceptual** con identidad o ciclo de vida propio;
-- **62 asociaciones semánticas** con cardinalidad y participación definidas;
+- **64 asociaciones semánticas** con cardinalidad y participación definidas;
 - **1 jerarquía ISA** parcial y superpuesta;
-- **6 relaciones N:N explícitas**, todavía sin resolver en el DER;
+- **7 relaciones N:N explícitas**, todavía sin resolver en el DER;
 - **20 dominios de estado o clasificación**, representados como atributos y no
   como entidades artificiales.
 
@@ -103,7 +103,7 @@ exponiendo una llave primaria física.
 | Clínica | Objetivo terapéutico | Identificador de objetivo | descripción, fecha meta, estado |
 | Consentimiento | Documento de consentimiento | Código + versión | título, huella del contenido, alcance, publicación |
 | Consentimiento | Decisión de consentimiento | Identificador de decisión | decisión, ocurrencia, dirección de red |
-| Orientación | Evaluación de triaje | Identificador de evaluación | proveedor, modelo, versión del evaluador, necesidad, rango presupuestario, riesgo, revisión, creación |
+| Orientación | Evaluación de triaje | Identificador de evaluación | proveedor, modelo, versión del evaluador, necesidad, orientación, resultado del proveedor, país, riesgo, revisión, creación |
 | Orientación | Regla de triaje | Código + versión | nombre, nivel de riesgo, vigente desde, vigente hasta, estado |
 | Pagos | Pago | Identificador de pago | importe, moneda, método, referencia de transacción, estado, creación |
 | Pagos | Evento de pago | Identificador de evento | estados anterior/nuevo, referencia externa, ocurrencia, origen |
@@ -215,10 +215,12 @@ y su primera versión dentro de la misma operación atómica.
 | Paciente | expresa | Decisión de consentimiento | 0..N | 1 |
 | Documento de consentimiento | fundamenta | Decisión de consentimiento | 0..N | 1 |
 | Relación asistencial | contextualiza | Decisión de consentimiento | 0..N | 0..1 |
+| Decisión de consentimiento | autoriza | Evaluación de triaje | 0..N | 1 |
 | Paciente | recibe | Evaluación de triaje | 0..N | 1 |
 | Psicólogo | revisa | Evaluación de triaje | 0..N | 0..1 |
 | Evaluación de triaje | informa | Solicitud de atención | 0..1 | 0..N |
-| Evaluación de triaje | recomienda | Modalidad de atención | 1 | 0..N |
+| Relación asistencial | conserva como origen | Evaluación de triaje | 0..1 | 0..1 |
+| Evaluación de triaje | recomienda | Modalidad de atención | 0..N | 0..N |
 | Evaluación de triaje | aplica | Regla de triaje | 1..N | 0..N |
 | Usuario | origina | Evento de auditoría | 0..N | 0..1 |
 | Usuario | delimita | Registro de idempotencia | 0..N | 1 |
@@ -229,7 +231,7 @@ existe una asociación única de dominio ni una llave foránea correspondiente.
 
 ## 6. Relaciones N:N y transformación lógica posterior
 
-El DER conserva las seis relaciones muchos-a-muchos como rombos. Sus
+El DER conserva las siete relaciones muchos-a-muchos como rombos. Sus
 atributos pertenecen a la relación, no a una tabla conceptual inventada.
 
 | Entidad A | Relación N:N | Entidad B | Atributos de la relación |
@@ -239,15 +241,16 @@ atributos pertenecen a la relación, no a una tabla conceptual inventada.
 | Psicólogo | ofrece | Modalidad de atención | precio por hora, moneda, habilitación |
 | Usuario | participa en | Conversación | ingreso, salida |
 | Plan de tratamiento | aborda | Diagnóstico clínico | ninguno |
+| Evaluación de triaje | recomienda | Modalidad de atención | prioridad |
 | Evaluación de triaje | aplica | Regla de triaje | resultado, evidencia minimizada |
 
 Al derivar el modelo lógico, cada N:N se resuelve mediante una estructura
 asociativa que contiene las referencias de ambos extremos y los atributos de la
-relación. Las cuatro primeras tienen trazabilidad parcial en PostgreSQL mediante
-`UserRole`, `PsychologistSpecialty`, `PsychologistModality` y
-`ConversationParticipant`. Las relaciones Plan-Diagnóstico y
-Evaluación-Regla se incorporarán al modelo lógico mediante migraciones nuevas.
-Esos nombres de implementación no aparecen en el DER conceptual.
+relación. Seis ya tienen transformación en PostgreSQL: Usuario-Rol,
+Psicólogo-Especialidad, Psicólogo-Modalidad, Usuario-Conversación,
+Evaluación-Modalidad y Evaluación-Regla. Plan-Diagnóstico permanece diferida
+hasta aprobar ese caso de uso. Los nombres de implementación no aparecen en el
+DER conceptual.
 
 Las demás asociaciones implementadas mediante modelos auxiliares, como
 `AppointmentRequest` o `ClinicalEncounterAppointment`, no son problemas N:N:
@@ -282,8 +285,12 @@ entidades conceptuales.
 14. Una decisión de consentimiento referencia la versión exacta y, cuando el
     alcance lo exige, la relación asistencial concreta.
 15. Las reglas de triaje son versionadas y cada evaluación conserva los
-    resultados aplicados.
-16. Auditoría, outbox e idempotencia forman un bloque conceptual de plataforma,
+    resultados aplicados. Una evaluación de riesgo alto o crítico no recomienda
+    modalidades comerciales; por eso la participación mínima es cero.
+16. Cada evaluación referencia la decisión exacta que autorizó el tratamiento
+    de sus respuestas. Si una oferta se acepta, la relación puede congelar como
+    origen una única evaluación anterior a esa aceptación.
+17. Auditoría, outbox e idempotencia forman un bloque conceptual de plataforma,
     separado del dominio clínico y comercial.
 
 ## 8. Trazabilidad y 3FN
@@ -295,9 +302,9 @@ descriptiva. Los nombres, perfiles, modalidades y estados canónicos no se
 duplican en solicitudes, ofertas, citas, conversaciones o historia clínica.
 
 El núcleo operativo ya implementa las decisiones necesarias para roles,
-procedencia de la oferta aceptada, relación asistencial, conversación, cita y
-contexto clínico. Las extensiones de pagos, actores automáticos, planes por
-diagnóstico y reglas estructuradas de triaje están delimitadas en
+procedencia de la oferta aceptada, relación asistencial, conversación, cita,
+contexto clínico, consentimiento y reglas estructuradas de triaje. Las
+extensiones de pagos, actores automáticos y planes por diagnóstico están delimitadas en
 [`revision-decisiones-modelo-conceptual.md`](revision-decisiones-modelo-conceptual.md)
 y permanecen fuera de los módulos habilitados hasta su fase correspondiente.
 

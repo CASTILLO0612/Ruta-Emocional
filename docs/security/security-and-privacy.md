@@ -173,15 +173,20 @@ El cifrado de campos es una puerta de arquitectura previa a producción clínica
 
 - Mostrar aviso claro de que MENTA es IA.
 - Ejecutar reglas de crisis antes del modelo externo.
-- El prompt del sistema no interpola texto del usuario dentro de instrucciones; el contenido se envía como dato separado.
-- Rechazar o neutralizar instrucciones que intenten cambiar el rol del sistema.
+- El comando actual no admite texto libre: solo códigos de preguntas y opciones
+  pertenecientes al catálogo activo.
+- Si una fase futura admite texto, se tratará como dato no confiable separado de
+  instrucciones y deberá superar pruebas de inyección.
 - No incluir PII ni contexto completo por comodidad.
 - Fijar proveedor/modelo mediante configuración y contrato de tratamiento de datos.
 - Deshabilitar entrenamiento/retención del proveedor cuando la oferta lo permita y el contrato lo exija.
 - Validar salida con esquema y reglas clínicas; no confiar en JSON solo porque parsea.
 - Timeouts, circuit breaker y presupuesto de consumo.
-- Un fallback nunca inventa una evaluación clínica; informa limitación y ofrece canales seguros.
+- El fallback determinista usa un resumen aprobado de la necesidad; nunca
+  inventa diagnóstico ni afirma haber contactado servicios de emergencia.
 - Conservar versión de reglas/modelo y resultado estructurado mínimo para auditoría.
+- Mantener la evaluación inmutable y registrar la revisión profesional como
+  metadatos append-only.
 
 ## 12. Pagos e integraciones externas
 

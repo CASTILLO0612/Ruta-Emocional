@@ -8,6 +8,7 @@ export class RuntimeConfigurationError extends Error {
 let cachedApiOrigin: string | null = null;
 let cachedDirectoryMapConfig: DirectoryMapConfig | null = null;
 let cachedRequestPollingConfig: RequestPollingConfig | null = null;
+let cachedTriageCountryCode: string | null = null;
 
 export interface DirectoryMapConfig {
   readonly radiusKm: number;
@@ -106,4 +107,16 @@ export function getRequestPollingConfig(): RequestPollingConfig {
   }
   cachedRequestPollingConfig = Object.freeze({ intervalMs });
   return cachedRequestPollingConfig;
+}
+
+export function getTriageCountryCode(): string {
+  if (cachedTriageCountryCode) return cachedTriageCountryCode;
+  const countryCode = process.env.EXPO_PUBLIC_TRIAGE_COUNTRY_CODE?.trim().toUpperCase();
+  if (!countryCode || !/^[A-Z]{2}$/.test(countryCode)) {
+    throw new RuntimeConfigurationError(
+      'EXPO_PUBLIC_TRIAGE_COUNTRY_CODE debe ser un código de país ISO de dos letras.'
+    );
+  }
+  cachedTriageCountryCode = countryCode;
+  return countryCode;
 }

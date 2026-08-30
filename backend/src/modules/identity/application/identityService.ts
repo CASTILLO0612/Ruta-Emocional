@@ -282,6 +282,8 @@ export class IdentityService {
       capabilities.add('appointment:manage:self');
       capabilities.add('conversation:read:self');
       capabilities.add('conversation:send:self');
+      capabilities.add('triage:create:self');
+      capabilities.add('triage:read:self');
     }
 
     if (user.roles.includes('psychologist')) {
@@ -296,6 +298,7 @@ export class IdentityService {
         capabilities.add('clinical:read:authorized');
         capabilities.add('conversation:read:self');
         capabilities.add('conversation:send:self');
+        capabilities.add('triage:review:authorized');
       }
     }
 

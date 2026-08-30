@@ -220,6 +220,10 @@ LOW | MODERATE | HIGH | CRITICAL
               └── revisión profesional (metadatos, no cambio destructivo)
 ```
 
+`HIGH` y `CRITICAL` producen cero modalidades comerciales. Cuando la evaluación
+vigente vinculada a una solicitud es `CRITICAL`, la transición de aceptación de
+oferta se rechaza; no se crea relación, conversación ni aceptación parcial.
+
 ## 13. Concurrencia e idempotencia
 
 - Los comandos mutables aceptan `Idempotency-Key` cuando una repetición pueda duplicar efectos.

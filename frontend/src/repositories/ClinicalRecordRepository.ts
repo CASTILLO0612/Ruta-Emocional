@@ -18,6 +18,7 @@ export interface ClinicalPolicy {
 export interface ClinicalPatient {
   readonly patientUserId: string;
   readonly careRelationshipId: string;
+  readonly triageAssessmentId: string | null;
   readonly displayName: string;
   readonly photoUrl: string | null;
   readonly recordId: string | null;

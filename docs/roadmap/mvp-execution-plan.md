@@ -265,6 +265,10 @@ evidencia se registran en
 
 ### Fase 8 — MENTA segura
 
+**Estado:** implementación funcional terminada el 30 de agosto de 2026. Diseño,
+migración, contratos, pruebas y gates se documentan en
+[`phase-8-secure-menta.md`](phase-8-secure-menta.md).
+
 **Trabajo**
 
 - revisión clínica del alcance;
@@ -278,10 +282,12 @@ evidencia se registran en
 
 **Salida**
 
-- riesgo crítico interrumpe el flujo comercial;
-- proveedor caído produce fallback seguro;
-- no se envía PII;
-- ningún resultado se presenta como diagnóstico.
+- riesgo crítico interrumpe el flujo comercial: implementado y probado;
+- proveedor caído produce fallback determinista seguro: implementado y probado;
+- el puerto externo recibe únicamente categorías minimizadas: probado;
+- ningún resultado se presenta como diagnóstico: contrato, interfaz y pruebas;
+- evaluación congelada y revisión del profesional responsable: implementadas;
+- proveedor externo y aprobación clínica: gates productivos todavía cerrados.
 
 ### Fase 9 — Proveedores opcionales
 
@@ -383,10 +389,10 @@ El trabajo de ingeniería puede avanzar con adaptadores y feature flags, pero ni
 
 ## 6. Prioridad inmediata
 
-El siguiente incremento funcional es la Fase 8 únicamente después de cerrar el
-pipeline de la Fase 7.5. MENTA incorpora triaje determinista, minimización de
-datos y límites clínicos. En paralelo, antes de cualquier despliegue productivo deben
-cerrarse los gates de almacenamiento privado de evidencia, rol PostgreSQL de
-aplicación, gestión externa de secretos, rotación de credenciales, backup/restore
-y alertas externas. Ninguno se considera resuelto por usar valores locales de
-desarrollo.
+La Fase 8 está implementada. El siguiente incremento funcional es la Fase 9,
+pero pagos y RTC solo deben iniciarse al seleccionar proveedores y aprobar sus
+políticas. Antes de cualquier despliegue productivo deben cerrarse los gates de
+almacenamiento privado de evidencia, protocolo clínico MENTA, rol PostgreSQL de
+aplicación aplicado al entorno real, gestión externa de secretos, rotación de
+credenciales, backup/restore y alertas externas. Ninguno se considera resuelto
+por usar valores o verificaciones locales de desarrollo.

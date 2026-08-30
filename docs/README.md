@@ -19,13 +19,14 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 13. [Cierre de la Fase 6](roadmap/phase-6-secure-agenda.md)
 14. [Cierre de la Fase 7](roadmap/phase-7-secure-clinical-records.md)
 15. [Consolidación de la Fase 7.5](roadmap/phase-7-5-consolidation.md)
-16. [Alineación conceptual–lógica](database/conceptual-logical-alignment.md)
-17. [Gates de preparación productiva](operations/production-gates.md)
-18. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
-19. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
-20. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
-21. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
-22. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
+16. [Cierre de la Fase 8](roadmap/phase-8-secure-menta.md)
+17. [Alineación conceptual–lógica](database/conceptual-logical-alignment.md)
+18. [Gates de preparación productiva](operations/production-gates.md)
+19. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
+20. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
+21. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
+22. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
+23. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
 
 ## Decisiones vigentes
 

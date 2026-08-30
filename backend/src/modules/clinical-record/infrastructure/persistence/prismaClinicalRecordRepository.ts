@@ -43,6 +43,7 @@ type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 interface PatientRow {
   readonly patientUserId: string;
   readonly careRelationshipId: string;
+  readonly triageAssessmentId: string | null;
   readonly displayName: string;
   readonly normalizedName: string;
   readonly photoUrl: string | null;
@@ -135,6 +136,7 @@ export class PrismaClinicalRecordRepository implements ClinicalRecordRepository 
       SELECT
         patient_user."id" AS "patientUserId",
         relationship."id" AS "careRelationshipId",
+        relationship_source."triage_assessment_id" AS "triageAssessmentId",
         patient_user."display_name" AS "displayName",
         lower(patient_user."display_name") AS "normalizedName",
         patient_user."photo_url" AS "photoUrl",
@@ -148,6 +150,8 @@ export class PrismaClinicalRecordRepository implements ClinicalRecordRepository 
       JOIN "patient_profiles" patient
         ON patient."id" = relationship."patient_profile_id"
       JOIN "users" patient_user ON patient_user."id" = patient."user_id"
+      LEFT JOIN "care_relationship_sources" relationship_source
+        ON relationship_source."care_relationship_id" = relationship."id"
       LEFT JOIN "clinical_records" record ON record."patient_profile_id" = patient."id"
       LEFT JOIN LATERAL (
         SELECT encounter."started_at"
@@ -181,6 +185,7 @@ export class PrismaClinicalRecordRepository implements ClinicalRecordRepository 
       items: pageRows.map((row) => ({
         patientUserId: row.patientUserId,
         careRelationshipId: row.careRelationshipId,
+        triageAssessmentId: row.triageAssessmentId,
         displayName: row.displayName,
         photoUrl: row.photoUrl,
         recordId: row.recordId,

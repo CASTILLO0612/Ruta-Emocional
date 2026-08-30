@@ -57,6 +57,11 @@ GRANT SELECT, INSERT ON TABLE
   conversations,
   conversation_participants,
   messages,
+  patient_consents,
+  triage_assessments,
+  triage_assessment_modalities,
+  triage_assessment_rule_results,
+  request_triage_assessments,
   audit_events,
   outbox_events
 TO :"application_role";
@@ -68,7 +73,11 @@ GRANT SELECT ON TABLE
   clinical_diagnoses,
   clinical_diagnosis_sources,
   consent_documents,
-  patient_consents,
+  triage_needs,
+  triage_need_modalities,
+  triage_questions,
+  triage_answer_options,
+  triage_rules,
   reviews
 TO :"application_role";
 
@@ -81,6 +90,11 @@ GRANT UPDATE (
   attempts,
   last_error
 ) ON TABLE outbox_events TO :"application_role";
+
+GRANT UPDATE (
+  reviewed_by_psychologist_id,
+  reviewed_at
+) ON TABLE triage_assessments TO :"application_role";
 
 REVOKE CREATE ON SCHEMA public FROM :"application_role";
 REVOKE TRUNCATE, TRIGGER ON ALL TABLES IN SCHEMA public FROM :"application_role";

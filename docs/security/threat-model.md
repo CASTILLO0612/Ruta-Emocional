@@ -94,7 +94,7 @@ vigente es:
 | Datos | PostgreSQL es el único runtime; no existen rutas ni paquete MongoDB | reconciliación offline de `legacy_id` si se importa historia |
 | CORS/errores | allowlist por entorno y Problem Details sin excepción interna | configuración y observabilidad del hosting final |
 | Pagos | endpoints simulados retirados | permanece deshabilitado hasta Fase 9 |
-| MENTA | controlador, servicio cliente, navegación y respuestas fallback retirados | permanece deshabilitado hasta protocolo determinista de Fase 8 |
+| MENTA | motor determinista, consentimiento, catálogos versionados, entrada minimizada, salida cerrada, inmutabilidad, auditoría e interrupción crítica | aprobación clínica/operativa; proveedor externo permanece deshabilitado |
 | Evidencias | adaptador privado local solo para QA controlado | proveedor, URL firmada, cuarentena y antimalware |
 | Clínica | cifrado, relación, mínimo privilegio lógico, versiones y auditoría | KMS, retención, acceso paciente y aprobación legal/clínica |
 
@@ -117,7 +117,7 @@ residuales mantienen sus gates en `operations/production-gates.md`.
 1. verificación profesional real;
 2. agenda y concurrencia probadas;
 3. auditoría clínica;
-4. protocolo MENTA/crisis revisado;
+4. protocolo MENTA/crisis aprobado y recursos verificados operativamente;
 5. SecureStore y sesión web segura;
 6. backups/restauración;
 7. pruebas de carga y autorización.

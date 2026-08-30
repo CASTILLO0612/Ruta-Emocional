@@ -189,6 +189,15 @@ enum TriageRiskLevel {
   @@map("triage_risk_level")
 }
 
+enum TriageProviderOutcome {
+  NOT_USED
+  SUCCEEDED
+  UNAVAILABLE
+  REJECTED_OUTPUT
+
+  @@map("triage_provider_outcome")
+}
+
 model User {
   id                    String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   legacyId              String?                            @unique @map("legacy_id")
@@ -353,14 +362,16 @@ model PsychologistModality {
 }
 
 model CareModality {
-  code                   Modality               @id
-  name                   String                 @unique @db.VarChar(80)
-  description            String?                @db.VarChar(240)
-  isActive               Boolean                @default(true) @map("is_active")
-  psychologistModalities PsychologistModality[]
-  serviceRequests        ServiceRequest[]
-  appointments           Appointment[]
-  triageAssessments      TriageAssessment[]
+  code                       Modality                   @id
+  name                       String                     @unique @db.VarChar(80)
+  description                String?                    @db.VarChar(240)
+  isActive                   Boolean                    @default(true) @map("is_active")
+  psychologistModalities     PsychologistModality[]
+  serviceRequests            ServiceRequest[]
+  appointments               Appointment[]
+  triageAnswerOptions        TriageAnswerOption[]
+  triageNeedModalities       TriageNeedModality[]
+  triageAssessmentModalities TriageAssessmentModality[]
 
   @@map("care_modalities")
 }
@@ -461,10 +472,12 @@ model CareRelationship {
 }
 
 model CareRelationshipSource {
-  careRelationshipId String           @id @map("care_relationship_id") @db.Uuid
-  acceptedOfferId    String           @unique @map("accepted_offer_id") @db.Uuid
-  careRelationship   CareRelationship @relation(fields: [careRelationshipId], references: [id], onDelete: Cascade)
-  acceptedOffer      Offer            @relation(fields: [acceptedOfferId], references: [id], onDelete: Restrict)
+  careRelationshipId String            @id @map("care_relationship_id") @db.Uuid
+  acceptedOfferId    String            @unique @map("accepted_offer_id") @db.Uuid
+  triageAssessmentId String?           @unique @map("triage_assessment_id") @db.Uuid
+  careRelationship   CareRelationship  @relation(fields: [careRelationshipId], references: [id], onDelete: Cascade)
+  acceptedOffer      Offer             @relation(fields: [acceptedOfferId], references: [id], onDelete: Restrict)
+  triageAssessment   TriageAssessment? @relation(fields: [triageAssessmentId], references: [id], onDelete: Restrict)
 
   @@map("care_relationship_sources")
 }
@@ -713,7 +726,10 @@ model ConsentDocument {
   code        String           @db.VarChar(80)
   version     String           @db.VarChar(30)
   title       String           @db.VarChar(200)
+  scope       String?          @db.VarChar(80)
+  content     String?          @db.Text
   contentHash String           @map("content_hash") @db.VarChar(128)
+  isActive    Boolean          @default(true) @map("is_active")
   publishedAt DateTime         @map("published_at") @db.Timestamptz(3)
   consents    PatientConsent[]
 
@@ -722,16 +738,17 @@ model ConsentDocument {
 }
 
 model PatientConsent {
-  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patientProfileId   String            @map("patient_profile_id") @db.Uuid
-  consentDocumentId  String            @map("consent_document_id") @db.Uuid
-  careRelationshipId String?           @map("care_relationship_id") @db.Uuid
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId   String             @map("patient_profile_id") @db.Uuid
+  consentDocumentId  String             @map("consent_document_id") @db.Uuid
+  careRelationshipId String?            @map("care_relationship_id") @db.Uuid
   decision           ConsentDecision
-  occurredAt         DateTime          @default(now()) @map("occurred_at") @db.Timestamptz(3)
-  ipAddress          String?           @map("ip_address") @db.Inet
-  patientProfile     PatientProfile    @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
-  consentDocument    ConsentDocument   @relation(fields: [consentDocumentId], references: [id], onDelete: Restrict)
-  careRelationship   CareRelationship? @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  occurredAt         DateTime           @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  ipAddress          String?            @map("ip_address") @db.Inet
+  patientProfile     PatientProfile     @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  consentDocument    ConsentDocument    @relation(fields: [consentDocumentId], references: [id], onDelete: Restrict)
+  careRelationship   CareRelationship?  @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  triageAssessments  TriageAssessment[]
 
   @@index([patientProfileId, consentDocumentId, occurredAt])
   @@map("patient_consents")
@@ -807,28 +824,136 @@ model PaymentEvent {
   @@map("payment_events")
 }
 
+model TriageNeed {
+  code            String               @id @db.VarChar(50)
+  name            String               @unique @db.VarChar(120)
+  description     String               @db.VarChar(500)
+  fallbackSummary String               @map("fallback_summary") @db.Text
+  isActive        Boolean              @default(true) @map("is_active")
+  options         TriageAnswerOption[]
+  modalities      TriageNeedModality[]
+  assessments     TriageAssessment[]
+
+  @@map("triage_needs")
+}
+
+model TriageNeedModality {
+  needCode String       @map("need_code") @db.VarChar(50)
+  modality Modality
+  priority Int          @db.SmallInt
+  need     TriageNeed   @relation(fields: [needCode], references: [code], onDelete: Restrict)
+  catalog  CareModality @relation(fields: [modality], references: [code], onDelete: Restrict)
+
+  @@id([needCode, modality])
+  @@unique([needCode, priority])
+  @@map("triage_need_modalities")
+}
+
+model TriageQuestion {
+  code         String               @id @db.VarChar(50)
+  prompt       String               @db.VarChar(500)
+  helpText     String?              @map("help_text") @db.VarChar(500)
+  displayOrder Int                  @map("display_order") @db.SmallInt
+  isRequired   Boolean              @default(true) @map("is_required")
+  isActive     Boolean              @default(true) @map("is_active")
+  options      TriageAnswerOption[]
+
+  @@unique([displayOrder])
+  @@map("triage_questions")
+}
+
+model TriageAnswerOption {
+  code               String                       @id @db.VarChar(80)
+  questionCode       String                       @map("question_code") @db.VarChar(50)
+  needCode           String?                      @map("need_code") @db.VarChar(50)
+  modality           Modality?
+  label              String                       @db.VarChar(240)
+  helpText           String?                      @map("help_text") @db.VarChar(500)
+  displayOrder       Int                          @map("display_order") @db.SmallInt
+  isActive           Boolean                      @default(true) @map("is_active")
+  question           TriageQuestion               @relation(fields: [questionCode], references: [code], onDelete: Restrict)
+  need               TriageNeed?                  @relation(fields: [needCode], references: [code], onDelete: Restrict)
+  modalityCatalog    CareModality?                @relation(fields: [modality], references: [code], onDelete: Restrict)
+  triggerForRules    TriageRule[]                 @relation("TriageRuleTrigger")
+  evidenceForResults TriageAssessmentRuleResult[] @relation("TriageRuleEvidence")
+
+  @@unique([questionCode, displayOrder])
+  @@index([questionCode, isActive])
+  @@map("triage_answer_options")
+}
+
+model TriageRule {
+  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String                       @db.VarChar(80)
+  version           String                       @db.VarChar(30)
+  name              String                       @db.VarChar(160)
+  description       String                       @db.VarChar(500)
+  triggerOptionCode String                       @map("trigger_option_code") @db.VarChar(80)
+  riskLevel         TriageRiskLevel              @map("risk_level")
+  validFrom         DateTime                     @map("valid_from") @db.Timestamptz(3)
+  validUntil        DateTime?                    @map("valid_until") @db.Timestamptz(3)
+  isActive          Boolean                      @default(true) @map("is_active")
+  triggerOption     TriageAnswerOption           @relation("TriageRuleTrigger", fields: [triggerOptionCode], references: [code], onDelete: Restrict)
+  assessmentResults TriageAssessmentRuleResult[]
+
+  @@unique([code, version])
+  @@index([isActive, validFrom, validUntil])
+  @@map("triage_rules")
+}
+
 model TriageAssessment {
-  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patientProfileId         String                   @map("patient_profile_id") @db.Uuid
-  reviewedByPsychologistId String?                  @map("reviewed_by_psychologist_id") @db.Uuid
-  provider                 String                   @db.VarChar(80)
-  model                    String                   @db.VarChar(120)
-  promptVersion            String                   @map("prompt_version") @db.VarChar(40)
-  primaryNeed              String                   @map("primary_need") @db.VarChar(240)
-  recommendedModality      Modality                 @map("recommended_modality")
-  suggestedBudgetMin       Decimal                  @map("suggested_budget_min") @db.Decimal(12, 2)
-  suggestedBudgetMax       Decimal                  @map("suggested_budget_max") @db.Decimal(12, 2)
-  summary                  String                   @db.Text
-  riskLevel                TriageRiskLevel          @map("risk_level")
-  reviewedAt               DateTime?                @map("reviewed_at") @db.Timestamptz(3)
-  createdAt                DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  patientProfile           PatientProfile           @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
-  reviewedByPsychologist   PsychologistProfile?     @relation("TriageReviewer", fields: [reviewedByPsychologistId], references: [id], onDelete: Restrict)
-  careModality             CareModality             @relation(fields: [recommendedModality], references: [code], onDelete: Restrict)
+  id                       String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId         String                       @map("patient_profile_id") @db.Uuid
+  consentDecisionId        String                       @map("consent_decision_id") @db.Uuid
+  primaryNeedCode          String                       @map("primary_need_code") @db.VarChar(50)
+  reviewedByPsychologistId String?                      @map("reviewed_by_psychologist_id") @db.Uuid
+  provider                 String                       @db.VarChar(80)
+  model                    String                       @db.VarChar(120)
+  evaluatorVersion         String                       @map("evaluator_version") @db.VarChar(40)
+  providerOutcome          TriageProviderOutcome        @default(NOT_USED) @map("provider_outcome")
+  countryCode              String                       @map("country_code") @db.Char(2)
+  orientationSummary       String                       @map("orientation_summary") @db.Text
+  riskLevel                TriageRiskLevel              @map("risk_level")
+  reviewedAt               DateTime?                    @map("reviewed_at") @db.Timestamptz(3)
+  createdAt                DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  patientProfile           PatientProfile               @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  consentDecision          PatientConsent               @relation(fields: [consentDecisionId], references: [id], onDelete: Restrict)
+  primaryNeed              TriageNeed                   @relation(fields: [primaryNeedCode], references: [code], onDelete: Restrict)
+  reviewedByPsychologist   PsychologistProfile?         @relation("TriageReviewer", fields: [reviewedByPsychologistId], references: [id], onDelete: Restrict)
+  recommendedModalities    TriageAssessmentModality[]
+  ruleResults              TriageAssessmentRuleResult[]
   requestLink              RequestTriageAssessment?
+  relationshipSource       CareRelationshipSource?
 
   @@index([patientProfileId, createdAt])
+  @@index([consentDecisionId])
   @@map("triage_assessments")
+}
+
+model TriageAssessmentModality {
+  triageAssessmentId String           @map("triage_assessment_id") @db.Uuid
+  modality           Modality
+  priority           Int              @db.SmallInt
+  triageAssessment   TriageAssessment @relation(fields: [triageAssessmentId], references: [id], onDelete: Cascade)
+  catalog            CareModality     @relation(fields: [modality], references: [code], onDelete: Restrict)
+
+  @@id([triageAssessmentId, modality])
+  @@unique([triageAssessmentId, priority])
+  @@map("triage_assessment_modalities")
+}
+
+model TriageAssessmentRuleResult {
+  triageAssessmentId String              @map("triage_assessment_id") @db.Uuid
+  triageRuleId       String              @map("triage_rule_id") @db.Uuid
+  matched            Boolean
+  evidenceOptionCode String?             @map("evidence_option_code") @db.VarChar(80)
+  triageAssessment   TriageAssessment    @relation(fields: [triageAssessmentId], references: [id], onDelete: Cascade)
+  triageRule         TriageRule          @relation(fields: [triageRuleId], references: [id], onDelete: Restrict)
+  evidenceOption     TriageAnswerOption? @relation("TriageRuleEvidence", fields: [evidenceOptionCode], references: [code], onDelete: Restrict)
+
+  @@id([triageAssessmentId, triageRuleId])
+  @@index([triageRuleId, matched])
+  @@map("triage_assessment_rule_results")
 }
 
 model RequestTriageAssessment {

@@ -18,6 +18,10 @@ import { PrismaAppointmentRepository } from './modules/appointment/infrastructur
 import { ClinicalRecordService } from './modules/clinical-record/application/clinicalRecordService';
 import { PrismaClinicalRecordRepository } from './modules/clinical-record/infrastructure/persistence/prismaClinicalRecordRepository';
 import { AesGcmClinicalContentCipher } from './modules/clinical-record/infrastructure/security/aesGcmClinicalContentCipher';
+import { TriageService } from './modules/triage/application/triageService';
+import { DeterministicTriageEngine } from './modules/triage/domain/deterministicTriageEngine';
+import { PrismaTriageRepository } from './modules/triage/infrastructure/persistence/prismaTriageRepository';
+import { UnavailableTriageOrientationProvider } from './modules/triage/infrastructure/providers/unavailableTriageOrientationProvider';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
@@ -26,6 +30,7 @@ export interface ApplicationServices {
   readonly messaging: MessagingService;
   readonly appointments: AppointmentService;
   readonly clinicalRecords: ClinicalRecordService;
+  readonly triage: TriageService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -94,6 +99,13 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       ),
       new SystemClock(),
       config.clinical
+    ),
+    triage: new TriageService(
+      new PrismaTriageRepository(prisma),
+      new DeterministicTriageEngine(),
+      new UnavailableTriageOrientationProvider(),
+      new SystemClock(),
+      config.triage
     ),
   };
 }

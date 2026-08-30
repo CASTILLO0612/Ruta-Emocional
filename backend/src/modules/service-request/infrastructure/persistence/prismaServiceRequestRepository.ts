@@ -664,6 +664,24 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       });
       if (!offer) throw AppError.notFound('OFFER_NOT_FOUND');
 
+      const currentTriage = await transaction.requestTriageAssessment.findFirst({
+        where: { serviceRequestId: requestId },
+        orderBy: [
+          { triageAssessment: { createdAt: 'desc' } },
+          { triageAssessmentId: 'desc' },
+        ],
+        select: {
+          triageAssessmentId: true,
+          triageAssessment: { select: { riskLevel: true } },
+        },
+      });
+      if (currentTriage?.triageAssessment.riskLevel === 'CRITICAL') {
+        throw AppError.conflict(
+          'CRITICAL_TRIAGE_INTERRUPTS_COMMERCIAL_FLOW',
+          'La orientación detectó una necesidad de ayuda inmediata. Usa los recursos de seguridad antes de continuar con ofertas.'
+        );
+      }
+
       await transaction.offer.update({
         where: { id: offerId },
         data: { status: OfferStatus.ACCEPTED },
@@ -680,7 +698,12 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
         data: {
           patientProfileId: request.patientProfileId,
           psychologistProfileId: offer.psychologistProfileId,
-          source: { create: { acceptedOfferId: offerId } },
+          source: {
+            create: {
+              acceptedOfferId: offerId,
+              triageAssessmentId: currentTriage?.triageAssessmentId,
+            },
+          },
         },
         select: { id: true },
       });

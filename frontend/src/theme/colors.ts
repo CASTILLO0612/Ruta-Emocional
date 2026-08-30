@@ -39,6 +39,7 @@ export const Colors = {
   errorSurface: '#FEF2F2',
   errorBorder: '#FECACA',
   warningSurface: '#FFF7ED',
+  warningBorder: '#FED7AA',
   info: '#3B82F6',
 
   // Bordes — mucho más sutiles

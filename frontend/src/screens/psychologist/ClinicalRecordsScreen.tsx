@@ -36,6 +36,11 @@ import {
   updateClinicalDraft,
   updateTreatmentGoalStatus,
 } from '../../repositories/ClinicalRecordRepository';
+import {
+  fetchTriageAssessment,
+  reviewTriageAssessment,
+  TriageAssessment,
+} from '../../repositories/TriageRepository';
 import { Colors } from '../../theme/colors';
 import { clinicalRecordsStyles as styles } from './clinicalRecordsStyles';
 
@@ -97,6 +102,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
   const [goalDescription, setGoalDescription] = useState('');
   const [versions, setVersions] = useState<readonly ClinicalNoteVersion[] | null>(null);
   const [versionsNoteId, setVersionsNoteId] = useState<string | null>(null);
+  const [triageAssessment, setTriageAssessment] = useState<TriageAssessment | null>(null);
 
   const selectedPatient = useMemo(
     () => patients.find(({ patientUserId }) => patientUserId === selectedPatientId) ?? null,
@@ -155,6 +161,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
   const choosePatient = useCallback(async (patientUserId: string) => {
     selectedPatientIdRef.current = patientUserId;
     setSelectedPatientId(patientUserId);
+    setTriageAssessment(null);
     setRecord(null);
     setEditorMode(null);
     setVersions(null);
@@ -165,6 +172,31 @@ export const ClinicalRecordsScreen: React.FC = () => {
       setError(loadError instanceof Error ? loadError.message : 'No pudimos abrir el expediente.');
     }
   }, [loadRecord]);
+
+  const loadTriageAssessment = async (assessmentId: string) => {
+    setBusyAction('triage-read');
+    setError(null);
+    try {
+      setTriageAssessment(await fetchTriageAssessment(assessmentId));
+    } catch (triageError) {
+      setError(triageError instanceof Error ? triageError.message : 'No pudimos abrir la orientación.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const markTriageReviewed = async () => {
+    if (!triageAssessment) return;
+    setBusyAction('triage-review');
+    setError(null);
+    try {
+      setTriageAssessment(await reviewTriageAssessment(triageAssessment.id));
+    } catch (triageError) {
+      setError(triageError instanceof Error ? triageError.message : 'No pudimos registrar la revisión.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const closeEditor = useCallback(() => {
     setEditorMode(null);
@@ -476,6 +508,74 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     <MaterialIcons name={editorMode === 'ENCOUNTER' ? 'close' : 'note-add'} size={23} color={Colors.textInverse} />
                   </Pressable>
                 </View>
+
+                {selectedPatient.triageAssessmentId ? (
+                  triageAssessment ? (
+                    <View style={styles.triageCard}>
+                      <View style={styles.triageHeading}>
+                        <View style={styles.triageIcon}>
+                          <MaterialIcons name="health-and-safety" size={21} color={Colors.primary} />
+                        </View>
+                        <View style={styles.flex}>
+                          <Text style={styles.triageTitle}>Orientación MENTA vinculada</Text>
+                          <Text style={styles.triageMeta}>
+                            {triageAssessment.primaryNeed.name} · Riesgo {triageAssessment.riskLevel.toLowerCase()}
+                          </Text>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Cerrar orientación"
+                          onPress={() => setTriageAssessment(null)}
+                          style={({ pressed }) => pressed && styles.pressed}
+                        >
+                          <MaterialIcons name="close" size={20} color={Colors.textTertiary} />
+                        </Pressable>
+                      </View>
+                      <Text style={styles.triageSummary}>{triageAssessment.orientationSummary}</Text>
+                      <View style={styles.triageTransparency}>
+                        <MaterialIcons name="smart-toy" size={16} color={Colors.textTertiary} />
+                        <Text style={styles.triageTransparencyText}>
+                          Orientación automatizada, no diagnóstico · Reglas {triageAssessment.evaluatorVersion}
+                        </Text>
+                      </View>
+                      {triageAssessment.reviewedAt ? (
+                        <View style={styles.reviewedMark}>
+                          <MaterialIcons name="verified" size={18} color={Colors.success} />
+                          <Text style={styles.reviewedText}>
+                            Revisada {formatDate(triageAssessment.reviewedAt)}
+                          </Text>
+                        </View>
+                      ) : (
+                        <AppButton
+                          label="Registrar revisión profesional"
+                          onPress={() => void markTriageReviewed()}
+                          isLoading={busyAction === 'triage-review'}
+                          fullWidth
+                          variant="secondary"
+                        />
+                      )}
+                    </View>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void loadTriageAssessment(selectedPatient.triageAssessmentId!)}
+                      style={({ pressed }) => [styles.triageLauncher, pressed && styles.pressed]}
+                    >
+                      {busyAction === 'triage-read' ? (
+                        <ActivityIndicator color={Colors.primary} />
+                      ) : (
+                        <MaterialIcons name="health-and-safety" size={22} color={Colors.primary} />
+                      )}
+                      <View style={styles.flex}>
+                        <Text style={styles.triageLauncherTitle}>Revisar orientación MENTA</Text>
+                        <Text style={styles.triageLauncherText}>
+                          Resultado previo congelado al iniciar la relación asistencial.
+                        </Text>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={22} color={Colors.textTertiary} />
+                    </Pressable>
+                  )
+                ) : null}
 
                 {editorMode ? (
                   <View style={styles.editorPanel}>

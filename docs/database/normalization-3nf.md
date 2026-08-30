@@ -19,11 +19,12 @@ evitar modelar relaciones o atributos clínicos.
 ## Alcance de conformidad
 
 Las dependencias que siguen describen el esquema lógico vigente después de la
-Fase 7.5. La
+Fase 8. La
 [`matriz de alineación`](conceptual-logical-alignment.md) distingue las
 relaciones ya materializadas de las que pertenecen a fases funcionales aún
 deshabilitadas. La conformidad 3FN no se usa para afirmar que pagos, diagnósticos
-o triaje estén habilitados.
+estén habilitados. MENTA determinista sí forma parte del modelo vigente; su
+proveedor externo continúa deshabilitado.
 
 ## Dependencias funcionales principales
 
@@ -44,7 +45,7 @@ o triaje estén habilitados.
 | `availability_exceptions` | `id -> psychologist_profile_id, starts_at, ends_at, type, reason` |
 | `service_requests` | `id -> patient_profile_id, modality, proposed_budget, currency_code, status, scheduled_for, expires_at, location, location_expires_at` |
 | `offers` | `id -> request_id, psychologist_profile_id, amount, message, status` y `(request_id, psychologist_profile_id) -> id` |
-| `care_relationship_sources` | `care_relationship_id -> accepted_offer_id` y `accepted_offer_id -> care_relationship_id` |
+| `care_relationship_sources` | `care_relationship_id -> accepted_offer_id, triage_assessment_id` y `accepted_offer_id -> care_relationship_id` |
 | `idempotency_records` | `(actor_user_id, operation, idempotency_key) -> request_hash, resource_id, expires_at` |
 | `appointments` | `id -> care_relationship_id, patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
 | `appointment_events` | `id -> appointment_id, actor_user_id, type, estados, intervalo_anterior, reason, occurred_at` |
@@ -54,6 +55,17 @@ o triaje estén habilitados.
 | `clinical_note_events` | `id -> clinical_note_id, actor_user_id, type, estados, version_number, occurred_at` |
 | `treatment_plans` | `id -> clinical_record_id, psychologist_profile_id, care_relationship_id, status, summary, fechas` |
 | `treatment_goals` | `id -> treatment_plan_id, description, target_date, status` |
+| `consent_documents` | `(code, version) -> scope, title, content, content_hash, vigencia` |
+| `patient_consents` | `id -> patient_profile_id, document_id, decision, decided_at, care_relationship_id` |
+| `triage_needs` | `code -> name, description, fallback_summary` |
+| `triage_need_modalities` | `(need_code, modality) -> priority` |
+| `triage_questions` | `code -> prompt, help_text, display_order, vigencia` |
+| `triage_answer_options` | `code -> question_code, label, help_text, need_code, modality` |
+| `triage_rules` | `(code, version) -> trigger_option_code, risk_level, vigencia, estado` |
+| `triage_assessments` | `id -> patient_profile_id, consent_id, primary_need_code, risk_level, orientation_summary, evaluator_version, revisión` |
+| `triage_assessment_modalities` | `(triage_assessment_id, modality) -> priority` |
+| `triage_assessment_rule_results` | `(triage_assessment_id, triage_rule_id) -> matched, evidence_option_code` |
+| `request_triage_assessments` | `(service_request_id, triage_assessment_id) -> linked_at` |
 | `conversations` | `id -> care_relationship_id, created_at` y `care_relationship_id -> id` |
 | `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
 | `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
@@ -82,14 +94,18 @@ Las relaciones multivaluadas se representan con tablas asociativas:
 - `psychologist_specialties`
 - `psychologist_modalities`
 - `conversation_participants`
+- `triage_need_modalities`
+- `triage_assessment_modalities`
+- `triage_assessment_rule_results`
+- `request_triage_assessments`
 
 No se almacenarán arrays de roles, especialidades o modalidades dentro de una
 fila del núcleo transaccional.
 
-Las transformaciones lógicas futuras añadirán asociaciones normalizadas para
-`Plan de tratamiento-Diagnóstico clínico` y `Evaluación de triaje-Regla de triaje`.
-Sus atributos dependerán de la clave completa de cada pareja, preservando 2FN y
-3FN. `Relación-Cita` y `Relación-Conversación` ya están materializadas. La
+La asociación `Evaluación de triaje-Regla de triaje` ya está materializada y sus
+atributos dependen de la pareja completa. Las transformaciones lógicas futuras
+añadirán `Plan de tratamiento-Diagnóstico clínico` cuando exista un caso de uso
+aprobado. `Relación-Cita` y `Relación-Conversación` ya están materializadas. La
 sustitución `Oferta-Pago` por `Cita-Pago` pertenece a Fase 9 y pagos permanece
 deshabilitado hasta entonces.
 

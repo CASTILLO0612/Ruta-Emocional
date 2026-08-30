@@ -14,9 +14,13 @@ El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La 
 | Mensajería | conversaciones y mensajes persistidos, autorización por participante y entrega Socket.IO mediante outbox |
 | Agenda | disponibilidad, reserva, reprogramación y transiciones de cita con prevención de solapamientos |
 | Historia clínica | expedientes, encuentros, notas versionadas, firma, enmiendas y planes de tratamiento para el psicólogo autorizado |
+| MENTA | orientación determinista con consentimiento, reglas versionadas, recursos de crisis y revisión profesional |
 | Administración | cola local de verificación, decisión y auditoría sin acceso clínico implícito |
 
-MENTA, pagos y audio/video no forman parte del recorrido funcional que se presenta en Desarrollo. Sus superficies demostrativas fueron retiradas y solo volverán mediante módulos seguros en sus fases correspondientes.
+Pagos y audio/video no forman parte del recorrido funcional. MENTA se encuentra
+implementada con motor interno determinista; su proveedor externo permanece
+deshabilitado y la activación productiva requiere aprobación clínica del
+protocolo y los recursos de crisis.
 
 ## Tecnologías y arquitectura
 
@@ -31,7 +35,7 @@ MENTA, pagos y audio/video no forman parte del recorrido funcional que se presen
 ### API y datos
 
 - Node.js, Express, TypeScript y Socket.IO.
-- PostgreSQL/PostGIS con 19 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
+- PostgreSQL/PostGIS con 20 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
 - Prisma como adaptador de persistencia dentro de módulos separados por dominio.
 - Contratos REST versionados bajo `/api/v1` y respuestas mediante DTO explícitos.
 - Sesiones rotativas, contraseñas con scrypt y pepper, límites de peticiones, CORS por lista permitida y auditoría de acciones sensibles.
@@ -115,6 +119,9 @@ JWT_ACCESS_SECRET=<32_o_mas_caracteres_aleatorios>
 PASSWORD_PEPPER=<otro_valor_aleatorio_diferente>
 CLINICAL_CONTENT_ENCRYPTION_KEYS=1:<clave_base64_de_32_bytes>
 CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION=1
+TRIAGE_ENABLED=true
+TRIAGE_PROTOCOL_APPROVED=false
+TRIAGE_EXTERNAL_PROVIDER_ENABLED=false
 ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006
 ```
 
@@ -122,6 +129,7 @@ El frontend necesita el origen del servidor, sin agregar `/api`:
 
 ```env
 EXPO_PUBLIC_API_URL=http://localhost:5000
+EXPO_PUBLIC_TRIAGE_COUNTRY_CODE=NI
 ```
 
 En un teléfono físico, `localhost` apunta al propio teléfono; use la IP local del equipo que ejecuta el backend.
@@ -148,6 +156,8 @@ El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://l
 4. Aprobar la verificación desde la cola administrativa e iniciar sesión nuevamente como psicólogo.
 5. Crear una solicitud como paciente, ofertar como psicólogo y aceptar la oferta.
 6. Probar conversación, agenda y expediente clínico desde la relación creada.
+7. Completar MENTA como paciente y, si se vinculó antes de aceptar la oferta,
+   revisar el resultado congelado desde el expediente profesional.
 
 ## Endpoints representativos
 
@@ -162,6 +172,7 @@ El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://l
 | `GET` | `/api/v1/conversations` | listar conversaciones propias |
 | `POST` | `/api/v1/appointments` | reservar cita autorizada |
 | `POST` | `/api/v1/clinical/encounters` | registrar encuentro clínico autorizado |
+| `POST` | `/api/v1/triage/assessments` | crear orientación determinista propia |
 
 El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
 
@@ -185,7 +196,9 @@ La evidencia de tercera forma normal está en [`docs/database/normalization-3nf.
 
 - No confirme archivos `.env`, contraseñas, tokens, evidencias profesionales ni claves de cifrado.
 - Active `ENABLE_LOCAL_QA` solo en `development`; el servidor rechaza ese flujo en producción.
-- PostgreSQL es la única base conectada por el proceso de aplicación; MENTA y pagos permanecen deshabilitados hasta sus fases seguras.
+- PostgreSQL es la única base conectada por el proceso de aplicación; el
+  proveedor externo de MENTA y los pagos permanecen deshabilitados hasta cerrar
+  sus gates específicos.
 - Use datos ficticios en la historia clínica y en la evidencia profesional del hackathon.
 - El administrador operativo no recibe acceso clínico por su rol.
 

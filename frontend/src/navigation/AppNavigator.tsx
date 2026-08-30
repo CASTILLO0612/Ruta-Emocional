@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { LoginScreen, RegisterScreen } from '../screens/auth/AuthScreens';
 import { HomeScreen } from '../screens/patient/HomeScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
+import { MentaScreen } from '../screens/patient/MentaScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
 import { VerificationQueueScreen } from '../screens/admin/VerificationQueueScreen';
@@ -58,6 +59,16 @@ function PatientTabs() {
           tabBarLabel: 'Inicio',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <PatientTab.Screen
+        name="Menta"
+        component={MentaScreen}
+        options={{
+          tabBarLabel: 'Orientación',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="health-and-safety" size={size} color={color} />
           ),
         }}
       />

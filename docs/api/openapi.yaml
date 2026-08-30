@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Ruta Emocional API
   version: 1.0.0-draft
-  description: Contrato ejecutable de identidad, directorio, solicitudes, mensajería, agenda e historia clínica segura.
+  description: Contrato ejecutable de identidad, directorio, solicitudes, mensajería, agenda, historia clínica y orientación MENTA segura.
 servers:
   - url: http://localhost:5000/api/v1
     description: Desarrollo local
@@ -17,6 +17,7 @@ tags:
   - name: Messaging
   - name: Appointments
   - name: Clinical records
+  - name: Triage
 paths:
   /health/live:
     get:
@@ -1141,6 +1142,78 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /triage/policy:
+    get:
+      tags: [Triage]
+      operationId: getTriagePolicy
+      responses:
+        '200':
+          description: Cuestionario cerrado, consentimiento vigente y avisos del evaluador.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TriagePolicyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /triage/assessments:
+    post:
+      tags: [Triage]
+      operationId: createTriageAssessment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTriageAssessmentRequest' }
+      responses:
+        '201':
+          description: Evaluación inmutable creada con reglas deterministas versionadas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TriageAssessmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /triage/assessments/{assessmentId}:
+    get:
+      tags: [Triage]
+      operationId: getTriageAssessment
+      parameters:
+        - $ref: '#/components/parameters/TriageAssessmentId'
+      responses:
+        '200':
+          description: Resultado propio o resultado congelado para el profesional responsable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TriageAssessmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /triage/assessments/{assessmentId}/review:
+    post:
+      tags: [Triage]
+      operationId: reviewTriageAssessment
+      parameters:
+        - $ref: '#/components/parameters/TriageAssessmentId'
+      responses:
+        '200':
+          description: Revisión profesional registrada una sola vez sin alterar la evaluación.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TriageAssessmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 components:
   securitySchemes:
     bearerAuth:
@@ -1185,6 +1258,11 @@ components:
       schema: { type: string, format: uuid }
     TreatmentGoalId:
       name: goalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TriageAssessmentId:
+      name: assessmentId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -2077,10 +2155,11 @@ components:
     ClinicalPatient:
       type: object
       additionalProperties: false
-      required: [patientUserId, careRelationshipId, displayName, photoUrl, recordId, recordStatus, lastEncounterAt, draftNotesCount]
+      required: [patientUserId, careRelationshipId, triageAssessmentId, displayName, photoUrl, recordId, recordStatus, lastEncounterAt, draftNotesCount]
       properties:
         patientUserId: { type: string, format: uuid }
         careRelationshipId: { type: string, format: uuid }
+        triageAssessmentId: { type: [string, 'null'], format: uuid }
         displayName: { type: string, minLength: 1, maxLength: 160 }
         photoUrl: { type: [string, 'null'], format: uri }
         recordId: { type: [string, 'null'], format: uuid }
@@ -2273,6 +2352,156 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [PENDING, IN_PROGRESS, ACHIEVED, CANCELLED] }
+    TriageRiskLevel:
+      type: string
+      enum: [LOW, MODERATE, HIGH, CRITICAL]
+    TriageQuestionOption:
+      type: object
+      additionalProperties: false
+      required: [code, label, helpText, displayOrder]
+      properties:
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,79}$' }
+        label: { type: string, minLength: 1, maxLength: 240 }
+        helpText: { type: [string, 'null'], maxLength: 500 }
+        displayOrder: { type: integer, minimum: 1 }
+    TriageQuestion:
+      type: object
+      additionalProperties: false
+      required: [code, prompt, helpText, displayOrder, required, options]
+      properties:
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,79}$' }
+        prompt: { type: string, minLength: 1, maxLength: 500 }
+        helpText: { type: [string, 'null'], maxLength: 500 }
+        displayOrder: { type: integer, minimum: 1 }
+        required: { type: boolean }
+        options:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/TriageQuestionOption' }
+    TriagePolicy:
+      type: object
+      additionalProperties: false
+      required: [enabled, protocolApproved, externalProviderEnabled, evaluatorVersion, automatedSystemNotice, emergencyDisclaimer, defaultCountryCode, supportedCountryCodes, consentDocument, questions]
+      properties:
+        enabled: { type: boolean }
+        protocolApproved: { type: boolean }
+        externalProviderEnabled: { type: boolean }
+        evaluatorVersion: { type: string, minLength: 1, maxLength: 80 }
+        automatedSystemNotice: { type: string, minLength: 1 }
+        emergencyDisclaimer: { type: string, minLength: 1 }
+        defaultCountryCode: { type: string, pattern: '^[A-Z]{2}$' }
+        supportedCountryCodes:
+          type: array
+          minItems: 1
+          items: { type: string, pattern: '^[A-Z]{2}$' }
+        consentDocument:
+          type: object
+          additionalProperties: false
+          required: [code, version, title, content, contentHash]
+          properties:
+            code: { type: string }
+            version: { type: string }
+            title: { type: string }
+            content: { type: string }
+            contentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        questions:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/TriageQuestion' }
+    TriagePolicyResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/TriagePolicy' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CreateTriageAssessmentRequest:
+      type: object
+      additionalProperties: false
+      required: [countryCode, answers, consent]
+      properties:
+        countryCode: { type: string, pattern: '^[A-Z]{2}$' }
+        serviceRequestId: { type: string, format: uuid }
+        answers:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            type: object
+            additionalProperties: false
+            required: [questionCode, optionCode]
+            properties:
+              questionCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,79}$' }
+              optionCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,79}$' }
+        consent:
+          type: object
+          additionalProperties: false
+          required: [documentCode, documentVersion, granted]
+          properties:
+            documentCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,79}$' }
+            documentVersion: { type: string, minLength: 1, maxLength: 30 }
+            granted: { type: boolean, const: true }
+    TriageCrisisResource:
+      type: object
+      additionalProperties: false
+      required: [code, label, channel, value, sourceUrl, verifiedAt]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        channel: { type: string, enum: [PHONE, URL] }
+        value: { type: string }
+        sourceUrl: { type: string, format: uri }
+        verifiedAt: { type: string, format: date }
+    TriageAssessment:
+      type: object
+      additionalProperties: false
+      required: [id, patientUserId, primaryNeed, provider, model, evaluatorVersion, providerOutcome, countryCode, orientationSummary, riskLevel, recommendedModalities, reviewedAt, reviewedBy, createdAt, automatedSystem, diagnostic, requiresImmediateHelp, safetyActions, crisisResources]
+      properties:
+        id: { type: string, format: uuid }
+        patientUserId: { type: string, format: uuid }
+        primaryNeed:
+          type: object
+          additionalProperties: false
+          required: [code, name]
+          properties:
+            code: { type: string }
+            name: { type: string }
+        provider: { type: string }
+        model: { type: string }
+        evaluatorVersion: { type: string }
+        providerOutcome: { type: string, enum: [NOT_USED, SUCCEEDED, UNAVAILABLE, REJECTED_OUTPUT] }
+        countryCode: { type: string, pattern: '^[A-Z]{2}$' }
+        orientationSummary: { type: string, minLength: 1 }
+        riskLevel: { $ref: '#/components/schemas/TriageRiskLevel' }
+        recommendedModalities:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Modality' }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewedBy:
+          oneOf:
+            - type: 'null'
+            - type: object
+              additionalProperties: false
+              required: [userId, displayName]
+              properties:
+                userId: { type: string, format: uuid }
+                displayName: { type: string }
+        createdAt: { type: string, format: date-time }
+        automatedSystem: { type: boolean, const: true }
+        diagnostic: { type: boolean, const: false }
+        requiresImmediateHelp: { type: boolean }
+        safetyActions:
+          type: array
+          items: { type: string }
+        crisisResources:
+          type: array
+          items: { $ref: '#/components/schemas/TriageCrisisResource' }
+    TriageAssessmentResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/TriageAssessment' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
     HealthResponse:
       type: object
       required: [status]

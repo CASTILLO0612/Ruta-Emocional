@@ -190,11 +190,16 @@ El administrador de plataforma no hereda acceso clínico. La autorización clín
 
 | Operación | Paciente | Psic. vinculado | Admin | Auditor | Proveedor IA | Sistema de crisis |
 |---|---:|---:|---:|---:|---:|---:|
-| Iniciar orientación | Sí propia | — | — | — | — | — |
-| Ver texto original | Sí | Solo si se comparte explícitamente | — | Por propósito | Solo entrada minimizada | Solo si imprescindible |
-| Ver nivel de riesgo | Sí | Con relación/consentimiento | Metadato agregado | Por propósito | No requiere identidad | Sí |
-| Revisar evaluación | — | Sí, profesional responsable | — | Sí | — | — |
-| Incorporar a expediente | Autoriza compartir | Sí, con autoría profesional | — | — | — | — |
+| Obtener política/preguntas | Sí | — | — | — | — | — |
+| Iniciar orientación | Sí propia, consentimiento vigente | — | — | — | Entrada categórica opcional | — |
+| Ver resultado estructurado | Sí propio | Solo si la relación aceptada congeló la evaluación | — | Por propósito autorizado | Nunca identidad | Recursos configurados, sin transmisión automática |
+| Revisar evaluación | — | Sí, profesional responsable verificado; una vez | — | Sí | — | — |
+| Mutar riesgo, reglas o salida | — | — | — | — | — | — |
+| Vincular a relación | Mediante aceptación propia | Oferta del profesional | — | — | — | Riesgo crítico lo impide |
+
+El comando no admite texto libre, presupuesto o actor. Una evaluación ajena y
+una evaluación consultada por un psicólogo antes de constituir la relación
+responden `404`. El acceso y la revisión se auditan sin contenido clínico.
 
 ## 10. Pagos
 
@@ -228,3 +233,7 @@ Para cada permiso positivo debe existir al menos una prueba negativa:
 - token revocado no usa API ni WebSocket;
 - identificador manipulado no cambia el actor;
 - un evento WebSocket fabricado no modifica estado persistido.
+- paciente B no lee la evaluación del paciente A;
+- psicólogo ajeno o todavía no vinculado no lee ni revisa una evaluación;
+- riesgo crítico no permite aceptar la oferta ni contiene modalidad comercial;
+- administrador no obtiene resultado MENTA por su rol.

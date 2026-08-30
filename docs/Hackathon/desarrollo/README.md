@@ -19,10 +19,10 @@ Este directorio reúne la evidencia verificable de Ruta Emocional para la catego
 El archivo [`modelo-entidad-relacion-conceptual-ruta-emocional.pdf`](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf) contiene:
 
 - 38 entidades conceptuales con cada atributo declarado en un óvalo propio;
-- 62 asociaciones semánticas con cardinalidad y participación;
+- 64 asociaciones semánticas con cardinalidad y participación;
 - una jerarquía `ISA` parcial y superpuesta para Usuario, Paciente y Psicólogo;
-- 6 relaciones N:N conservadas explícitamente en el nivel conceptual;
-- cobertura trazable de los 48 modelos Prisma;
+- 7 relaciones N:N conservadas explícitamente en el nivel conceptual;
+- cobertura trazable de los 52 modelos Prisma;
 - separación de su resolución mediante estructuras asociativas en el modelo lógico;
 - exclusión explícita de tablas, tipos SQL, llaves foráneas, índices, triggers y detalles del motor.
 
@@ -44,10 +44,12 @@ delimitadas y no se presentan como funcionalidad terminada.
 6. Abrir la conversación autorizada.
 7. Reservar o gestionar una cita.
 8. Crear un encuentro y una nota clínica con datos ficticios.
+9. Completar la orientación MENTA y revisar desde el expediente profesional el
+   resultado congelado al aceptar una oferta.
 
-MENTA, pagos y llamadas no forman parte de este recorrido. Sus componentes
-demostrativos fueron retirados y permanecen deshabilitados hasta cerrar las
-decisiones productivas de sus fases correspondientes.
+Pagos y llamadas no forman parte de este recorrido. MENTA usa reglas
+deterministas persistidas; la IA externa no se simula y permanece deshabilitada
+hasta cerrar las decisiones clínicas y productivas correspondientes.
 
 ## Comprobación rápida
 

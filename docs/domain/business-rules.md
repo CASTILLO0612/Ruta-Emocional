@@ -182,7 +182,8 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **MT-001**. MENTA se identifica siempre como sistema automatizado.
 - **MT-002**. MENTA no diagnostica, prescribe, promete resultados ni reemplaza atención profesional.
 - **MT-003**. Antes de llamar a un modelo externo se ejecuta detección determinista y versionada de señales de crisis.
-- **MT-004**. Un riesgo crítico interrumpe recomendaciones comerciales de modalidad o presupuesto.
+- **MT-004**. Un riesgo alto o crítico no contiene recomendaciones comerciales
+  de modalidad o presupuesto; un riesgo crítico además impide aceptar la oferta.
 - **MT-005**. La respuesta crítica muestra recursos locales configurados y una acción inmediata revisada por profesionales.
 - **MT-006**. La aplicación no afirma haber contactado servicios de emergencia si no existe confirmación real.
 - **MT-007**. La entrada al proveedor externo se minimiza y no incluye nombre, correo, teléfono, ubicación exacta o identificadores internos.
@@ -193,6 +194,10 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **MT-012**. Los precios sugeridos no se consideran recomendación clínica y deben separarse de la evaluación de necesidad.
 - **MT-013**. Las reglas deterministas tienen código y versión. Cada evaluación registra qué reglas aplicó y el resultado minimizado de cada una.
 - **MT-014**. Una solicitud puede conservar varias evaluaciones inmutables; la más reciente anterior a la aceptación es la vigente para orientación.
+- **MT-015**. Aceptar una oferta congela en el origen de la relación la
+  evaluación vigente; una evaluación posterior no cambia esa procedencia.
+- **MT-016**. La revisión profesional agrega revisor y fecha una sola vez; no
+  modifica riesgo, necesidad, resumen, reglas, proveedor o modalidades.
 
 ## 12. Auditoría y datos
 

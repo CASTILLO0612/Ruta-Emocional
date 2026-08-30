@@ -8,6 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type PatientTabParamList = {
   Home: undefined;
+  Menta: undefined;
   Messages: undefined;
   History: undefined;
   Profile: undefined;

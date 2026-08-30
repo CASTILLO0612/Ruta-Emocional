@@ -43,6 +43,12 @@ SELECT has_table_privilege(:'application_role', 'public.users', 'SELECT')
    AND has_table_privilege(:'application_role', 'public.clinical_note_versions', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.clinical_note_events', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.treatment_plans', 'UPDATE')
+   AND has_table_privilege(:'application_role', 'public.triage_needs', 'SELECT')
+   AND has_table_privilege(:'application_role', 'public.triage_rules', 'SELECT')
+   AND has_table_privilege(:'application_role', 'public.triage_assessments', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.triage_assessment_rule_results', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.request_triage_assessments', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.patient_consents', 'INSERT')
   AS check_passed \gset
 \if :check_passed
 \else
@@ -60,6 +66,15 @@ SELECT has_column_privilege(:'application_role', 'public.outbox_events', 'publis
   \quit 1
 \endif
 
+SELECT has_column_privilege(:'application_role', 'public.triage_assessments', 'reviewed_at', 'UPDATE')
+   AND has_column_privilege(:'application_role', 'public.triage_assessments', 'reviewed_by_psychologist_id', 'UPDATE')
+  AS check_passed \gset
+\if :check_passed
+\else
+  \echo 'Runtime role is missing the limited triage review privileges.'
+  \quit 1
+\endif
+
 SELECT NOT has_table_privilege(:'application_role', 'public.audit_events', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.audit_events', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.outbox_events', 'DELETE')
@@ -71,6 +86,10 @@ SELECT NOT has_table_privilege(:'application_role', 'public.audit_events', 'DELE
    AND NOT has_table_privilege(:'application_role', 'public.care_modalities', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.specialties', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.clinical_records', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.triage_rules', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.triage_assessments', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.triage_assessment_rule_results', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.patient_consents', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.users', 'TRIGGER')
   AS check_passed \gset
 \if :check_passed

@@ -39,10 +39,14 @@ Medida en el servidor, sin incluir red móvil y salvo dependencia externa:
 | Lectura por ID o `/me` | 80 ms | 250 ms | 600 ms |
 | Listado paginado/directorio | 120 ms | 400 ms | 900 ms |
 | Mutación transaccional | 150 ms | 500 ms | 1 000 ms |
+| Evaluación MENTA determinista | 120 ms | 400 ms | 900 ms |
 | Envío de mensaje hasta ACK persistido | 150 ms | 500 ms | 1 000 ms |
 | Evento en tiempo real después de commit | 250 ms | 1 000 ms | 2 000 ms |
 
 Integraciones externas tienen presupuesto propio y timeout. No mantienen una transacción de PostgreSQL abierta mientras esperan una red externa.
+El motor determinista se ejecuta siempre antes de cualquier proveedor y no
+depende de su latencia. La persistencia comienza después de validar la salida
+externa o decidir el fallback.
 
 ## 4. Base de datos
 

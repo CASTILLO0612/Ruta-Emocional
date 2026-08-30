@@ -3,6 +3,15 @@ import dotenv from 'dotenv';
 
 export type RuntimeEnvironment = 'development' | 'test' | 'production';
 
+export interface TriageCrisisResourceConfig {
+  readonly code: string;
+  readonly label: string;
+  readonly channel: 'PHONE' | 'URL';
+  readonly value: string;
+  readonly sourceUrl: string;
+  readonly verifiedAt: string;
+}
+
 export interface AppConfig {
   readonly environment: RuntimeEnvironment;
   readonly port: number;
@@ -108,6 +117,20 @@ export interface AppConfig {
     readonly idempotencyTtlHours: number;
     readonly serializableMaxRetries: number;
     readonly serializableRetryBaseDelayMs: number;
+  };
+  readonly triage: {
+    readonly enabled: boolean;
+    readonly protocolApproved: boolean;
+    readonly externalProviderEnabled: boolean;
+    readonly evaluatorVersion: string;
+    readonly consentDocumentCode: string;
+    readonly consentDocumentVersion: string;
+    readonly defaultCountryCode: string;
+    readonly crisisResources: Readonly<Record<string, readonly TriageCrisisResourceConfig[]>>;
+    readonly safetyActions: Readonly<Record<'HIGH' | 'CRITICAL', readonly string[]>>;
+    readonly maximumProviderSummaryLength: number;
+    readonly assessmentsPerMinute: number;
+    readonly idempotencyTtlHours: number;
   };
 }
 
@@ -249,6 +272,111 @@ function readPositiveIntegerList(
   return Object.freeze([...new Set(values)].sort((left, right) => right - left));
 }
 
+function readCountryCode(source: NodeJS.ProcessEnv, name: string): string {
+  const value = readRequired(source, name).toUpperCase();
+  if (!/^[A-Z]{2}$/.test(value)) {
+    throw new ConfigurationError(`${name} must contain an ISO 3166-1 alpha-2 code`);
+  }
+  return value;
+}
+
+function parseJsonObject(source: NodeJS.ProcessEnv, name: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readRequired(source, name));
+  } catch {
+    throw new ConfigurationError(`${name} must contain valid JSON`);
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new ConfigurationError(`${name} must contain a JSON object`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function readCrisisResources(
+  source: NodeJS.ProcessEnv
+): Readonly<Record<string, readonly TriageCrisisResourceConfig[]>> {
+  const record = parseJsonObject(source, 'TRIAGE_CRISIS_RESOURCES_JSON');
+  const entries = Object.entries(record);
+  if (entries.length < 1 || entries.length > 20) {
+    throw new ConfigurationError('TRIAGE_CRISIS_RESOURCES_JSON must configure between 1 and 20 countries');
+  }
+
+  const result: Record<string, readonly TriageCrisisResourceConfig[]> = {};
+  for (const [rawCountryCode, rawResources] of entries) {
+    const countryCode = rawCountryCode.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(countryCode) || countryCode !== rawCountryCode) {
+      throw new ConfigurationError('TRIAGE_CRISIS_RESOURCES_JSON country keys must be uppercase ISO codes');
+    }
+    if (!Array.isArray(rawResources) || rawResources.length < 1 || rawResources.length > 10) {
+      throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode} must contain 1 to 10 resources`);
+    }
+
+    const codes = new Set<string>();
+    result[countryCode] = Object.freeze(rawResources.map((rawResource, index) => {
+      if (typeof rawResource !== 'object' || rawResource === null || Array.isArray(rawResource)) {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}[${index}] must be an object`);
+      }
+      const resource = rawResource as Record<string, unknown>;
+      const allowed = ['code', 'label', 'channel', 'value', 'sourceUrl', 'verifiedAt'];
+      if (Object.keys(resource).some((key) => !allowed.includes(key))) {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}[${index}] has unknown fields`);
+      }
+      const code = typeof resource.code === 'string' ? resource.code.trim().toUpperCase() : '';
+      const label = typeof resource.label === 'string' ? resource.label.trim() : '';
+      const channel = resource.channel;
+      const value = typeof resource.value === 'string' ? resource.value.trim() : '';
+      const sourceUrl = typeof resource.sourceUrl === 'string' ? resource.sourceUrl.trim() : '';
+      const verifiedAt = typeof resource.verifiedAt === 'string' ? resource.verifiedAt.trim() : '';
+      if (!/^[A-Z][A-Z0-9_]{2,49}$/.test(code) || codes.has(code)) {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode} contains an invalid or repeated code`);
+      }
+      if (label.length < 3 || label.length > 160 || (channel !== 'PHONE' && channel !== 'URL')) {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}.${code} has invalid display data`);
+      }
+      if (
+        (channel === 'PHONE' && !/^\+?[0-9][0-9 -]{1,30}$/.test(value))
+        || (channel === 'URL' && !/^https:\/\//i.test(value))
+      ) {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}.${code} has an invalid contact value`);
+      }
+      try {
+        const sourceReference = new URL(sourceUrl);
+        if (sourceReference.protocol !== 'https:') throw new Error();
+      } catch {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}.${code} requires an HTTPS sourceUrl`);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(verifiedAt) || Number.isNaN(Date.parse(`${verifiedAt}T00:00:00Z`))) {
+        throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}.${code} has an invalid verifiedAt date`);
+      }
+      codes.add(code);
+      return Object.freeze({ code, label, channel, value, sourceUrl, verifiedAt });
+    }));
+  }
+  return Object.freeze(result);
+}
+
+function readTriageSafetyActions(
+  source: NodeJS.ProcessEnv
+): Readonly<Record<'HIGH' | 'CRITICAL', readonly string[]>> {
+  const record = parseJsonObject(source, 'TRIAGE_SAFETY_ACTIONS_JSON');
+  if (Object.keys(record).some((key) => key !== 'HIGH' && key !== 'CRITICAL')) {
+    throw new ConfigurationError('TRIAGE_SAFETY_ACTIONS_JSON only accepts HIGH and CRITICAL keys');
+  }
+  const parseActions = (risk: 'HIGH' | 'CRITICAL'): readonly string[] => {
+    const raw = record[risk];
+    if (!Array.isArray(raw) || raw.length < 1 || raw.length > 8) {
+      throw new ConfigurationError(`TRIAGE_SAFETY_ACTIONS_JSON.${risk} must contain 1 to 8 actions`);
+    }
+    const actions = raw.map((action) => typeof action === 'string' ? action.trim() : '');
+    if (actions.some((action) => action.length < 10 || action.length > 300)) {
+      throw new ConfigurationError(`TRIAGE_SAFETY_ACTIONS_JSON.${risk} contains an invalid action`);
+    }
+    return Object.freeze([...new Set(actions)]);
+  };
+  return Object.freeze({ HIGH: parseActions('HIGH'), CRITICAL: parseActions('CRITICAL') });
+}
+
 function assertSecret(name: string, value: string): string {
   if (value.length < 32) {
     throw new ConfigurationError(`${name} must contain at least 32 characters of high-entropy data`);
@@ -306,6 +434,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   }
 
   const supportedCurrencies = readCurrencies(source);
+  const triageEnabled = readBoolean(source, 'TRIAGE_ENABLED', false);
+  const triageProtocolApproved = readBoolean(source, 'TRIAGE_PROTOCOL_APPROVED', false);
+  const triageExternalProviderEnabled = readBoolean(
+    source,
+    'TRIAGE_EXTERNAL_PROVIDER_ENABLED',
+    false
+  );
+  const triageDefaultCountryCode = readCountryCode(source, 'TRIAGE_DEFAULT_COUNTRY_CODE');
+  const triageCrisisResources = readCrisisResources(source);
+  const triageSafetyActions = readTriageSafetyActions(source);
   const minimumRequestAmount = readRequiredMoney(source, 'REQUEST_MINIMUM_AMOUNT');
   const maximumRequestAmount = readRequiredMoney(source, 'REQUEST_MAXIMUM_AMOUNT');
   if (Number(minimumRequestAmount) <= 0 || Number(maximumRequestAmount) <= Number(minimumRequestAmount)) {
@@ -626,6 +764,35 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         2_000
       ),
     },
+    triage: {
+      enabled: triageEnabled,
+      protocolApproved: triageProtocolApproved,
+      externalProviderEnabled: triageExternalProviderEnabled,
+      evaluatorVersion: readRequired(source, 'TRIAGE_EVALUATOR_VERSION'),
+      consentDocumentCode: source.TRIAGE_CONSENT_DOCUMENT_CODE?.trim() || 'MENTA_ORIENTATION',
+      consentDocumentVersion: source.TRIAGE_CONSENT_DOCUMENT_VERSION?.trim() || '1.0.0',
+      defaultCountryCode: triageDefaultCountryCode,
+      crisisResources: triageCrisisResources,
+      safetyActions: triageSafetyActions,
+      maximumProviderSummaryLength: readRequiredInteger(
+        source,
+        'TRIAGE_MAXIMUM_PROVIDER_SUMMARY_LENGTH',
+        100,
+        2_000
+      ),
+      assessmentsPerMinute: readRequiredInteger(
+        source,
+        'TRIAGE_ASSESSMENTS_PER_MINUTE',
+        1,
+        120
+      ),
+      idempotencyTtlHours: readRequiredInteger(
+        source,
+        'TRIAGE_IDEMPOTENCY_TTL_HOURS',
+        1,
+        168
+      ),
+    },
   };
 
   if (config.requestFlow.scheduledOfferCutoffMinutes >= config.requestFlow.scheduledLeadMinutes) {
@@ -671,6 +838,21 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (!config.clinical.contentEncryptionKeys[config.clinical.activeContentEncryptionKeyVersion]) {
     throw new ConfigurationError(
       'CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION must reference CLINICAL_CONTENT_ENCRYPTION_KEYS'
+    );
+  }
+  if (!config.triage.crisisResources[config.triage.defaultCountryCode]) {
+    throw new ConfigurationError(
+      'TRIAGE_DEFAULT_COUNTRY_CODE must have configured crisis resources'
+    );
+  }
+  if (environment === 'production' && config.triage.enabled && !config.triage.protocolApproved) {
+    throw new ConfigurationError(
+      'TRIAGE_PROTOCOL_APPROVED must be true before enabling MENTA in production'
+    );
+  }
+  if (environment === 'production' && config.triage.externalProviderEnabled) {
+    throw new ConfigurationError(
+      'External MENTA requires a selected provider adapter and approved data-processing contract'
     );
   }
 

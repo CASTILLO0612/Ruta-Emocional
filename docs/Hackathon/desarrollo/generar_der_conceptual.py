@@ -185,7 +185,7 @@ ATTRIBUTES: dict[str, tuple[str, str]] = {
     "Decisión de consentimiento": ("Identificador", "decisión, ocurrencia, dirección de red"),
     "Evaluación de triaje": (
         "Identificador",
-        "proveedor, modelo, versión del evaluador, necesidad, rango presupuestario, riesgo, revisada en, creación",
+        "proveedor, modelo, versión del evaluador, necesidad, orientación, resultado del proveedor, país, riesgo, revisada en, creación",
     ),
     "Regla de triaje": (
         "Código + versión",
@@ -263,10 +263,12 @@ RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
     ("Consentimiento", "Paciente", "expresa", "Decisión de consentimiento", "0..N", "1"),
     ("Consentimiento", "Documento de consentimiento", "fundamenta", "Decisión de consentimiento", "0..N", "1"),
     ("Consentimiento", "Relación asistencial", "contextualiza", "Decisión de consentimiento", "0..N", "0..1"),
+    ("Consentimiento", "Decisión de consentimiento", "autoriza", "Evaluación de triaje", "0..N", "1"),
     ("Orientación", "Paciente", "recibe", "Evaluación de triaje", "0..N", "1"),
     ("Orientación", "Psicólogo", "revisa", "Evaluación de triaje", "0..N", "0..1"),
     ("Orientación", "Evaluación de triaje", "informa", "Solicitud de atención", "0..1", "0..N"),
-    ("Orientación", "Evaluación de triaje", "recomienda", "Modalidad de atención", "1", "0..N"),
+    ("Orientación", "Relación asistencial", "conserva como origen", "Evaluación de triaje", "0..1", "0..1"),
+    ("Orientación", "Evaluación de triaje", "recomienda", "Modalidad de atención", "0..N", "0..N"),
     ("Orientación", "Evaluación de triaje", "aplica", "Regla de triaje", "1..N", "0..N"),
     ("Plataforma", "Usuario", "origina", "Evento de auditoría", "0..N", "0..1"),
     ("Plataforma", "Usuario", "delimita", "Registro de idempotencia", "0..N", "1"),
@@ -298,6 +300,9 @@ RELATIONSHIP_ATTRIBUTES: dict[tuple[str, str, str], tuple[str, ...]] = {
     ("Evaluación de triaje", "aplica", "Regla de triaje"): (
         "resultado",
         "evidencia minimizada",
+    ),
+    ("Evaluación de triaje", "recomienda", "Modalidad de atención"): (
+        "prioridad",
     ),
 }
 
@@ -885,14 +890,14 @@ def validate_model() -> None:
         missing = sorted(entities - set(ATTRIBUTES))
         extra = sorted(set(ATTRIBUTES) - entities)
         raise ValueError(f"Catálogo inconsistente. Faltan={missing}; sobran={extra}")
-    if len(RELATIONSHIPS) != 62:
-        raise ValueError(f"Se esperaban 62 relaciones y se obtuvieron {len(RELATIONSHIPS)}")
+    if len(RELATIONSHIPS) != 64:
+        raise ValueError(f"Se esperaban 64 relaciones y se obtuvieron {len(RELATIONSHIPS)}")
     referenced = {item for relationship in RELATIONSHIPS for item in (relationship[1], relationship[3])}
     if not referenced.issubset(entities):
         raise ValueError(f"Relaciones con entidades desconocidas: {sorted(referenced - entities)}")
     many_to_many = many_to_many_relationships()
-    if len(many_to_many) != 6:
-        raise ValueError(f"Se esperaban 6 relaciones N:N y se obtuvieron {len(many_to_many)}")
+    if len(many_to_many) != 7:
+        raise ValueError(f"Se esperaban 7 relaciones N:N y se obtuvieron {len(many_to_many)}")
     specialization_entities = {
         SPECIALIZATION["supertype"],
         *SPECIALIZATION["subtypes"],

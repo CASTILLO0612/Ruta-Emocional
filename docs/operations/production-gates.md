@@ -170,15 +170,19 @@ tener propietario legal, seguridad y operaciones.
 La Fase 7.5 retiró `mongoose`, los modelos, los controladores y todas las rutas
 MongoDB del proceso. También retiró los endpoints simulados de MENTA y pagos:
 una integración ausente responde como capacidad no disponible, no como dato
-ficticio. La navegación MENTA, sus respuestas de fallback y los formularios
-locales de pago/ajustes que aparentaban guardar datos también fueron retirados.
+ficticio. La antigua navegación y respuestas ficticias de MENTA fueron
+retiradas. La Fase 8 reincorpora una orientación determinista persistida,
+versionada y explícitamente automatizada; no simula un proveedor externo. Los
+formularios locales de pago/ajustes que aparentaban guardar datos siguen
+retirados.
 Solicitudes, ofertas y mensajería no aceptan salas o eventos de dominio
 fabricados por clientes. Las llamadas y la ubicación
 en vivo heredadas también fueron retiradas del transporte de mensajería y no se
 presentan como capacidades reales. Aún deben resolverse en sus fases:
 
 - recordatorios push fuera de la app hasta contar con proveedor, consentimiento y observabilidad;
-- motor determinista, consentimiento y proveedor de MENTA (Fase 8);
+- aprobación clínica de reglas/recursos y, opcionalmente, proveedor externo de
+  MENTA; el motor determinista y consentimiento ya están implementados;
 - pagos y RTC reales solo con proveedor aprobado (Fase 9);
 - cualquier ubicación en vivo solo podrá volver con propósito, consentimiento,
   retención corta y autorización por sesión presencial.
@@ -218,6 +222,10 @@ La aplicación ya ofrece:
 migraciones fue restaurado, validado y eliminado correctamente en un destino
 desechable. Esta evidencia valida el runbook local, no el backup administrado de
 producción.
+
+La Fase 8 validó separadamente las 20 migraciones desde una base vacía. El
+runbook de restauración debe repetirse sobre un dump que incluya la migración de
+triaje antes del siguiente release demostrable.
 
 Siguen abiertos para producción:
 

@@ -110,5 +110,31 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       serializableMaxRetries: 3,
       serializableRetryBaseDelayMs: 5,
     },
+    triage: {
+      enabled: true,
+      protocolApproved: true,
+      externalProviderEnabled: false,
+      evaluatorVersion: 'test-evaluator-1.0.0',
+      consentDocumentCode: 'MENTA_ORIENTATION',
+      consentDocumentVersion: '1.0.0',
+      defaultCountryCode: 'NI',
+      crisisResources: {
+        NI: [{
+          code: 'TEST_EMERGENCY',
+          label: 'Recurso de emergencia de prueba',
+          channel: 'PHONE',
+          value: '118',
+          sourceUrl: 'https://example.test/emergency-source',
+          verifiedAt: '2026-08-30',
+        }],
+      },
+      safetyActions: {
+        HIGH: ['Contacta de inmediato a una persona de confianza y busca apoyo profesional urgente.'],
+        CRITICAL: ['Contacta ahora un servicio de emergencia y no permanezcas a solas.'],
+      },
+      maximumProviderSummaryLength: 1_000,
+      assessmentsPerMinute: 60,
+      idempotencyTtlHours: 24,
+    },
   };
 }

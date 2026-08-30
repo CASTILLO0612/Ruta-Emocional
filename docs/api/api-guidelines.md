@@ -276,10 +276,17 @@ POST /api/v1/clinical-records/{recordId}/exports
 ## 12. MENTA
 
 ```text
+GET  /api/v1/triage/policy
 POST /api/v1/triage/assessments
 GET  /api/v1/triage/assessments/{assessmentId}
 POST /api/v1/triage/assessments/{assessmentId}/review
 ```
+
+`GET /policy` entrega las preguntas y opciones cerradas junto con la versión
+exacta del consentimiento. La creación acepta solo códigos del catálogo, país,
+consentimiento otorgado y, opcionalmente, una solicitud propia todavía abierta.
+No admite texto libre, presupuesto, identidad del actor, proveedor o nivel de
+riesgo enviado por el cliente. `Idempotency-Key` es obligatorio al crear.
 
 La respuesta separa riesgo y orientación de cualquier decisión comercial:
 
@@ -288,16 +295,26 @@ La respuesta separa riesgo y orientación de cualquier decisión comercial:
   "data": {
     "id": "uuid",
     "riskLevel": "MODERATE",
-    "primaryNeed": "Apoyo emocional",
+    "primaryNeed": {
+      "code": "NEED_ANXIETY_STRESS",
+      "name": "Ansiedad o estrés"
+    },
     "recommendedModalities": ["CALL"],
-    "summary": "...",
+    "orientationSummary": "...",
+    "automatedSystem": true,
+    "diagnostic": false,
     "requiresImmediateHelp": false,
-    "safetyActions": []
+    "safetyActions": [],
+    "crisisResources": []
   }
 }
 ```
 
-Un riesgo `HIGH` o `CRITICAL` no devuelve presupuesto sugerido.
+Un riesgo `HIGH` o `CRITICAL` no devuelve presupuesto ni modalidades
+comerciales. `CRITICAL` impide aceptar una oferta vinculada. El paciente puede
+leer su resultado; el psicólogo verificado solo lo obtiene cuando la aceptación
+congeló esa evaluación en su relación asistencial. La revisión agrega revisor y
+fecha una sola vez y no cambia la salida original.
 
 ## 13. Idempotencia y concurrencia
 
@@ -309,7 +326,8 @@ Un riesgo `HIGH` o `CRITICAL` no devuelve presupuesto sugerido.
 - Usos obligatorios: aceptar oferta, reservar/reprogramar cita, pago, exportación y comandos externos reintentables.
 - Para actualizaciones de borrador se usa control optimista mediante versión o `If-Match`.
 
-El esquema necesitará una tabla de idempotencia antes de habilitar estos comandos en producción.
+El esquema usa `idempotency_records`; su retención y limpieza operativa se
+controlan mediante configuración.
 
 ## 14. WebSocket v1
 

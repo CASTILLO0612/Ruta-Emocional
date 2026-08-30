@@ -13,6 +13,7 @@ export type TreatmentGoalStatusValue = typeof TREATMENT_GOAL_STATUSES[number];
 export interface ClinicalPatientSummary {
   readonly patientUserId: string;
   readonly careRelationshipId: string;
+  readonly triageAssessmentId: string | null;
   readonly displayName: string;
   readonly photoUrl: string | null;
   readonly recordId: string | null;

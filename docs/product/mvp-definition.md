@@ -133,7 +133,8 @@ Procesos automáticos que envían notificaciones, expiran solicitudes, ejecutan 
 
 #### Pagos reales
 
-El código actual simula retención, cobro y devolución. Esta simulación solo es válida para demostraciones. Antes de habilitar pagos reales se requiere:
+El runtime actual no expone pagos ni simula retención, cobro o devolución.
+Antes de habilitar pagos reales se requiere:
 
 - proveedor definido;
 - tokenización del medio de pago;
@@ -185,14 +186,20 @@ oferta no reserva un horario de manera implícita.
 6. Una corrección crea una nueva versión y conserva la anterior.
 7. Cada lectura o cambio sensible genera auditoría.
 
-### Usuario conversa con MENTA
+### Usuario recibe orientación MENTA
 
 1. Se muestra que MENTA es IA y no un profesional ni un servicio de emergencia.
-2. El mensaje pasa primero por controles locales de crisis y abuso.
-3. Si hay riesgo crítico, se detiene el flujo comercial y se presenta el protocolo de crisis.
-4. En otro caso, se minimiza el contenido y se solicita orientación al proveedor configurado.
-5. La respuesta se valida contra un esquema cerrado y reglas de seguridad.
-6. El usuario decide si desea crear una solicitud; MENTA no crea ni acepta una automáticamente.
+2. El usuario acepta la versión vigente del consentimiento y responde opciones
+   cerradas; MENTA no solicita texto clínico libre.
+3. El motor determinista aplica todas las reglas versionadas y conserva sus
+   resultados.
+4. Si hay riesgo alto o crítico, no se recomiendan modalidades comerciales y se
+   presentan acciones y recursos del país configurado. Riesgo crítico impide
+   aceptar una oferta vinculada.
+5. Para riesgo bajo/moderado, un proveedor opcional solo recibe categorías
+   minimizadas; su salida se valida o se descarta a favor del fallback interno.
+6. La evaluación permanece separada de presupuesto. Vincularla a una solicitud
+   es opcional y la aceptación congela la evaluación vigente para el profesional.
 
 ## 6. Principios de producto
 

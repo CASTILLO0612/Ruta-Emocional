@@ -9,12 +9,13 @@ La raíz de navegación está en [`frontend/src/navigation/AppNavigator.tsx`](..
 | Público | acceso y registro | [`AuthScreens.tsx`](../../../frontend/src/screens/auth/AuthScreens.tsx) | registrar paciente/psicólogo e iniciar sesión |
 | Paciente | inicio y solicitud | [`HomeScreen.tsx`](../../../frontend/src/screens/patient/HomeScreen.tsx) | consultar profesionales y crear una solicitud con presupuesto |
 | Paciente | radar y ofertas | [`RadarScreen.tsx`](../../../frontend/src/screens/patient/RadarScreen.tsx) | seguir la solicitud, revisar ofertas, aceptar o cancelar |
+| Paciente | orientación MENTA | [`MentaScreen.tsx`](../../../frontend/src/screens/patient/MentaScreen.tsx) | responder opciones cerradas, consentir y obtener orientación sin presupuesto |
 | Psicólogo pendiente | incorporación y evidencia | [`VerificationScreen.tsx`](../../../frontend/src/screens/psychologist/VerificationScreen.tsx) | completar presentación, especialidad, modalidad, disponibilidad y evidencia |
 | Administrador | cola de verificación | [`VerificationQueueScreen.tsx`](../../../frontend/src/screens/admin/VerificationQueueScreen.tsx) | aprobar o rechazar una solicitud y registrar la decisión |
 | Psicólogo verificado | solicitudes elegibles | [`DashboardScreen.tsx`](../../../frontend/src/screens/psychologist/DashboardScreen.tsx) | consultar solicitudes y presentar o retirar oferta |
 | Participante | bandeja y conversación | [`InboxScreen.tsx`](../../../frontend/src/screens/shared/InboxScreen.tsx), [`ConversationScreen.tsx`](../../../frontend/src/screens/shared/ConversationScreen.tsx) | listar conversaciones, paginar y enviar mensajes |
 | Participante | agenda | [`AgendaScreen.tsx`](../../../frontend/src/screens/shared/AgendaScreen.tsx) | consultar disponibilidad, crear, confirmar, cancelar o reprogramar cita según el actor |
-| Psicólogo autorizado | pacientes y expediente | [`ClinicalRecordsScreen.tsx`](../../../frontend/src/screens/psychologist/ClinicalRecordsScreen.tsx) | crear encuentros, editar/firmar/enmendar notas y gestionar planes |
+| Psicólogo autorizado | pacientes y expediente | [`ClinicalRecordsScreen.tsx`](../../../frontend/src/screens/psychologist/ClinicalRecordsScreen.tsx) | revisar MENTA vinculada, crear encuentros, editar/firmar/enmendar notas y gestionar planes |
 | Usuario autenticado | perfil | [`ProfileScreen.tsx`](../../../frontend/src/screens/shared/ProfileScreen.tsx) | consultar sesión y cerrar sesión |
 
 ## 2. Formularios y validación
@@ -29,6 +30,7 @@ Los formularios relevantes tienen estados de carga y error, deshabilitan envíos
 | mensaje | texto no vacío, límite de caracteres y reintento visual | [`messagingValidation.ts`](../../../backend/src/modules/messaging/presentation/messagingValidation.ts) y participación persistida |
 | cita | intervalo, estado y motivo cuando corresponde | [`appointmentValidation.ts`](../../../backend/src/modules/appointment/presentation/appointmentValidation.ts), relación activa y exclusión de solapamientos |
 | historia clínica | contenido, fechas, motivo de enmienda y objetivos | [`clinicalRecordValidation.ts`](../../../backend/src/modules/clinical-record/presentation/clinicalRecordValidation.ts), autoría, relación y estado |
+| MENTA | todas las preguntas requeridas y consentimiento vigente | [`triageValidation.ts`](../../../backend/src/modules/triage/presentation/triageValidation.ts), catálogo cerrado, propiedad, relación e idempotencia |
 
 ## 3. Criterio visual
 
@@ -51,5 +53,7 @@ Los formularios relevantes tienen estados de carga y error, deshabilitan envíos
 | usar un identificador ajeno | el backend no revela el recurso |
 | reservar dos citas solapadas | PostgreSQL rechaza el conflicto |
 | firmar una nota clínica | el contenido firmado queda inmutable; el cambio posterior requiere enmienda |
+| completar MENTA con peligro inmediato | aparecen acciones/recursos; no se muestra presupuesto ni modalidad comercial |
+| abrir MENTA desde un psicólogo ajeno | el backend responde como recurso no encontrado |
 
 Para una demostración reproducible, use únicamente datos ficticios y siga el [runbook de verificación local](../../runbooks/local-professional-verification.md).

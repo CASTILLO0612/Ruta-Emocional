@@ -16,6 +16,7 @@ import { createServiceRequestRouter } from './modules/service-request/presentati
 import { createMessagingRouter } from './modules/messaging/presentation/messagingRoutes';
 import { createAppointmentRouter } from './modules/appointment/presentation/appointmentRoutes';
 import { createClinicalRecordRouter } from './modules/clinical-record/presentation/clinicalRecordRoutes';
+import { createTriageRouter } from './modules/triage/presentation/triageRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -149,6 +150,10 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(
     '/api/v1',
     createClinicalRecordRouter(services.identity, services.clinicalRecords, config.clinical)
+  );
+  app.use(
+    '/api/v1',
+    createTriageRouter(services.identity, services.triage, config.triage)
   );
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));
