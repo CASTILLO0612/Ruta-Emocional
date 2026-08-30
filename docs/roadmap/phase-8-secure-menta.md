@@ -1,7 +1,7 @@
 # Fase 8 — MENTA segura
 
-**Estado:** implementación de ingeniería terminada el 30 de agosto de 2026;
-validación de CI pendiente de registrar.
+**Estado:** fase de ingeniería cerrada el 30 de agosto de 2026. La validación
+local y el pipeline remoto finalizaron correctamente.
 
 ## 1. Resultado
 
@@ -143,6 +143,7 @@ permite registrar su revisión sin editarla.
 | Integración específica MENTA | propietario/ajeno/profesional, idempotencia, inmutabilidad, revisión y bloqueo crítico correctos |
 | Grants de runtime | permisos requeridos presentes y destructivos ausentes |
 | Revisión Expo Web | escritorio y viewport 390×844 correctos |
+| CI del commit de implementación `64dfac3` | [Quality #33340045465](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33340045465) correcto |
 
 La integración comprueba además que el identificador de triaje congelado se
 proyecta al expediente del profesional responsable.
