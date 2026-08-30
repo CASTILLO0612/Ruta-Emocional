@@ -5,7 +5,7 @@
 Fase cerrada el 30 de agosto de 2026. Las 19 migraciones se aplicaron desde cero
 sobre PostgreSQL 16 con PostGIS en la validación local y sobre PostgreSQL 17 con
 PostGIS 3.6 en CI. Las siete suites de integración finalizaron correctamente en
-ambos entornos. El workflow [`Quality` #3](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33296885091)
+ambos entornos. El workflow [`Quality` #6](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33297234387)
 registró la validación remota completa. Esta fase no habilita por sí sola
 producción clínica.
 
@@ -72,6 +72,8 @@ de uso ya cerrados.
   consolidado.
 - Las integraciones existentes comprueban procedencia exacta, conversación
   longitudinal, FK de cita, FK de plan y protección del último rol.
+- El envío concurrente de evidencias se serializa por licencia y devuelve un
+  conflicto de dominio controlado al segundo request, sin errores HTTP 500.
 
 ## Estrategia de migración
 
