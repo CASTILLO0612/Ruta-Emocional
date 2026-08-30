@@ -161,31 +161,3 @@ export function parseRefresh(body: unknown): string {
   throwIfErrors(errors);
   return refreshToken;
 }
-
-export interface LegacyRegistrationBody extends PatientRegistrationBody {
-  readonly role: 'patient' | 'psychologist';
-  readonly licenseNumber?: string;
-}
-
-export function parseLegacyRegistration(body: unknown): LegacyRegistrationBody {
-  const record = asRecord(body);
-  const errors = rejectUnknownFields(record, ['displayName', 'email', 'password', 'role', 'licenseNumber']);
-  const displayName = requiredString(record, 'displayName', 2, 160, errors);
-  const email = requiredString(record, 'email', 3, 320, errors).toLowerCase();
-  const password = typeof record.password === 'string' ? record.password : '';
-  const role = record.role;
-  if (typeof record.password !== 'string') {
-    errors.push({ field: 'password', code: 'REQUIRED_STRING', message: 'Este campo es obligatorio.' });
-  }
-  if (role !== 'patient' && role !== 'psychologist') {
-    errors.push({ field: 'role', code: 'INVALID_ROLE', message: 'El tipo de cuenta no es válido.' });
-  }
-  const licenseNumber = optionalString(record, 'licenseNumber', 80, errors);
-  if (role === 'psychologist' && (!licenseNumber || licenseNumber.length < 4)) {
-    errors.push({ field: 'licenseNumber', code: 'INVALID_LICENSE', message: 'La licencia es obligatoria.' });
-  }
-  validateEmail(email, errors);
-  validatePassword(password, errors, true);
-  throwIfErrors(errors);
-  return { displayName, email, password, role: role as 'patient' | 'psychologist', licenseNumber };
-}

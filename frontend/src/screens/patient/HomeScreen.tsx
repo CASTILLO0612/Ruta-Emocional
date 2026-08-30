@@ -286,27 +286,6 @@ export const HomeScreen: React.FC = () => {
             <MaterialIcons name="chevron-right" size={22} color="rgba(255,255,255,0.5)" />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryAction}
-            onPress={() => navigation.navigate('Menta')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.mentaIconBg}>
-              <MaterialIcons name="psychology" size={22} color={Colors.primary} />
-            </View>
-            <View style={styles.actionText}>
-              <View style={styles.mentaBadgeRow}>
-                <Text style={styles.mentaActionTitle}>Hablar con MENTA</Text>
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>IA</Text>
-                </View>
-              </View>
-              <Text style={styles.mentaActionDesc}>
-                Cuéntame cómo te sientes y te orientaré
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color={Colors.textDisabled} />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -706,51 +685,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     lineHeight: 18,
   },
-  secondaryAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  mentaIconBg: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mentaBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  mentaActionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  aiBadge: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  aiBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.primary,
-    letterSpacing: 0.5,
-  },
-  mentaActionDesc: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

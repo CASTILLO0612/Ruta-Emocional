@@ -240,6 +240,29 @@ en [`phase-7-secure-clinical-records.md`](phase-7-secure-clinical-records.md).
 - exportación, diagnósticos, consentimiento y acceso paciente permanecen gates
   explícitos sujetos a revisión clínica/legal.
 
+### Fase 7.5 — Consolidación transversal
+
+**Estado:** implementación preparada el 29 de agosto de 2026. El cierre y la
+evidencia se registran en
+[`phase-7-5-consolidation.md`](phase-7-5-consolidation.md).
+
+**Trabajo**
+
+- retirar MongoDB y rutas simuladas del runtime;
+- alinear procedencia de oferta, relación, conversación, cita y plan;
+- materializar historial de roles y catálogo de modalidades;
+- migrar mediante backfill que falla ante ambigüedad;
+- actualizar grants, restore y CI;
+- mantener explícitas las capacidades deshabilitadas.
+
+**Salida**
+
+- PostgreSQL es la única conexión del servidor;
+- una oferta exacta origina la relación;
+- conversación, cita, encuentro y plan conservan la relación autorizante;
+- migraciones desde cero y suite PostgreSQL se ejecutan en GitHub;
+- Fase 8 no hereda modelos MongoDB ni respuestas clínicas ficticias.
+
 ### Fase 8 — MENTA segura
 
 **Trabajo**
@@ -272,7 +295,7 @@ Solo se ejecuta con proveedor/arquitectura y privacidad aprobados. Incluye TURN,
 
 En caso contrario, ambos módulos permanecen deshabilitados en producción.
 
-### Fase 10 — ETL y cutover
+### Fase 10 — Reconciliación histórica opcional
 
 **Trabajo**
 
@@ -286,15 +309,16 @@ En caso contrario, ambos módulos permanecen deshabilitados en producción.
 - ensayo de rollback;
 - ventana de escritura controlada;
 - cutover y monitoreo;
-- Mongo read-only durante periodo definido;
-- retiro seguro.
+- export histórico inmutable durante una ventana definida;
+- eliminación de `legacy_id` después de reconciliación aprobada.
 
 **Salida**
 
 - reporte firmado de reconciliación;
 - cero huérfanos no explicados;
 - rollback ensayado;
-- PostgreSQL es única fuente de verdad.
+- PostgreSQL continúa como única fuente de verdad y no se conecta MongoDB al
+  proceso de aplicación.
 
 ### Fase 11 — Preparación productiva
 
@@ -359,8 +383,9 @@ El trabajo de ingeniería puede avanzar con adaptadores y feature flags, pero ni
 
 ## 6. Prioridad inmediata
 
-El siguiente incremento funcional es la Fase 8: MENTA segura, con triaje
-determinista, minimización de datos y límites clínicos. En paralelo, antes de cualquier despliegue productivo deben
+El siguiente incremento funcional es la Fase 8 únicamente después de cerrar el
+pipeline de la Fase 7.5. MENTA incorpora triaje determinista, minimización de
+datos y límites clínicos. En paralelo, antes de cualquier despliegue productivo deben
 cerrarse los gates de almacenamiento privado de evidencia, rol PostgreSQL de
 aplicación, gestión externa de secretos, rotación de credenciales, backup/restore
 y alertas externas. Ninguno se considera resuelto por usar valores locales de

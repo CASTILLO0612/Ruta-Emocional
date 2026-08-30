@@ -81,46 +81,25 @@ Escala:
 | TM-034 | Error externo filtra clave o payload | Alta | errores normalizados, no incluir URL con key, secretos en headers | test de logs/errores |
 | TM-035 | Usuario menor ingresa a flujo adulto | Crítica | puerta de edad y política de representante antes de producción | regla legal implementada o bloqueo |
 
-## 5. Hallazgos confirmados en el prototipo actual
+## 5. Estado de mitigación al cierre de la Fase 7.5
 
-Estos puntos describen el estado observado y guían la migración; no son acusaciones sobre la arquitectura objetivo.
+Los hallazgos del prototipo original se conservan en el historial Git. El estado
+vigente es:
 
-### Autenticación
+| Superficie | Estado actual | Riesgo residual |
+|---|---|---|
+| Identidad | Sesiones revocables, refresh opaco rotatorio, secretos fail-fast y roles server-side | gestor externo, rotación operativa y política web final |
+| Autorización | Solicitudes, conversaciones, citas y clínica filtran actor y relación en repositorio | pentest y revisión independiente |
+| Tiempo real | Socket autenticado, suscripción por conversación persistida y eventos server-side | carga, métricas y respuesta a dead letters |
+| Datos | PostgreSQL es el único runtime; no existen rutas ni paquete MongoDB | reconciliación offline de `legacy_id` si se importa historia |
+| CORS/errores | allowlist por entorno y Problem Details sin excepción interna | configuración y observabilidad del hosting final |
+| Pagos | endpoints simulados retirados | permanece deshabilitado hasta Fase 9 |
+| MENTA | controlador, servicio cliente, navegación y respuestas fallback retirados | permanece deshabilitado hasta protocolo determinista de Fase 8 |
+| Evidencias | adaptador privado local solo para QA controlado | proveedor, URL firmada, cuarentena y antimalware |
+| Clínica | cifrado, relación, mínimo privilegio lógico, versiones y auditoría | KMS, retención, acceso paciente y aprobación legal/clínica |
 
-- Se usa un secreto JWT fallback conocido si falta configuración.
-- El token dura 30 días y no existe sesión revocable.
-- El rol proviene del registro público sin flujo de verificación efectivo para autorizar capacidades.
-- El cliente conserva el token web en `localStorage` y usa una caché de perfil como estado de autenticación.
-
-### Autorización de objetos
-
-- Varias rutas no requieren autenticación.
-- Solicitudes, mensajes, ubicación y perfiles aceptan identificadores del cuerpo o URL sin demostrar propiedad.
-- Los pagos están protegidos por token, pero aceptan paciente, psicólogo e importe desde el cliente.
-
-### Tiempo real
-
-- Socket.IO permite conexiones anónimas o tokens inválidos.
-- Cualquier conexión puede unirse a cualquier `roomId`.
-- El cliente puede emitir hechos como aceptación de oferta y cambio de solicitud.
-- Mensajes y ubicación se retransmiten con datos construidos por el cliente.
-
-### Datos y operación
-
-- CORS permite cualquier origen.
-- El servidor depende todavía de MongoDB y algunos valores mock se crean durante lecturas.
-- Existen fallbacks de identidad, licencia, ubicación, precios, nombres y profesionales.
-- El endpoint de salud afirma explícitamente que funciona con MongoDB.
-- Errores internos se devuelven como texto al cliente.
-- Hay polling frecuente cada tres segundos y consultas N+1 en conversaciones.
-
-### MENTA
-
-- No existe detección de crisis previa.
-- El mensaje se interpola directamente en el prompt.
-- El proveedor/modelo y URL están fijados en el controlador.
-- La respuesta fallback puede presentar orientación específica como si fuera análisis.
-- Se sugieren precios dentro del resultado emocional.
+Una mitigación técnica no equivale a aceptación productiva. Los riesgos
+residuales mantienen sus gates en `operations/production-gates.md`.
 
 ## 6. Orden de mitigación
 

@@ -680,13 +680,13 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
         data: {
           patientProfileId: request.patientProfileId,
           psychologistProfileId: offer.psychologistProfileId,
-          source: { create: { serviceRequestId: requestId } },
+          source: { create: { acceptedOfferId: offerId } },
         },
         select: { id: true },
       });
       const conversation = await transaction.conversation.create({
         data: {
-          requestLink: { create: { serviceRequestId: requestId } },
+          careRelationshipId: relationship.id,
           participants: {
             create: [
               { userId },
@@ -834,13 +834,15 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       include: requestWithAcceptance,
     });
     const source = await transaction.careRelationshipSource.findUnique({
-      where: { serviceRequestId: offer.requestId },
+      where: { acceptedOfferId: offer.id },
       select: { careRelationshipId: true },
     });
-    const conversation = await transaction.requestConversation.findUnique({
-      where: { serviceRequestId: offer.requestId },
-      select: { conversationId: true },
-    });
+    const conversation = source
+      ? await transaction.conversation.findUnique({
+          where: { careRelationshipId: source.careRelationshipId },
+          select: { id: true },
+        })
+      : null;
     if (!request || !source || !conversation) {
       throw AppError.conflict('ACCEPTANCE_RESULT_INCOMPLETE', 'La aceptación no está completa.');
     }
@@ -848,7 +850,7 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       request: requestView(request),
       acceptedOffer: (await this.offerViews(transaction, [offer]))[0],
       careRelationshipId: source.careRelationshipId,
-      conversationId: conversation.conversationId,
+      conversationId: conversation.id,
       replayed,
     };
   }

@@ -241,6 +241,7 @@ test('clinical HTTP flow encrypts, versions, audits and isolates records', {
     const rawGoal = await prisma.treatmentGoal.findUniqueOrThrow({ where: { id: plan.goals[0]!.id } });
     assert.notEqual(rawPlan.summary, planSummary);
     assert.notEqual(rawGoal.description, goalDescription);
+    assert.equal(rawPlan.careRelationshipId, relationship.id);
 
     const activateResponse = await fetch(`${baseUrl}/clinical/treatment-plans/${plan.id}/transitions`, {
       method: 'POST',

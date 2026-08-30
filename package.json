@@ -2,6 +2,9 @@
   "name": "ruta-emocional-monorepo",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "start:frontend": "cd frontend && npx expo start --web",
     "start:backend": "cd backend && npm run dev",

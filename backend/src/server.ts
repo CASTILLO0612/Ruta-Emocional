@@ -2,7 +2,6 @@ import http from 'http';
 import { Server as SocketServer } from 'socket.io';
 import { createApp } from './app';
 import { buildApplicationServices } from './compositionRoot';
-import { connectLegacyMongo, disconnectLegacyMongo } from './config/db';
 import { loadConfig, loadEnvironmentFile } from './config/env';
 import { getPrismaClient } from './shared/infrastructure/database/prismaClient';
 import { createLogger } from './shared/infrastructure/logging/logger';
@@ -17,11 +16,6 @@ export async function startServer(): Promise<void> {
 
   await prisma.$connect();
   logger.info('database.postgresql.connected');
-
-  if (config.legacyMongo.enabled && config.legacyMongo.uri) {
-    const host = await connectLegacyMongo(config.legacyMongo.uri);
-    logger.warn('database.mongodb.legacy_connected', { host, productionAllowed: false });
-  }
 
   const services = buildApplicationServices(config, prisma);
   const app = createApp({ config, prisma, services, logger });
@@ -74,7 +68,7 @@ export async function startServer(): Promise<void> {
     if (server.listening) {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-    await Promise.allSettled([prisma.$disconnect(), disconnectLegacyMongo()]);
+    await prisma.$disconnect();
     clearTimeout(forceExit);
     logger.info('server.shutdown_completed');
   };

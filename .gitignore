@@ -34,6 +34,7 @@ yarn-error.*
 backend/src/generated/prisma/
 backend/.test-dist/
 backend/var/
+backend/.tmp/
 
 /ios
 /android

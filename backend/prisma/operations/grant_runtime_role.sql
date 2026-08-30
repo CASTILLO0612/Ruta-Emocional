@@ -51,13 +51,10 @@ GRANT SELECT, INSERT ON TABLE
   care_relationships,
   care_relationship_sources,
   appointment_events,
-  appointment_care_relationships,
-  appointment_requests,
   clinical_encounter_appointments,
   clinical_note_versions,
   clinical_note_events,
   conversations,
-  request_conversations,
   conversation_participants,
   messages,
   audit_events,
@@ -66,6 +63,7 @@ TO :"application_role";
 
 GRANT SELECT ON TABLE
   roles,
+  care_modalities,
   diagnosis_catalog,
   clinical_diagnoses,
   clinical_diagnosis_sources,

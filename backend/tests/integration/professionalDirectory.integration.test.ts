@@ -63,7 +63,6 @@ test('professional directory HTTP flow protects verification and exposes a minim
       scryptP: 1,
       keyLength: 32,
     },
-    legacyMongo: { enabled: false },
     professionalDirectory: {
       defaultPageSize: 20,
       maxPageSize: 50,

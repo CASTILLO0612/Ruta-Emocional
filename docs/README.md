@@ -18,12 +18,14 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 12. [Cierre de la Fase 5](roadmap/phase-5-secure-messaging.md)
 13. [Cierre de la Fase 6](roadmap/phase-6-secure-agenda.md)
 14. [Cierre de la Fase 7](roadmap/phase-7-secure-clinical-records.md)
-15. [Gates de preparación productiva](operations/production-gates.md)
-16. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
-17. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
-18. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
-19. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
-20. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
+15. [Consolidación de la Fase 7.5](roadmap/phase-7-5-consolidation.md)
+16. [Alineación conceptual–lógica](database/conceptual-logical-alignment.md)
+17. [Gates de preparación productiva](operations/production-gates.md)
+18. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
+19. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
+20. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
+21. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
+22. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
 
 ## Decisiones vigentes
 
@@ -32,7 +34,8 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 - La aplicación se implementa como monolito modular con límites de dominio explícitos.
 - El backend es la única autoridad para identidad, permisos, precios, estados y acceso clínico.
 - El frontend actual se conserva y se integra por flujos verticales.
-- MongoDB solo puede existir durante una migración controlada y reversible.
+- MongoDB no forma parte del runtime. Una reconciliación histórica solo puede
+  ejecutarse offline, de forma controlada e idempotente.
 - La información clínica y de triaje se considera altamente sensible.
 - MENTA orienta y deriva; no diagnostica, prescribe ni sustituye atención profesional o de emergencia.
 

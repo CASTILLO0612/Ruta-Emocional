@@ -16,7 +16,7 @@ El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La 
 | Historia clínica | expedientes, encuentros, notas versionadas, firma, enmiendas y planes de tratamiento para el psicólogo autorizado |
 | Administración | cola local de verificación, decisión y auditoría sin acceso clínico implícito |
 
-MENTA, pagos y audio/video no forman parte del recorrido funcional que se presenta en Desarrollo: conservan componentes heredados o demostrativos y no deben mostrarse como servicios clínicos o financieros terminados.
+MENTA, pagos y audio/video no forman parte del recorrido funcional que se presenta en Desarrollo. Sus superficies demostrativas fueron retiradas y solo volverán mediante módulos seguros en sus fases correspondientes.
 
 ## Tecnologías y arquitectura
 
@@ -31,7 +31,7 @@ MENTA, pagos y audio/video no forman parte del recorrido funcional que se presen
 ### API y datos
 
 - Node.js, Express, TypeScript y Socket.IO.
-- PostgreSQL/PostGIS con 18 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
+- PostgreSQL/PostGIS con 19 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
 - Prisma como adaptador de persistencia dentro de módulos separados por dominio.
 - Contratos REST versionados bajo `/api/v1` y respuestas mediante DTO explícitos.
 - Sesiones rotativas, contraseñas con scrypt y pepper, límites de peticiones, CORS por lista permitida y auditoría de acciones sensibles.
@@ -64,7 +64,7 @@ Ruta Emocional/
 ## Requisitos
 
 - Git.
-- Node.js en una versión LTS compatible con Expo SDK 57 y npm.
+- Node.js 22.13 o posterior y npm, mínimo requerido por Expo SDK 57.
 - PostgreSQL con PostGIS, instalado localmente o mediante Docker Desktop.
 - Para Android/iOS: dispositivo o emulador compatible. La demostración también puede ejecutarse en web.
 
@@ -116,7 +116,6 @@ PASSWORD_PEPPER=<otro_valor_aleatorio_diferente>
 CLINICAL_CONTENT_ENCRYPTION_KEYS=1:<clave_base64_de_32_bytes>
 CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION=1
 ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006
-ENABLE_LEGACY_MONGO_ROUTES=false
 ```
 
 El frontend necesita el origen del servidor, sin agregar `/api`:
@@ -186,7 +185,7 @@ La evidencia de tercera forma normal está en [`docs/database/normalization-3nf.
 
 - No confirme archivos `.env`, contraseñas, tokens, evidencias profesionales ni claves de cifrado.
 - Active `ENABLE_LOCAL_QA` solo en `development`; el servidor rechaza ese flujo en producción.
-- Mantenga `ENABLE_LEGACY_MONGO_ROUTES=false` durante el recorrido PostgreSQL.
+- PostgreSQL es la única base conectada por el proceso de aplicación; MENTA y pagos permanecen deshabilitados hasta sus fases seguras.
 - Use datos ficticios en la historia clínica y en la evidencia profesional del hackathon.
 - El administrador operativo no recibe acceso clínico por su rol.
 

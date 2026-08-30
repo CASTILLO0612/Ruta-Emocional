@@ -24,10 +24,6 @@ export interface AppConfig {
     readonly scryptP: number;
     readonly keyLength: number;
   };
-  readonly legacyMongo: {
-    readonly enabled: boolean;
-    readonly uri?: string;
-  };
   readonly professionalDirectory: {
     readonly defaultPageSize: number;
     readonly maxPageSize: number;
@@ -299,17 +295,9 @@ export function requireJwtAccessSecret(source: NodeJS.ProcessEnv = process.env):
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const environment = readEnvironment(source);
-  const legacyEnabled = readBoolean(source, 'ENABLE_LEGACY_MONGO_ROUTES', false);
   const localQaEnabled = readBoolean(source, 'ENABLE_LOCAL_QA', false);
-  const legacyUri = source.MONGO_MIGRATION_URI?.trim() || source.MONGO_URI?.trim();
   const localQaEvidenceDirectory = source.LOCAL_QA_EVIDENCE_DIRECTORY?.trim() || null;
 
-  if (legacyEnabled && environment === 'production') {
-    throw new ConfigurationError('Legacy MongoDB routes cannot be enabled in production');
-  }
-  if (legacyEnabled && !legacyUri) {
-    throw new ConfigurationError('MONGO_MIGRATION_URI is required when legacy MongoDB routes are enabled');
-  }
   if (localQaEnabled && environment !== 'development') {
     throw new ConfigurationError('ENABLE_LOCAL_QA can only be enabled in development');
   }
@@ -346,10 +334,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       scryptR: readInteger(source, 'PASSWORD_SCRYPT_R', 8, 1, 32),
       scryptP: readInteger(source, 'PASSWORD_SCRYPT_P', 3, 1, 16),
       keyLength: readInteger(source, 'PASSWORD_SCRYPT_KEY_LENGTH', 64, 32, 128),
-    },
-    legacyMongo: {
-      enabled: legacyEnabled,
-      ...(legacyUri ? { uri: legacyUri } : {}),
     },
     professionalDirectory: {
       defaultPageSize: readInteger(source, 'DIRECTORY_DEFAULT_PAGE_SIZE', 20, 1, 100),

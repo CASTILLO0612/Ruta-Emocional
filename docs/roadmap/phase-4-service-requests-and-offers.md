@@ -72,10 +72,11 @@ y ofertas.
 - La solicitud referencia `patient_profile_id`; no repite identidad del paciente.
 - La oferta referencia solicitud y perfil profesional; no repite nombre,
   fotografía, especialidad, rating ni moneda derivable de la solicitud.
-- La oferta aceptada se deriva de `offers.status`; no se copia al registro de
+- La oferta aceptada se identifica por su estado y por la procedencia exacta
+  `care_relationship_sources.accepted_offer_id`; no se copia al registro de
   solicitud.
-- `care_relationship_sources` expresa el origen de la relación sin duplicarlo en
-  ambos agregados.
+- `care_relationship_sources` enlaza la relación con la oferta ganadora, desde
+  la cual se deriva la solicitud, sin duplicar identificadores de contexto.
 - `idempotency_records` conserva el resultado técnico por actor, operación y
   clave; no almacena una copia del recurso de negocio.
 
@@ -86,6 +87,7 @@ y ofertas.
 - Invariantes de estados/aceptación: `20260827004000_service_request_offer_invariants`.
 - Reapertura al retirar la última oferta: `20260827005000_allow_offerless_request_reopen`.
 - Trigger diferible portable: `20260827006000_harden_acceptance_consistency_trigger`.
+- Alineación de procedencia exacta: `20260829001000_consolidate_core_relationships`.
 
 Las migraciones aplicadas no se editaron; cada corrección se agregó como una
 migración nueva.

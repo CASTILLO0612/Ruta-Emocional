@@ -51,14 +51,14 @@ const activeConversationJoins = Prisma.sql`
   FROM "conversation_participants" mine
   JOIN "conversations" conversation
     ON conversation."id" = mine."conversation_id"
-  JOIN "request_conversations" request_link
-    ON request_link."conversation_id" = conversation."id"
-  JOIN "service_requests" request
-    ON request."id" = request_link."service_request_id"
-  JOIN "care_relationship_sources" source
-    ON source."service_request_id" = request."id"
   JOIN "care_relationships" relationship
-    ON relationship."id" = source."care_relationship_id"
+    ON relationship."id" = conversation."care_relationship_id"
+  JOIN "care_relationship_sources" source
+    ON source."care_relationship_id" = relationship."id"
+  JOIN "offers" accepted_offer
+    ON accepted_offer."id" = source."accepted_offer_id"
+  JOIN "service_requests" request
+    ON request."id" = accepted_offer."request_id"
 `;
 
 function conversationView(row: ConversationRow, userId: string): ConversationView {

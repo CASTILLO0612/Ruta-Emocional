@@ -20,7 +20,8 @@ Durante la transición puede existir un adaptador de compatibilidad, pero no dos
 - El número mayor cambia solo ante una ruptura de contrato.
 - Cambios compatibles agregan campos opcionales o endpoints.
 - El cliente ignora campos desconocidos y no depende del orden JSON.
-- Rutas legacy `/api/*` se retiran mediante deprecación medible, no se mantienen indefinidamente.
+- Las rutas legacy `/api/*` fueron retiradas en Fase 7.5. Todo cliente soportado
+  usa `/api/v1`.
 - El documento ejecutable inicial está en [openapi.yaml](openapi.yaml).
 
 ## 3. Nombres y representaciones

@@ -44,21 +44,21 @@ controles específicos.
 El flujo usa estas relaciones:
 
 ```text
-service_requests 1 ── 1 request_conversations 1 ── 1 conversations
-                                                    │
-                                                    ├──< conversation_participants >── users
-                                                    │
-                                                    └──< messages
+care_relationships 1 ── 1 conversations
+                              │
+                              ├──< conversation_participants >── users
+                              │
+                              └──< messages
 ```
 
-- `request_conversations` expresa el contexto sin duplicar la solicitud en
-  `conversations`.
+- `conversations.care_relationship_id` expresa el contexto longitudinal sin
+  duplicar paciente, profesional, solicitud ni cita.
 - `conversation_participants` expresa la pertenencia; el mensaje referencia al
   participante y no repite usuario, rol, nombre ni conversación.
 - `(conversation_participant_id, client_message_id)` es una clave candidata
   adicional de `messages`.
-- La relación asistencial se deriva por la fuente normalizada de la solicitud;
-  no se copia paciente o psicólogo en la conversación.
+- La relación asistencial procede de la oferta aceptada exacta; una restricción
+  diferible exige que los dos participantes sean su paciente y su psicólogo.
 - `outbox_events.payload` es un sobre técnico y no sustituye relaciones del
   dominio.
 

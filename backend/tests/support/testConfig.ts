@@ -23,7 +23,6 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       scryptP: 1,
       keyLength: 32,
     },
-    legacyMongo: { enabled: false },
     professionalDirectory: {
       defaultPageSize: 20,
       maxPageSize: 50,

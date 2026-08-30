@@ -42,7 +42,7 @@ cita embebidos volvería a introducir duplicaciones propias del modelo MongoDB.
 `appointment_events` no duplica participante, modalidad ni horario actual. Su
 clave determina actor, tipo, transición y, solo para una reprogramación, el
 intervalo anterior. Los nombres se obtienen desde `users`; la pertenencia se
-obtiene desde `appointment_care_relationships`. El payload outbox es un sobre
+obtiene directamente desde `appointments.care_relationship_id`. El payload outbox es un sobre
 técnico reconstruible y no una fuente canónica.
 
 El resultado conserva 1FN, 2FN y 3FN.

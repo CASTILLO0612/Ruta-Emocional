@@ -134,24 +134,28 @@ Fuentes internas revisadas:
 | 61 | Son únicas las claves naturales: correo canónico, código de rol, código y nombre de especialidad, autoridad+número de licencia, sistema+código diagnóstico y código+versión de consentimiento. | Estas reglas guiarán claves candidatas del modelo lógico. |
 | 62 | Son entidades/catálogos Rol, Especialidad, Modalidad, Concepto diagnóstico, Documento de consentimiento y Regla de triaje. Moneda ISO, zona IANA, estados, tipos de evento y método de pago permanecen dominios controlados mientras no tengan metadatos propios. | Se evita convertir cada enumeración en una entidad artificial. |
 
-## 4. Brechas con el modelo lógico actual
+## 4. Alineación con el modelo lógico actual
 
-Estas decisiones no autorizan a editar migraciones históricas. La futura
-transformación lógica debe incorporarse mediante migraciones incrementales y
-pruebas de regresión. Las brechas principales son:
+La migración incremental
+`20260829001000_consolidate_core_relationships` implementa las decisiones que
+afectan el núcleo operativo sin editar migraciones históricas:
 
 1. historial temporal de asignaciones de rol;
-2. relación directa Oferta-Relación asistencial;
-3. sustitución de los vínculos Solicitud-Cita y Oferta-Pago por
-   Relación-Cita y Cita-Pago;
-4. conversación asociada directamente a la relación asistencial;
-5. actor opcional para eventos automáticos y mensajes de sistema;
-6. contexto asistencial de diagnósticos, planes y consentimientos;
-7. relación N:N entre planes y diagnósticos;
-8. reglas de triaje versionadas y estructuradas;
-9. decisión de consentimiento `RECHAZADO` y alcance contextual.
+2. procedencia directa Oferta aceptada-Relación asistencial;
+3. vínculo directo Relación-Cita;
+4. conversación longitudinal asociada a la relación asistencial;
+5. contexto asistencial de diagnósticos, planes y consentimientos;
+6. decisión de consentimiento `RECHAZADO` y catálogo normalizado de modalidad.
 
-Hasta ejecutar esas migraciones, el DER se considera la especificación
-conceptual objetivo y `schema.prisma` la implementación lógica vigente. La
-diferencia queda registrada deliberadamente para que no se presente una
-inconsistencia como si estuviera terminada.
+Las extensiones todavía fuera del recorrido del MVP permanecen explícitas:
+
+1. facturación por cita, pagos parciales y reembolsos;
+2. mensajes y actores de sistema de propósito general;
+3. relación N:N entre planes y diagnósticos;
+4. reglas de triaje versionadas y estructuradas.
+
+La matriz de trazabilidad entre decisiones conceptuales, esquema y restricciones
+está en
+[`../../database/conceptual-logical-alignment.md`](../../database/conceptual-logical-alignment.md).
+Estas extensiones no invalidan el DER: delimitan módulos aún no habilitados y no
+se representan como funcionalidad productiva terminada.

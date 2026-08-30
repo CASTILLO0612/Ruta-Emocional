@@ -20,7 +20,10 @@ param(
   [int] $DatabasePort,
 
   [Parameter(Mandatory = $true)]
-  [string] $DatabaseUser
+  [string] $DatabaseUser,
+
+  [Parameter()]
+  [switch] $Passwordless
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,8 +41,11 @@ foreach ($executable in $requiredExecutables) {
   $executables[$executable] = $candidate
 }
 
-$securePassword = Read-Host 'PostgreSQL password' -AsSecureString
-$secretPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+$secretPointer = [IntPtr]::Zero
+if (-not $Passwordless) {
+  $securePassword = Read-Host 'PostgreSQL password' -AsSecureString
+  $secretPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+}
 $temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) (
   'ruta-emocional-backup-verification-' + [Guid]::NewGuid().ToString('N')
 )
@@ -47,8 +53,12 @@ $temporaryDirectoryCreated = $false
 $verificationDatabaseCreated = $false
 
 try {
-  $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secretPointer)
-  $env:PGPASSWORD = $plainPassword
+  if ($secretPointer -ne [IntPtr]::Zero) {
+    $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secretPointer)
+    $env:PGPASSWORD = $plainPassword
+  } else {
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+  }
   $connectionArguments = @(
     '-h', $DatabaseHost,
     '-p', $DatabasePort.ToString(),
@@ -82,8 +92,14 @@ try {
 SELECT CASE WHEN
   to_regclass('public.users') IS NOT NULL
   AND to_regclass('public.service_requests') IS NOT NULL
+  AND to_regclass('public.care_modalities') IS NOT NULL
+  AND to_regclass('public.care_relationships') IS NOT NULL
   AND to_regclass('public.conversations') IS NOT NULL
   AND to_regclass('public.messages') IS NOT NULL
+  AND to_regclass('public.appointments') IS NOT NULL
+  AND to_regclass('public.clinical_records') IS NOT NULL
+  AND to_regclass('public.clinical_note_versions') IS NOT NULL
+  AND to_regclass('public.treatment_plans') IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM "_prisma_migrations" WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL)
 THEN 'RESTORE_OK' ELSE 'RESTORE_INVALID' END;
 '@

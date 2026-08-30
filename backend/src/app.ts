@@ -3,10 +3,7 @@ import express, { Express } from 'express';
 import { AppConfig } from './config/env';
 import { Prisma, PrismaClient } from './generated/prisma/client';
 import { ApplicationServices } from './compositionRoot';
-import psychologistRoutes from './routes/psychologistRoutes';
-import mentaRoutes from './routes/mentaRoutes';
-import paymentRoutes from './routes/paymentRoutes';
-import { createIdentityRouter, createLegacyIdentityRouter } from './modules/identity/presentation/identityRoutes';
+import { createIdentityRouter } from './modules/identity/presentation/identityRoutes';
 import { Logger } from './shared/infrastructure/logging/logger';
 import { createCorsOptions } from './shared/presentation/http/corsOptions';
 import { createErrorHandler, notFoundHandler } from './shared/presentation/http/errorHandler';
@@ -153,14 +150,6 @@ export function createApp(dependencies: AppDependencies): Express {
     '/api/v1',
     createClinicalRecordRouter(services.identity, services.clinicalRecords, config.clinical)
   );
-  app.use('/api/auth', createLegacyIdentityRouter(services.identity));
-
-  if (config.legacyMongo.enabled) {
-    app.use('/api/psychologists', psychologistRoutes);
-    app.use('/api/menta', mentaRoutes);
-    app.use('/api/payments', paymentRoutes);
-  }
-
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));
   return app;

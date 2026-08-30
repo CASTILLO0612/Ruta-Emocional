@@ -30,6 +30,9 @@ SELECT NOT has_database_privilege(:'application_role', current_database(), 'TEMP
 SELECT has_table_privilege(:'application_role', 'public.users', 'SELECT')
    AND has_table_privilege(:'application_role', 'public.auth_sessions', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.service_requests', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.specialties', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.care_modalities', 'SELECT')
+   AND has_table_privilege(:'application_role', 'public.care_relationship_sources', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.conversations', 'SELECT')
    AND has_table_privilege(:'application_role', 'public.conversation_participants', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.messages', 'INSERT')
@@ -65,6 +68,8 @@ SELECT NOT has_table_privilege(:'application_role', 'public.audit_events', 'DELE
    AND NOT has_table_privilege(:'application_role', 'public.clinical_note_versions', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.clinical_note_versions', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.clinical_note_events', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.care_modalities', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.specialties', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.clinical_records', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.users', 'TRIGGER')
   AS check_passed \gset

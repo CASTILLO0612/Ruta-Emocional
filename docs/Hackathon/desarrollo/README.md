@@ -30,9 +30,9 @@ La representación se mantiene conceptual. El modelo relacional y la demostraci�
 
 La [`revisión de decisiones conceptuales`](revision-decisiones-modelo-conceptual.md)
 resuelve las 62 observaciones de cardinalidad, temporalidad, autoría, alcance y
-catálogos. También identifica las brechas que deberán convertirse en
-migraciones incrementales; el PDF no afirma que esas transformaciones lógicas
-ya estén aplicadas.
+catálogos. La alineación del núcleo operativo se implementó mediante una
+migración incremental; las extensiones fuera del recorrido se mantienen
+delimitadas y no se presentan como funcionalidad terminada.
 
 ## Recorrido funcional que se presenta
 
@@ -45,7 +45,9 @@ ya estén aplicadas.
 7. Reservar o gestionar una cita.
 8. Crear un encuentro y una nota clínica con datos ficticios.
 
-MENTA, pagos y llamadas no forman parte de este recorrido porque todavía conservan componentes demostrativos o decisiones productivas pendientes.
+MENTA, pagos y llamadas no forman parte de este recorrido. Sus componentes
+demostrativos fueron retirados y permanecen deshabilitados hasta cerrar las
+decisiones productivas de sus fases correspondientes.
 
 ## Comprobación rápida
 

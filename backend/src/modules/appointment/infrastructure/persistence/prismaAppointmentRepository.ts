@@ -36,14 +36,10 @@ const ACTIVE_STATUSES: readonly AppointmentStatus[] = [
 ];
 
 const appointmentInclude = {
-  careRelationshipLink: {
+  careRelationship: {
     include: {
-      careRelationship: {
-        include: {
-          patientProfile: { include: { user: true } },
-          psychologistProfile: { include: { user: true } },
-        },
-      },
+      patientProfile: { include: { user: true } },
+      psychologistProfile: { include: { user: true } },
     },
   },
 } satisfies Prisma.AppointmentInclude;
@@ -109,11 +105,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
             },
           },
         },
-        source: {
-          include: {
-            serviceRequest: { include: { conversationLink: true } },
-          },
-        },
+        conversation: { select: { id: true } },
       },
       orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
     });
@@ -133,8 +125,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         enabledModalities: relationship.psychologistProfile.modalities
           .map(({ modality }) => modality as AppointmentModality),
         timezone: relationship.psychologistProfile.availabilityRules[0]?.timezone ?? null,
-        conversationId:
-          relationship.source?.serviceRequest.conversationLink?.conversationId ?? null,
+        conversationId: relationship.conversation?.id ?? null,
       };
     });
   }
@@ -212,9 +203,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
             startsAt: command.startsAt,
             endsAt,
             timezone: selected.timezone,
-            careRelationshipLink: {
-              create: { careRelationshipId: command.careRelationshipId },
-            },
+            careRelationshipId: command.careRelationshipId,
           },
           include: appointmentInclude,
         });
@@ -342,7 +331,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
 
       await this.lockAppointment(transaction, appointmentId);
       const current = await this.findAppointmentRow(transaction, userId, appointmentId);
-      const relationship = current.careRelationshipLink!.careRelationship;
+      const relationship = current.careRelationship;
       const isPatient = relationship.patientProfile.userId === userId;
       const isPsychologist = relationship.psychologistProfile.userId === userId;
       const nextStatus = this.resolveTransition(
@@ -416,7 +405,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         ) {
           throw AppError.conflict('APPOINTMENT_NOT_RESCHEDULABLE', 'La cita ya no puede reprogramarse.');
         }
-        const relationship = current.careRelationshipLink!.careRelationship;
+        const relationship = current.careRelationship;
         const isPatient = relationship.patientProfile.userId === userId;
         if (
           isPatient
@@ -721,18 +710,16 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
     const appointment = await client.appointment.findFirst({
       where: {
         id: appointmentId,
-        careRelationshipLink: {
-          careRelationship: {
-            OR: [
-              { patientProfile: { userId } },
-              { psychologistProfile: { userId } },
-            ],
-          },
+        careRelationship: {
+          OR: [
+            { patientProfile: { userId } },
+            { psychologistProfile: { userId } },
+          ],
         },
       },
       include: appointmentInclude,
     });
-    if (!appointment?.careRelationshipLink) throw AppError.notFound('APPOINTMENT_NOT_FOUND');
+    if (!appointment) throw AppError.notFound('APPOINTMENT_NOT_FOUND');
     return appointment;
   }
 
@@ -745,8 +732,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
   }
 
   private toView(row: AppointmentRow, userId: string): AppointmentView {
-    const relationship = row.careRelationshipLink?.careRelationship;
-    if (!relationship) throw new Error('Appointment is missing its care relationship');
+    const relationship = row.careRelationship;
     const patientActor = relationship.patientProfile.userId === userId;
     const counterpart = patientActor
       ? relationship.psychologistProfile.user

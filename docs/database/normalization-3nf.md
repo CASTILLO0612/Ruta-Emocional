@@ -18,17 +18,19 @@ evitar modelar relaciones o atributos clínicos.
 
 ## Alcance de conformidad
 
-Las dependencias que siguen describen el esquema lógico vigente. La
-[`revisión conceptual del Hackathon`](../Hackathon/desarrollo/revision-decisiones-modelo-conceptual.md)
-aprobó relaciones adicionales que todavía requieren migraciones incrementales.
-Por tanto, 3FN está verificada para las tablas actuales, pero no se afirma que
-el lógico ya materialice por completo el DER objetivo.
+Las dependencias que siguen describen el esquema lógico vigente después de la
+Fase 7.5. La
+[`matriz de alineación`](conceptual-logical-alignment.md) distingue las
+relaciones ya materializadas de las que pertenecen a fases funcionales aún
+deshabilitadas. La conformidad 3FN no se usa para afirmar que pagos, diagnósticos
+o triaje estén habilitados.
 
 ## Dependencias funcionales principales
 
 | Relación | Dependencia funcional |
 |---|---|
 | `users` | `id -> email, display_name, password_hash, status` |
+| `user_roles` | `id -> user_id, role_id, status, assigned_at, ended_at`; una asignación activa por pareja |
 | `patient_profiles` | `id -> user_id, birth_date` y `user_id -> id` |
 | `psychologist_profiles` | `id -> user_id, verification_status, bio` |
 | `professional_licenses` | `id -> psychologist_profile_id, authority, license_number, status` |
@@ -36,22 +38,23 @@ el lógico ya materialice por completo el DER objetivo.
 | `professional_verification_decisions` | `id -> submission_id, reviewer_user_id, decision, reasons, decided_at` y `submission_id -> id` |
 | `specialties` | `id -> code, name, is_active` |
 | `psychologist_specialties` | `(psychologist_profile_id, specialty_id) -> is_primary` |
+| `care_modalities` | `code -> name, description, is_active` |
 | `psychologist_modalities` | `(psychologist_profile_id, modality) -> price_per_hour, currency_code, is_enabled` |
 | `availability_rules` | `id -> psychologist_profile_id, weekday, start_time, end_time, timezone, vigencia, is_active` |
 | `availability_exceptions` | `id -> psychologist_profile_id, starts_at, ends_at, type, reason` |
 | `service_requests` | `id -> patient_profile_id, modality, proposed_budget, currency_code, status, scheduled_for, expires_at, location, location_expires_at` |
 | `offers` | `id -> request_id, psychologist_profile_id, amount, message, status` y `(request_id, psychologist_profile_id) -> id` |
-| `care_relationship_sources` | `care_relationship_id -> service_request_id` y `service_request_id -> care_relationship_id` |
+| `care_relationship_sources` | `care_relationship_id -> accepted_offer_id` y `accepted_offer_id -> care_relationship_id` |
 | `idempotency_records` | `(actor_user_id, operation, idempotency_key) -> request_hash, resource_id, expires_at` |
-| `appointments` | `id -> patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
+| `appointments` | `id -> care_relationship_id, patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
 | `appointment_events` | `id -> appointment_id, actor_user_id, type, estados, intervalo_anterior, reason, occurred_at` |
 | `clinical_records` | `id -> patient_profile_id, opened_at, status` |
 | `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, care_relationship_id, fechas, reason` |
 | `clinical_note_versions` | `(clinical_note_id, version_number) -> content, author_user_id, created_at` |
 | `clinical_note_events` | `id -> clinical_note_id, actor_user_id, type, estados, version_number, occurred_at` |
-| `treatment_plans` | `id -> clinical_record_id, psychologist_profile_id, status, summary, fechas` |
+| `treatment_plans` | `id -> clinical_record_id, psychologist_profile_id, care_relationship_id, status, summary, fechas` |
 | `treatment_goals` | `id -> treatment_plan_id, description, target_date, status` |
-| `request_conversations` | `service_request_id -> conversation_id` y `conversation_id -> service_request_id` |
+| `conversations` | `id -> care_relationship_id, created_at` y `care_relationship_id -> id` |
 | `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
 | `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
 | `payments` | `id -> offer_id, amount, currency_code, status` |
@@ -83,12 +86,12 @@ Las relaciones multivaluadas se representan con tablas asociativas:
 No se almacenarán arrays de roles, especialidades o modalidades dentro de una
 fila del núcleo transaccional.
 
-La transformación lógica siguiente añadirá asociaciones normalizadas para
+Las transformaciones lógicas futuras añadirán asociaciones normalizadas para
 `Plan de tratamiento-Diagnóstico clínico` y `Evaluación de triaje-Regla de triaje`.
 Sus atributos dependerán de la clave completa de cada pareja, preservando 2FN y
-3FN. También sustituirá las dependencias conceptuales obsoletas
-`Oferta-Pago`, `Solicitud-Cita` y `Solicitud-Conversación` por `Cita-Pago`,
-`Relación-Cita` y `Relación-Conversación`.
+3FN. `Relación-Cita` y `Relación-Conversación` ya están materializadas. La
+sustitución `Oferta-Pago` por `Cita-Pago` pertenece a Fase 9 y pagos permanece
+deshabilitado hasta entonces.
 
 ## Decisión de normalización de la Fase 3
 
@@ -122,8 +125,8 @@ Solicitudes y ofertas conservan dependencias directas de sus claves:
 - la solicitud no contiene `accepted_offer_id` ni `accepted_psychologist_id`; la
   única oferta con estado `ACCEPTED` se protege mediante índice parcial y trigger
   diferible;
-- `care_relationship_sources` modela el origen uno a uno de una relación sin
-  agregar una clave de solicitud redundante a `care_relationships`;
+- `care_relationship_sources` referencia la oferta aceptada exacta. La solicitud
+  se deriva de `accepted_offer_id -> offer.request_id` y no se duplica;
 - `idempotency_records` es un registro técnico con clave compuesta. `resource_id`
   identifica el resultado sin copiar sus atributos y expira por política;
 - la identidad del paciente y del psicólogo nunca se captura como snapshot
@@ -149,8 +152,8 @@ verdad definida y un mecanismo comprobable de reconstrucción.
 
 ## Decisión de normalización de la Fase 5
 
-- `request_conversations` representa el contexto uno a uno sin guardar
-  `service_request_id` dentro de `conversations`;
+- `conversations.care_relationship_id` representa el vínculo longitudinal uno a
+  uno; solicitud y citas se derivan desde la relación y no se duplican;
 - el participante depende de conversación y usuario; su fila conserva las fechas
   de pertenencia sin duplicar nombre, rol o perfil;
 - el mensaje referencia al participante. Conversación, usuario y rol se derivan
@@ -168,8 +171,8 @@ dependencias transitivas; el módulo cumple al menos 3FN.
 
 ## Decisión de normalización de la Fase 6
 
-- la cita conserva el intervalo y estado actuales; su vínculo con la relación se
-  expresa en `appointment_care_relationships`;
+- la cita conserva el intervalo y estado actuales y referencia directamente la
+  relación mediante `care_relationship_id` obligatorio;
 - `appointment_events` registra hechos de transición y no repite paciente,
   psicólogo, modalidad, nombres ni horario actual;
 - el intervalo anterior solo pertenece al hecho `RESCHEDULED` y depende de la
@@ -196,6 +199,7 @@ de concurrencia que no requiere desnormalización.
 - `clinical_note_events` conserva las transiciones sin copiar contenido clínico;
 - objetivos pertenecen a un plan mediante `treatment_plan_id`; no se almacenan
   como JSON ni como lista delimitada;
+- cada plan referencia la relación asistencial concreta que autorizó su creación;
 - los textos cifrados siguen siendo valores atómicos de sus atributos. El
   cifrado no introduce duplicación ni convierte auditoría en fuente de verdad;
 - conteos de borradores, último encuentro y línea temporal son proyecciones
@@ -204,6 +208,27 @@ de concurrencia que no requiere desnormalización.
 Las versiones y eventos son append-only. La migración valida participantes de
 encuentro contra expediente, profesional y relación mediante una restricción
 diferible, preservando integridad incluso fuera del caso de uso HTTP.
+
+## Decisión de normalización de la Fase 7.5
+
+- `user_roles` tiene una clave sustituta porque una misma pareja Usuario–Rol
+  puede acumular varios periodos históricos; los atributos temporales dependen
+  de la asignación y no únicamente de la pareja;
+- `care_modalities` concentra nombre, descripción y habilitación; las entidades
+  transaccionales conservan solo el código referenciado;
+- la oferta aceptada determina la procedencia de la relación y evita la
+  dependencia ambigua Solicitud–Relación;
+- conversación, cita, encuentro y plan dependen de una relación asistencial
+  concreta y no repiten identidades como fuente autónoma;
+- las antiguas tablas puente uno a uno de solicitud/conversación y cita/relación
+  se retiraron después de un backfill validado porque no representaban una N:N;
+- consentimiento y diagnóstico reciben contexto opcional sin habilitar todavía
+  sus flujos. La obligatoriedad se impondrá únicamente cuando exista una regla
+  de negocio aprobada y un backfill no ambiguo.
+
+La migración falla ante huérfanos o más de una conversación por relación. Esa
+conducta evita seleccionar datos arbitrariamente y preserva la integridad de la
+transformación.
 
 ## Verificación en revisiones
 

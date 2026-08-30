@@ -539,6 +539,7 @@ export class PrismaClinicalRecordRepository implements ClinicalRecordRepository 
             id: planId,
             clinicalRecordId: record.id,
             psychologistProfileId: relationship.psychologistProfileId,
+            careRelationshipId: relationship.id,
             summary: this.cipher.encrypt(command.summary, `treatment-plan:${planId}:summary`),
             startsAt: command.startsAt ?? idempotency.now,
             goals: { create: goals },
@@ -715,7 +716,10 @@ export class PrismaClinicalRecordRepository implements ClinicalRecordRepository 
         },
         treatmentPlans: {
           ...recordInclude.treatmentPlans,
-          where: { psychologistProfileId: relationship.psychologistProfileId },
+          where: {
+            psychologistProfileId: relationship.psychologistProfileId,
+            careRelationshipId: relationship.id,
+          },
           take: this.options.projectionLimit,
         },
       },
@@ -856,15 +860,9 @@ export class PrismaClinicalRecordRepository implements ClinicalRecordRepository 
           userId: psychologistUserId,
           verificationStatus: VerificationStatus.VERIFIED,
         },
-        clinicalRecord: {
-          patientProfile: {
-            careRelationships: {
-              some: {
-                status: CareRelationshipStatus.ACTIVE,
-                psychologistProfile: { userId: psychologistUserId },
-              },
-            },
-          },
+        careRelationship: {
+          status: CareRelationshipStatus.ACTIVE,
+          psychologistProfile: { userId: psychologistUserId },
         },
       },
     });

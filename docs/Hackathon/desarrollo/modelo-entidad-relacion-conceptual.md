@@ -294,11 +294,12 @@ del identificador completo de su entidad o relación, no de otra propiedad
 descriptiva. Los nombres, perfiles, modalidades y estados canónicos no se
 duplican en solicitudes, ofertas, citas, conversaciones o historia clínica.
 
-El esquema actual aún no implementa todas las decisiones de esta revisión. Las
-brechas están enumeradas en
+El núcleo operativo ya implementa las decisiones necesarias para roles,
+procedencia de la oferta aceptada, relación asistencial, conversación, cita y
+contexto clínico. Las extensiones de pagos, actores automáticos, planes por
+diagnóstico y reglas estructuradas de triaje están delimitadas en
 [`revision-decisiones-modelo-conceptual.md`](revision-decisiones-modelo-conceptual.md)
-y deberán resolverse mediante migraciones incrementales antes de declarar
-alineados el modelo conceptual y el lógico.
+y permanecen fuera de los módulos habilitados hasta su fase correspondiente.
 
 La demostración detallada se encuentra en
 [`docs/database/normalization-3nf.md`](../../database/normalization-3nf.md). El

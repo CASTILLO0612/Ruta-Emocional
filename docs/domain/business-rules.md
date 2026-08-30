@@ -21,6 +21,7 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **ID-015**. Los secretos y tokens nunca se escriben en logs, respuestas de error o eventos analíticos.
 - **ID-016**. Todo usuario operativo conserva al menos un rol activo. La asignación registra inicio, finalización y estado; retirar el último rol activo está prohibido.
 - **ID-017**. Paciente y psicólogo son especializaciones parciales y superpuestas de usuario. Tener ambos perfiles no mezcla permisos, propósito ni contexto clínico.
+- **ID-018**. Retirar y volver a conceder un rol crea periodos distintos; nunca se reescribe la fecha de una asignación finalizada.
 
 ## 2. Perfiles y verificación profesional
 
@@ -150,7 +151,7 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **CL-008**. Corregir una nota firmada crea una nueva versión y marca la nota como enmendada sin borrar versiones previas.
 - **CL-009**. Los diagnósticos usan un catálogo versionado y guardan estado, autor y fechas.
 - **CL-010**. La IA no confirma diagnósticos ni firma notas.
-- **CL-011**. Un plan de tratamiento y sus objetivos pertenecen al expediente y al psicólogo responsable.
+- **CL-011**. Un plan de tratamiento y sus objetivos pertenecen al expediente, al psicólogo responsable y a la relación asistencial que autorizó su creación.
 - **CL-012**. El acceso de un profesional se limita a información necesaria, contexto de la relación y política de compartición.
 - **CL-013**. Un administrador técnico no accede al contenido clínico por su rol administrativo.
 - **CL-014**. Toda lectura, exportación, firma, enmienda o cambio de diagnóstico genera evento de auditoría.
@@ -201,8 +202,8 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 - **AU-004**. Acceso excepcional requiere motivo y referencia de autorización.
 - **AU-005**. Las operaciones de negocio y su evento outbox se confirman en la misma transacción.
 - **AU-006**. Los consumidores de outbox son idempotentes y registran intentos.
-- **AU-007**. Los identificadores de MongoDB se conservan únicamente como `legacy_id` durante migración y reconciliación.
-- **AU-008**. Ningún documento MongoDB se copia sin validar relaciones, tipos, duplicados y reglas de 3FN.
+- **AU-007**. Los identificadores históricos de MongoDB se conservan únicamente como `legacy_id` para reconciliación offline; el proceso de aplicación no conecta MongoDB.
+- **AU-008**. Una importación histórica solo puede ejecutarse fuera del runtime, con validación de relaciones, tipos, duplicados y reglas de 3FN.
 
 ## 13. Configuración y feature flags
 

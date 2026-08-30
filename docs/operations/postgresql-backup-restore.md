@@ -35,6 +35,10 @@ El script nunca acepta como destino la base de origen, no sobrescribe una base
 existente y no guarda la contraseña. Esta verificación local no reemplaza un
 backup cifrado y administrado del ambiente productivo.
 
+`-Passwordless` existe únicamente para clústeres efímeros aislados cuya
+autenticación ya fue configurada explícitamente como `trust`. No debe utilizarse
+contra una base compartida, staging o producción.
+
 ## Requisitos productivos
 
 - backups automáticos cifrados con identidad separada;

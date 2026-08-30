@@ -1,4 +1,5 @@
 import { loadConfig, loadEnvironmentFile } from '../config/env';
+import { UserRoleAssignmentStatus } from '../generated/prisma/client';
 import { getPrismaClient } from '../shared/infrastructure/database/prismaClient';
 
 function canonicalEmail(value: string | undefined): string {
@@ -29,11 +30,17 @@ export async function grantLocalAdministrator(emailArgument: string | undefined)
       });
       if (!role) throw new Error('The administrator role is not available. Apply database migrations first.');
 
-      await transaction.userRole.upsert({
-        where: { userId_roleId: { userId: user.id, roleId: role.id } },
-        create: { userId: user.id, roleId: role.id },
-        update: {},
+      const activeAssignment = await transaction.userRole.findFirst({
+        where: {
+          userId: user.id,
+          roleId: role.id,
+          status: UserRoleAssignmentStatus.ACTIVE,
+        },
+        select: { id: true },
       });
+      if (!activeAssignment) {
+        await transaction.userRole.create({ data: { userId: user.id, roleId: role.id } });
+      }
       await transaction.auditEvent.create({
         data: {
           action: 'local_qa.administrator_granted',

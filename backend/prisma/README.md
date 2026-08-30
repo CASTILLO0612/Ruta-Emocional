@@ -5,7 +5,7 @@ las migraciones SQL versionadas son la autoridad sobre la estructura desplegada.
 
 ## Requisitos
 
-- Node.js compatible con Expo SDK 57.
+- Node.js 22.13 o posterior para compartir el runtime mínimo de Expo SDK 57.
 - PostgreSQL con PostGIS; `compose.yaml` usa la imagen oficial mantenida por el
   proyecto Docker PostGIS.
 - Una variable `DATABASE_URL` válida.
@@ -37,8 +37,14 @@ las migraciones SQL versionadas son la autoridad sobre la estructura desplegada.
 - Solapamiento de citas protegido por restricciones de exclusión.
 - Defaults y triggers de `updated_at` aplicados.
 - Cliente Prisma generado y flujo de identidad v1 probado contra PostgreSQL.
-- Solicitudes, ofertas, relaciones, conversaciones y mensajes de texto migrados
-  a PostgreSQL con idempotencia y outbox transaccional.
+- Solicitudes, ofertas, relaciones, conversaciones, citas e historia clínica
+  migradas a PostgreSQL con idempotencia y outbox transaccional.
+- La procedencia asistencial referencia la oferta aceptada exacta; citas,
+  conversaciones y planes referencian directamente la relación asistencial.
+- Los roles conservan periodos de asignación y PostgreSQL impide retirar el
+  último rol activo de una cuenta existente.
+- La canalización de calidad crea una base limpia, aplica todas las migraciones
+  y ejecuta las pruebas de integración antes de aceptar cambios.
 
 La aplicación debe usar un rol con privilegios mínimos. El superusuario
 `postgres` solo se utiliza para administración local, extensiones y preparación

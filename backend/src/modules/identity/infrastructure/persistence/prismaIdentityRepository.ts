@@ -1,5 +1,5 @@
 import { AppError } from '../../../../shared/domain/appError';
-import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
+import { Prisma, PrismaClient, UserRoleAssignmentStatus } from '../../../../generated/prisma/client';
 import {
   CreateSessionData,
   IdentityRepository,
@@ -23,7 +23,10 @@ const VALID_ROLES = new Set<RoleCode>([
 ]);
 
 const identityUserInclude = {
-  roles: { include: { role: true } },
+  roles: {
+    where: { status: UserRoleAssignmentStatus.ACTIVE },
+    include: { role: true },
+  },
   patientProfile: { select: { id: true } },
   psychologistProfile: { select: { id: true, verificationStatus: true } },
 } satisfies Prisma.UserInclude;

@@ -5,7 +5,7 @@ import { AddressInfo } from 'node:net';
 import { createApp } from '../../src/app';
 import { buildApplicationServices } from '../../src/compositionRoot';
 import { AppConfig } from '../../src/config/env';
-import { PrismaClient } from '../../src/generated/prisma/client';
+import { PrismaClient, UserRoleAssignmentStatus } from '../../src/generated/prisma/client';
 import { createLogger } from '../../src/shared/infrastructure/logging/logger';
 import { createTestConfig } from '../support/testConfig';
 
@@ -37,7 +37,6 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       scryptP: 1,
       keyLength: 32,
     },
-    legacyMongo: { enabled: false },
     professionalDirectory: {
       defaultPageSize: 20,
       maxPageSize: 50,
@@ -105,6 +104,25 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
     };
     userIds.push(registrationBody.data.user.id);
     assert.equal(registrationBody.data.user.passwordHash, undefined);
+    const patientRoleAssignment = await prisma.userRole.findFirstOrThrow({
+      where: {
+        userId: registrationBody.data.user.id,
+        role: { code: 'patient' },
+        status: UserRoleAssignmentStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+    await assert.rejects(prisma.userRole.update({
+      where: { id: patientRoleAssignment.id },
+      data: {
+        status: UserRoleAssignmentStatus.ENDED,
+        endedAt: new Date(),
+      },
+    }));
+    assert.equal((await prisma.userRole.findUniqueOrThrow({
+      where: { id: patientRoleAssignment.id },
+      select: { status: true, endedAt: true },
+    })).status, UserRoleAssignmentStatus.ACTIVE);
 
     const me = await fetch(`${baseUrl}/auth/me`, {
       headers: { authorization: `Bearer ${registrationBody.data.tokens.accessToken}` },
@@ -215,6 +233,24 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       headers: { authorization: `Bearer ${psychologistLoginBody.data.tokens.accessToken}` },
     });
     assert.equal(psychologistLoginSession.status, 401);
+
+    const administratorRole = await prisma.role.findUniqueOrThrow({ where: { code: 'administrator' } });
+    await prisma.userRole.create({
+      data: { userId: registrationBody.data.user.id, roleId: administratorRole.id },
+    });
+    await prisma.userRole.update({
+      where: { id: patientRoleAssignment.id },
+      data: { status: UserRoleAssignmentStatus.ENDED, endedAt: new Date() },
+    });
+    await assert.rejects(prisma.userRole.update({
+      where: { id: patientRoleAssignment.id },
+      data: { status: UserRoleAssignmentStatus.ACTIVE, endedAt: null },
+    }));
+    const patientRole = await prisma.role.findUniqueOrThrow({ where: { code: 'patient' } });
+    const reassignedPatientRole = await prisma.userRole.create({
+      data: { userId: registrationBody.data.user.id, roleId: patientRole.id },
+    });
+    assert.notEqual(reassignedPatientRole.id, patientRoleAssignment.id);
   } finally {
     if (userIds.length > 0) {
       await prisma.$transaction(async (transaction) => {

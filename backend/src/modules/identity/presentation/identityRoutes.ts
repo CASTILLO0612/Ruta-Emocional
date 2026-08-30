@@ -6,7 +6,6 @@ import { createRateLimiter } from '../../../shared/presentation/http/rateLimiter
 import { getRequestId } from '../../../shared/presentation/http/requestContext';
 import { AuthenticatedRequest, getActor, requireAuthentication } from './authMiddleware';
 import {
-  parseLegacyRegistration,
   parseLogin,
   parsePatientRegistration,
   parsePsychologistRegistration,
@@ -82,60 +81,4 @@ export function createIdentityRouter(identity: IdentityService): Router {
   }));
 
   return router;
-}
-
-export function createLegacyIdentityRouter(identity: IdentityService): Router {
-  const router = Router();
-  const registrationLimiter = createRateLimiter({ windowMs: 60 * 60_000, maximum: 5, key: rateLimitKey });
-  const loginLimiter = createRateLimiter({ windowMs: 15 * 60_000, maximum: 10, key: rateLimitKey });
-
-  router.post('/register', registrationLimiter, asyncHandler(async (request, response) => {
-    const body = parseLegacyRegistration(request.body);
-    const metadata = requestMetadata(request, getRequestId(response));
-    const result = body.role === 'patient'
-      ? await identity.registerPatient({
-          displayName: body.displayName,
-          email: body.email,
-          password: body.password,
-          ...metadata,
-        })
-      : await identity.registerPsychologist({
-          displayName: body.displayName,
-          email: body.email,
-          password: body.password,
-          licenseAuthority: 'MINSA',
-          licenseNumber: body.licenseNumber!,
-          ...metadata,
-        });
-    response.status(201).json(toLegacyAuthResponse(result));
-  }));
-
-  router.post('/login', loginLimiter, asyncHandler(async (request, response) => {
-    const body = parseLogin(request.body);
-    const result = await identity.login({
-      ...body,
-      ...requestMetadata(request, getRequestId(response), body.deviceName),
-    });
-    response.json(toLegacyAuthResponse(result));
-  }));
-
-  return router;
-}
-
-function toLegacyAuthResponse(result: Awaited<ReturnType<IdentityService['login']>>) {
-  const role = result.user.roles.includes('psychologist') ? 'psychologist' : 'patient';
-  return {
-    user: {
-      id: result.user.id,
-      displayName: result.user.displayName,
-      email: result.user.email,
-      role,
-      photoURL: result.user.photoUrl ?? undefined,
-      verificationStatus: result.user.psychologistVerificationStatus ?? undefined,
-    },
-    token: result.tokens.accessToken,
-    refreshToken: result.tokens.refreshToken,
-    accessTokenExpiresInSeconds: result.tokens.accessTokenExpiresInSeconds,
-    refreshTokenExpiresAt: result.tokens.refreshTokenExpiresAt,
-  };
 }

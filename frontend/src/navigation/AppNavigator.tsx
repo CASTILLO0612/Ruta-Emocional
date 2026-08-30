@@ -15,7 +15,6 @@ import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
 import { VerificationQueueScreen } from '../screens/admin/VerificationQueueScreen';
 import { ClinicalRecordsScreen } from '../screens/psychologist/ClinicalRecordsScreen';
-import { MentaScreen } from '../screens/shared/MentaScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { AgendaScreen } from '../screens/shared/AgendaScreen';
 import { PsychologistProfileScreen } from '../screens/shared/PsychologistProfileScreen';
@@ -59,16 +58,6 @@ function PatientTabs() {
           tabBarLabel: 'Inicio',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <PatientTab.Screen
-        name="Menta"
-        component={MentaScreen}
-        options={{
-          tabBarLabel: 'MENTA',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="psychology" size={size} color={color} />
           ),
         }}
       />

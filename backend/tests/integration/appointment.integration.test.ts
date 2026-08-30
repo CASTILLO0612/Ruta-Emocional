@@ -175,6 +175,10 @@ test('appointment HTTP flow is relational, idempotent, authorized and concurrenc
     const created = await winningResponse.json() as AppointmentResponse;
     appointmentId = created.data.id;
     assert.equal(created.data.status, 'SCHEDULED');
+    assert.equal((await prisma.appointment.findUniqueOrThrow({
+      where: { id: appointmentId },
+      select: { careRelationshipId: true },
+    })).careRelationshipId, relationship.id);
 
     const replay = await fetch(`${baseUrl}/appointments`, {
       method: 'POST',
@@ -229,7 +233,6 @@ test('appointment HTTP flow is relational, idempotent, authorized and concurrenc
     await prisma.$transaction(async (transaction) => {
       if (appointmentId) {
         await transaction.appointmentEvent.deleteMany({ where: { appointmentId } });
-        await transaction.appointmentCareRelationship.deleteMany({ where: { appointmentId } });
         await transaction.appointment.deleteMany({ where: { id: appointmentId } });
       }
       if (relationshipId) {

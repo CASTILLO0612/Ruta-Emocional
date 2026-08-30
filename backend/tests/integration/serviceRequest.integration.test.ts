@@ -360,6 +360,15 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
       'the accepted amount must come from the persisted offer'
     );
     assert.equal(winner.data.replayed, false);
+    const persistedProvenance = await prisma.careRelationshipSource.findUniqueOrThrow({
+      where: { acceptedOfferId: winner.data.acceptedOffer.id },
+      select: { careRelationshipId: true },
+    });
+    assert.equal(persistedProvenance.careRelationshipId, winner.data.careRelationshipId);
+    assert.equal((await prisma.conversation.findUniqueOrThrow({
+      where: { careRelationshipId: winner.data.careRelationshipId },
+      select: { id: true },
+    })).id, winner.data.conversationId);
 
     const acceptanceReplay = await fetch(
       `${baseUrl}/service-requests/${createdRequest.data.id}/offers/${offerIds[winnerIndex]}/accept`,
@@ -491,7 +500,7 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
     assert.equal(persistedOffers.filter(({ status }) => status === 'ACCEPTED').length, 1);
     assert.equal(persistedOffers.filter(({ status }) => status === 'PENDING').length, 0);
     assert.equal(await prisma.careRelationshipSource.count({
-      where: { serviceRequestId: createdRequest.data.id },
+      where: { acceptedOffer: { requestId: createdRequest.data.id } },
     }), 1);
     assert.equal(await prisma.outboxEvent.count({
       where: { aggregateId: createdRequest.data.id, eventType: 'offer.accepted' },
@@ -505,11 +514,16 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
           select: { id: true },
         });
         const allRequestIds = requests.map(({ id }) => id);
-        const conversationLinks = await transaction.requestConversation.findMany({
-          where: { serviceRequestId: { in: allRequestIds } },
-          select: { conversationId: true },
+        const sources = await transaction.careRelationshipSource.findMany({
+          where: { acceptedOffer: { requestId: { in: allRequestIds } } },
+          select: {
+            careRelationshipId: true,
+            careRelationship: { select: { conversation: { select: { id: true } } } },
+          },
         });
-        const conversationIds = conversationLinks.map(({ conversationId }) => conversationId);
+        const conversationIds = sources.flatMap(({ careRelationship }) => (
+          careRelationship.conversation ? [careRelationship.conversation.id] : []
+        ));
         const participantIds = (await transaction.conversationParticipant.findMany({
           where: { conversationId: { in: conversationIds } },
           select: { id: true },
@@ -521,12 +535,8 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
           where: { aggregateId: { in: conversationIds } },
         });
         await transaction.conversation.deleteMany({ where: { id: { in: conversationIds } } });
-        const sources = await transaction.careRelationshipSource.findMany({
-          where: { serviceRequestId: { in: allRequestIds } },
-          select: { careRelationshipId: true },
-        });
         await transaction.careRelationshipSource.deleteMany({
-          where: { serviceRequestId: { in: allRequestIds } },
+          where: { acceptedOffer: { requestId: { in: allRequestIds } } },
         });
         await transaction.careRelationship.deleteMany({
           where: { id: { in: sources.map(({ careRelationshipId }) => careRelationshipId) } },

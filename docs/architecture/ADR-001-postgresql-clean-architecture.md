@@ -1,6 +1,6 @@
 # ADR-001: PostgreSQL y monolito modular con Clean Architecture
 
-- Estado: aceptado
+- Estado: aceptado; transición de runtime cerrada en Fase 7.5
 - Fecha: 2026-08-25
 
 ## Contexto
@@ -26,8 +26,8 @@ forma concurrente.
    aplicación, infraestructura y presentación.
 6. Socket.IO notificará hechos ya confirmados; PostgreSQL seguirá siendo la
    fuente de verdad mediante un outbox transaccional.
-7. MongoDB permanecerá temporalmente disponible únicamente durante la migración
-   y el periodo de reversión. No será una segunda fuente de verdad permanente.
+7. MongoDB no forma parte del runtime. Una importación histórica, si todavía es
+   necesaria, se ejecuta como proceso offline, idempotente y reconciliado.
 
 ## Consecuencias
 
@@ -43,10 +43,16 @@ forma concurrente.
 
 ### Costos
 
-- Se requiere un proceso ETL reproducible desde MongoDB.
+- Una recuperación histórica puede requerir un proceso ETL reproducible desde
+  un export controlado.
 - Las consultas geoespaciales usarán SQL tipado o repositorios especializados.
-- Durante la transición coexistirán adaptadores MongoDB y PostgreSQL, pero no se
-  permitirá que ambos definan simultáneamente el estado final de una operación.
+
+## Revisión de la Fase 7.5
+
+El 29 de agosto de 2026 se retiraron del proceso `mongoose`, modelos,
+controladores, rutas y scripts MongoDB. Los módulos funcionales cerrados usan
+exclusivamente PostgreSQL. Las columnas `legacy_id` no activan una segunda
+fuente: permanecen únicamente hasta cerrar la reconciliación histórica.
 
 ## Límites
 
