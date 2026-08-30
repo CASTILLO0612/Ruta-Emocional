@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgis/postgis:17-3.6
+    image: postgis/postgis:17-3.6-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ruta_emocional}
