@@ -456,14 +456,14 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
     audit: RequestAuditContext
   ): Promise<ProfessionalProfileView> {
     await this.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${licenseId}, 0))
+      `);
       const profile = await this.requireProfile(transaction, userId);
       const license = await transaction.professionalLicense.findFirst({
         where: { id: licenseId, psychologistProfileId: profile.id },
       });
       if (!license) throw AppError.notFound('PROFESSIONAL_LICENSE_NOT_FOUND');
-      await transaction.$executeRaw(Prisma.sql`
-        SELECT pg_advisory_xact_lock(hashtextextended(${licenseId}, 0))
-      `);
       const pending = await transaction.professionalVerificationSubmission.findFirst({
         where: { professionalLicenseId: licenseId, decision: { is: null } },
         select: { id: true },
@@ -492,7 +492,7 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
         'professional_verification_submission',
         submission.id
       );
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
     return this.requireOwnView(userId);
   }
 
