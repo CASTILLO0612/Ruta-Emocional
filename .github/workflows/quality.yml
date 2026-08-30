@@ -106,7 +106,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-          failure_excerpt="$(tail -n 60 "$integration_log")"
+          failure_excerpt="$(grep -v -E '^(# )?\{"timestamp":' "$integration_log" | tail -c 3500)"
           failure_excerpt="${failure_excerpt//'%'/'%25'}"
           failure_excerpt="${failure_excerpt//$'\r'/'%0D'}"
           failure_excerpt="${failure_excerpt//$'\n'/'%0A'}"
