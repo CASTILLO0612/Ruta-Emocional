@@ -2,11 +2,12 @@
 
 ## Estado
 
-Implementación validada localmente el 30 de agosto de 2026. Las 19 migraciones
-se aplicaron desde cero sobre PostgreSQL 16 con PostGIS y las siete suites de
-integración finalizaron correctamente. El cierre remoto requiere que el workflow
-`Quality` replique esa evidencia. Esta fase no habilita por sí sola producción
-clínica.
+Fase cerrada el 30 de agosto de 2026. Las 19 migraciones se aplicaron desde cero
+sobre PostgreSQL 16 con PostGIS en la validación local y sobre PostgreSQL 17 con
+PostGIS 3.6 en CI. Las siete suites de integración finalizaron correctamente en
+ambos entornos. El workflow [`Quality` #3](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33296885091)
+registró la validación remota completa. Esta fase no habilita por sí sola
+producción clínica.
 
 ## Objetivo
 
@@ -102,10 +103,10 @@ a ejecutar la migración.
 - Observabilidad externa, backups administrados, carga y pentest continúan como
   puertas productivas.
 
-## Criterio de salida
+## Criterio de salida — cumplido
 
-La Fase 8 puede comenzar cuando el workflow `Quality` finalice en verde y se
-registre evidencia de:
+La Fase 8 puede comenzar. El workflow `Quality` finalizó en verde y registró
+evidencia de:
 
 - migración desde cero;
 - 27 pruebas unitarias aprobadas;
