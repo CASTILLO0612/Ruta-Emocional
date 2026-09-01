@@ -88,6 +88,35 @@ export function createTriageRouter(
     })
   );
 
+  router.post(
+    '/triage/assessments/:assessmentId/consent-withdrawal',
+    authenticate,
+    assessmentLimiter,
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      assertEmptyTriageBody(request.body);
+      const assessmentId = parseTriageUuid(request.params.assessmentId, 'assessmentId');
+      response.json(envelope(await service.withdrawConsent(
+        getActor(request),
+        assessmentId,
+        auditContext(request, response)
+      ), response));
+    })
+  );
+
+  router.post(
+    '/triage/assessments/:assessmentId/erasure-request',
+    authenticate,
+    assessmentLimiter,
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      assertEmptyTriageBody(request.body);
+      const assessmentId = parseTriageUuid(request.params.assessmentId, 'assessmentId');
+      response.status(202).json(envelope(await service.requestErasure(
+        getActor(request),
+        assessmentId,
+        auditContext(request, response)
+      ), response));
+    })
+  );
+
   return router;
 }
-

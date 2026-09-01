@@ -10,6 +10,12 @@ export type TriageProviderOutcomeValue =
   | 'UNAVAILABLE'
   | 'REJECTED_OUTPUT';
 
+export type TriageErasureRequestStatusValue =
+  | 'BLOCKED'
+  | 'UNDER_REVIEW'
+  | 'RESOLVED'
+  | 'DENIED';
+
 export interface TriageAnswer {
   readonly questionCode: string;
   readonly optionCode: string;
@@ -107,6 +113,15 @@ export interface TriageAssessmentRecord {
     readonly userId: string;
     readonly displayName: string;
   } | null;
+  readonly consentWithdrawnAt: string | null;
+  readonly erasureRequest: {
+    readonly id: string;
+    readonly status: TriageErasureRequestStatusValue;
+    readonly policyVersion: string;
+    readonly requestedAt: string;
+    readonly dueAt: string;
+    readonly resolvedAt: string | null;
+  } | null;
   readonly createdAt: string;
 }
 
@@ -157,4 +172,3 @@ export interface TriagePolicyView {
     }[];
   }[];
 }
-

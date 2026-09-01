@@ -17,6 +17,7 @@ interface ReadinessResponse {
   readonly checks: {
     readonly database: string;
     readonly messagingOutbox: string;
+    readonly privacyRequests: string;
   };
 }
 
@@ -62,7 +63,7 @@ test('readiness ignores future reminders and reports dead letters without exposi
     const healthyBody = await healthyResponse.json() as ReadinessResponse;
     assert.deepEqual(healthyBody, {
       status: 'ok',
-      checks: { database: 'ok', messagingOutbox: 'ok' },
+      checks: { database: 'ok', messagingOutbox: 'ok', privacyRequests: 'ok' },
     });
 
     await prisma.outboxEvent.create({
@@ -81,7 +82,11 @@ test('readiness ignores future reminders and reports dead letters without exposi
     const degradedBody = await degradedResponse.json() as ReadinessResponse;
     assert.deepEqual(degradedBody, {
       status: 'degraded',
-      checks: { database: 'ok', messagingOutbox: 'dead-lettered-events' },
+      checks: {
+        database: 'ok',
+        messagingOutbox: 'dead-lettered-events',
+        privacyRequests: 'ok',
+      },
     });
     assert.equal(JSON.stringify(degradedBody).includes('messageId'), false);
   } finally {

@@ -4,9 +4,11 @@ import { createApp } from './app';
 import { buildApplicationServices } from './compositionRoot';
 import { loadConfig, loadEnvironmentFile } from './config/env';
 import { getPrismaClient } from './shared/infrastructure/database/prismaClient';
+import { assertRuntimeDatabasePrivileges } from './shared/infrastructure/database/runtimeDatabasePrivileges';
 import { createLogger } from './shared/infrastructure/logging/logger';
 import { setupSockets } from './sockets/socketHandler';
 import { MessageOutboxDispatcher } from './modules/messaging/infrastructure/outbox/messageOutboxDispatcher';
+import { assertTriageProtocolEvidence } from './modules/triage/infrastructure/triageProtocolEvidence';
 
 export async function startServer(): Promise<void> {
   loadEnvironmentFile();
@@ -15,6 +17,12 @@ export async function startServer(): Promise<void> {
   const prisma = getPrismaClient(config.databaseUrl);
 
   await prisma.$connect();
+  if (config.environment === 'production') {
+    await assertRuntimeDatabasePrivileges(prisma, config.operations.runtimeDatabaseRole!);
+    if (config.triage.enabled) {
+      await assertTriageProtocolEvidence(prisma, config.triage);
+    }
+  }
   logger.info('database.postgresql.connected');
 
   const services = buildApplicationServices(config, prisma);

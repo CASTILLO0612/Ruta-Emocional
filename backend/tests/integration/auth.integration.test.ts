@@ -23,6 +23,8 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
     allowedOrigins: ['http://localhost:8081'],
     trustProxy: false,
     jsonBodyLimit: '256kb',
+    secrets: createTestConfig(databaseUrl, 'auth-integration').secrets,
+    operations: createTestConfig(databaseUrl, 'auth-integration').operations,
     jwt: {
       accessSecret: 'integration-jwt-secret-with-at-least-thirty-two-characters',
       issuer: 'ruta-emocional-api-test',

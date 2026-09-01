@@ -90,11 +90,17 @@ solo sobre sus columnas operativas; no recibe `DELETE`, `TRUNCATE` ni capacidad
 de cambiar payloads. Separarlo en otro login será obligatorio si el worker se
 despliega como proceso independiente.
 
-**Evidencia local del 30 de agosto de 2026:** un rol grupal efímero fue creado
+**Evidencia local/CI:** un rol grupal efímero fue creado
 como `NOLOGIN` sobre el esquema consolidado, los grants fueron aplicados y la
 verificación positiva/negativa terminó correctamente. El workflow repite esta
 prueba en cada cambio. El gate sigue abierto porque la aplicación desplegada aún
 no usa un login miembro administrado por el gestor de secretos.
+
+El servidor ahora repite la verificación sobre `current_user` antes de escuchar
+tráfico productivo. Exige `POSTGRES_RUNTIME_ROLE`, login separado, membresía,
+atributos no administrativos, ausencia de DDL y permisos efectivos
+positivos/negativos. `verify_application_login.sql` ejecuta el mismo contrato en
+CI conectándose como el login de aplicación, no como el administrador.
 
 ## 3. Gestión externa de secretos
 
@@ -149,6 +155,12 @@ pgAdmin y requiere coordinar el nuevo secreto con el usuario. El gate permanece
 abierto hasta realizar esa coordinación.
 
 ## 5. Política de retención y eliminación
+
+MENTA ya implementa revocación append-only y solicitudes de eliminación
+`BLOCKED` con SLA de días hábiles. Runtime puede crear y leer estos hechos, pero
+no actualizarlos ni eliminarlos. La política propuesta y sus límites están en
+[`triage-retention-policy-draft.md`](../governance/triage-retention-policy-draft.md).
+El gate legal permanece abierto hasta aprobación formal.
 
 La implementación necesita una matriz aprobada antes de borrar evidencia o datos
 clínicos:
@@ -218,14 +230,13 @@ La aplicación ya ofrece:
 - estado del outbox de mensajería por atraso configurable y dead letters;
 - logs estructurados de HTTP, sockets y dispatcher sin contenido de mensajes.
 
-**Evidencia local del 30 de agosto de 2026:** el dump de la base con 19
+**Evidencia local del 31 de agosto de 2026:** el dump de la base con 21
 migraciones fue restaurado, validado y eliminado correctamente en un destino
 desechable. Esta evidencia valida el runbook local, no el backup administrado de
 producción.
 
-La Fase 8 validó separadamente las 20 migraciones desde una base vacía. El
-runbook de restauración debe repetirse sobre un dump que incluya la migración de
-triaje antes del siguiente release demostrable.
+El workflow ejecuta la restauración después de aplicar todas las migraciones y
+comprueba también triaje, revocaciones y solicitudes de eliminación.
 
 Siguen abiertos para producción:
 
@@ -235,3 +246,18 @@ Siguen abiertos para producción:
 - métricas, dashboard y alertas externas para 5xx, latencia, DB, sockets,
   readiness, outbox y backups;
 - proceso de respuesta a dead letters e incidentes.
+
+## 9. Gate fail-closed de MENTA
+
+Producción sólo habilita MENTA si:
+
+- la aprobación profesional coincide en versión de evaluador y consentimiento;
+- su SHA-256 coincide con el artefacto canónico recalculado desde PostgreSQL;
+- la aprobación está vigente;
+- retención está marcada como aprobada y su SLA no supera cinco días hábiles;
+- todos los recursos tienen responsable y revisión vigente;
+- el proveedor externo permanece deshabilitado conforme a `ADR-005`.
+
+Los formatos de aprobación y calendario están en
+[`triage-clinical-approval.md`](../governance/triage-clinical-approval.md) y
+[`triage-resource-verification.md`](../governance/triage-resource-verification.md).

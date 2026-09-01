@@ -66,6 +66,8 @@ proveedor externo continúa deshabilitado.
 | `triage_assessment_modalities` | `(triage_assessment_id, modality) -> priority` |
 | `triage_assessment_rule_results` | `(triage_assessment_id, triage_rule_id) -> matched, evidence_option_code` |
 | `request_triage_assessments` | `(service_request_id, triage_assessment_id) -> linked_at` |
+| `triage_consent_withdrawals` | `triage_assessment_id -> patient_profile_id, withdrawal_decision_id, withdrawn_at` y `withdrawal_decision_id -> triage_assessment_id` |
+| `triage_erasure_requests` | `triage_assessment_id -> patient_profile_id, status, policy_version, requested_at, due_at, resolución` |
 | `conversations` | `id -> care_relationship_id, created_at` y `care_relationship_id -> id` |
 | `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
 | `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
@@ -101,6 +103,12 @@ Las relaciones multivaluadas se representan con tablas asociativas:
 
 No se almacenarán arrays de roles, especialidades o modalidades dentro de una
 fila del núcleo transaccional.
+
+La revocación no se modela como columnas duplicadas dentro de
+`triage_assessments`: relaciona una evaluación con la nueva decisión
+`patient_consents(WITHDRAWN)`. La solicitud de eliminación conserva su propia
+identidad, plazo y estado porque su ciclo de vida no depende funcionalmente de
+los atributos clínicos de la evaluación. Ambas relaciones satisfacen 3FN.
 
 La asociación `Evaluación de triaje-Regla de triaje` ya está materializada y sus
 atributos dependen de la pareja completa. Las transformaciones lógicas futuras

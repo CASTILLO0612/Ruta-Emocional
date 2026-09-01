@@ -198,28 +198,38 @@ enum TriageProviderOutcome {
   @@map("triage_provider_outcome")
 }
 
+enum TriageErasureRequestStatus {
+  BLOCKED
+  UNDER_REVIEW
+  RESOLVED
+  DENIED
+
+  @@map("triage_erasure_request_status")
+}
+
 model User {
-  id                    String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  legacyId              String?                            @unique @map("legacy_id")
-  email                 String                             @unique @db.VarChar(320)
-  displayName           String                             @map("display_name") @db.VarChar(160)
-  passwordHash          String                             @map("password_hash") @db.VarChar(255)
-  photoUrl              String?                            @map("photo_url") @db.Text
-  phone                 String?                            @db.VarChar(32)
-  status                AccountStatus                      @default(ACTIVE)
-  createdAt             DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime                           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  patientProfile        PatientProfile?
-  psychologistProfile   PsychologistProfile?
-  roles                 UserRole[]
-  authSessions          AuthSession[]
-  conversationMembers   ConversationParticipant[]
-  clinicalNoteVersions  ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
-  clinicalNoteEvents    ClinicalNoteEvent[]                @relation("ClinicalNoteEventActor")
-  auditEvents           AuditEvent[]                       @relation("AuditActor")
-  verificationDecisions ProfessionalVerificationDecision[] @relation("VerificationReviewer")
-  idempotencyRecords    IdempotencyRecord[]
-  appointmentEvents     AppointmentEvent[]                 @relation("AppointmentEventActor")
+  id                            String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legacyId                      String?                            @unique @map("legacy_id")
+  email                         String                             @unique @db.VarChar(320)
+  displayName                   String                             @map("display_name") @db.VarChar(160)
+  passwordHash                  String                             @map("password_hash") @db.VarChar(255)
+  photoUrl                      String?                            @map("photo_url") @db.Text
+  phone                         String?                            @db.VarChar(32)
+  status                        AccountStatus                      @default(ACTIVE)
+  createdAt                     DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                     DateTime                           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  patientProfile                PatientProfile?
+  psychologistProfile           PsychologistProfile?
+  roles                         UserRole[]
+  authSessions                  AuthSession[]
+  conversationMembers           ConversationParticipant[]
+  clinicalNoteVersions          ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
+  clinicalNoteEvents            ClinicalNoteEvent[]                @relation("ClinicalNoteEventActor")
+  auditEvents                   AuditEvent[]                       @relation("AuditActor")
+  verificationDecisions         ProfessionalVerificationDecision[] @relation("VerificationReviewer")
+  idempotencyRecords            IdempotencyRecord[]
+  appointmentEvents             AppointmentEvent[]                 @relation("AppointmentEventActor")
+  resolvedTriageErasureRequests TriageErasureRequest[]             @relation("TriageErasureResolver")
 
   @@map("users")
 }
@@ -266,18 +276,20 @@ model AuthSession {
 }
 
 model PatientProfile {
-  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String             @unique @map("user_id") @db.Uuid
-  birthDate         DateTime?          @map("birth_date") @db.Date
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  serviceRequests   ServiceRequest[]
-  careRelationships CareRelationship[]
-  appointments      Appointment[]
-  clinicalRecord    ClinicalRecord?
-  consents          PatientConsent[]
-  triageAssessments TriageAssessment[]
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String                    @unique @map("user_id") @db.Uuid
+  birthDate                DateTime?                 @map("birth_date") @db.Date
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  serviceRequests          ServiceRequest[]
+  careRelationships        CareRelationship[]
+  appointments             Appointment[]
+  clinicalRecord           ClinicalRecord?
+  consents                 PatientConsent[]
+  triageAssessments        TriageAssessment[]
+  triageConsentWithdrawals TriageConsentWithdrawal[]
+  triageErasureRequests    TriageErasureRequest[]
 
   @@map("patient_profiles")
 }
@@ -738,17 +750,18 @@ model ConsentDocument {
 }
 
 model PatientConsent {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patientProfileId   String             @map("patient_profile_id") @db.Uuid
-  consentDocumentId  String             @map("consent_document_id") @db.Uuid
-  careRelationshipId String?            @map("care_relationship_id") @db.Uuid
-  decision           ConsentDecision
-  occurredAt         DateTime           @default(now()) @map("occurred_at") @db.Timestamptz(3)
-  ipAddress          String?            @map("ip_address") @db.Inet
-  patientProfile     PatientProfile     @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
-  consentDocument    ConsentDocument    @relation(fields: [consentDocumentId], references: [id], onDelete: Restrict)
-  careRelationship   CareRelationship?  @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
-  triageAssessments  TriageAssessment[]
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId        String                   @map("patient_profile_id") @db.Uuid
+  consentDocumentId       String                   @map("consent_document_id") @db.Uuid
+  careRelationshipId      String?                  @map("care_relationship_id") @db.Uuid
+  decision                ConsentDecision
+  occurredAt              DateTime                 @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  ipAddress               String?                  @map("ip_address") @db.Inet
+  patientProfile          PatientProfile           @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  consentDocument         ConsentDocument          @relation(fields: [consentDocumentId], references: [id], onDelete: Restrict)
+  careRelationship        CareRelationship?        @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  triageAssessments       TriageAssessment[]
+  triageConsentWithdrawal TriageConsentWithdrawal? @relation("TriageWithdrawalDecision")
 
   @@index([patientProfileId, consentDocumentId, occurredAt])
   @@map("patient_consents")
@@ -924,10 +937,46 @@ model TriageAssessment {
   ruleResults              TriageAssessmentRuleResult[]
   requestLink              RequestTriageAssessment?
   relationshipSource       CareRelationshipSource?
+  consentWithdrawal        TriageConsentWithdrawal?
+  erasureRequest           TriageErasureRequest?
 
   @@index([patientProfileId, createdAt])
   @@index([consentDecisionId])
   @@map("triage_assessments")
+}
+
+model TriageConsentWithdrawal {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  triageAssessmentId   String           @unique @map("triage_assessment_id") @db.Uuid
+  patientProfileId     String           @map("patient_profile_id") @db.Uuid
+  withdrawalDecisionId String           @unique @map("withdrawal_decision_id") @db.Uuid
+  withdrawnAt          DateTime         @default(now()) @map("withdrawn_at") @db.Timestamptz(3)
+  triageAssessment     TriageAssessment @relation(fields: [triageAssessmentId], references: [id], onDelete: Restrict)
+  patientProfile       PatientProfile   @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  withdrawalDecision   PatientConsent   @relation("TriageWithdrawalDecision", fields: [withdrawalDecisionId], references: [id], onDelete: Restrict)
+
+  @@index([patientProfileId, withdrawnAt])
+  @@map("triage_consent_withdrawals")
+}
+
+model TriageErasureRequest {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  triageAssessmentId String                     @unique @map("triage_assessment_id") @db.Uuid
+  patientProfileId   String                     @map("patient_profile_id") @db.Uuid
+  status             TriageErasureRequestStatus @default(BLOCKED)
+  policyVersion      String                     @map("policy_version") @db.VarChar(80)
+  requestedAt        DateTime                   @default(now()) @map("requested_at") @db.Timestamptz(3)
+  dueAt              DateTime                   @map("due_at") @db.Timestamptz(3)
+  resolvedAt         DateTime?                  @map("resolved_at") @db.Timestamptz(3)
+  resolvedByUserId   String?                    @map("resolved_by_user_id") @db.Uuid
+  resolutionCode     String?                    @map("resolution_code") @db.VarChar(80)
+  triageAssessment   TriageAssessment           @relation(fields: [triageAssessmentId], references: [id], onDelete: Restrict)
+  patientProfile     PatientProfile             @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  resolvedBy         User?                      @relation("TriageErasureResolver", fields: [resolvedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([patientProfileId, status, requestedAt])
+  @@index([status, dueAt])
+  @@map("triage_erasure_requests")
 }
 
 model TriageAssessmentModality {

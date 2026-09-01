@@ -198,6 +198,15 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
   evaluación vigente; una evaluación posterior no cambia esa procedencia.
 - **MT-016**. La revisión profesional agrega revisor y fecha una sola vez; no
   modifica riesgo, necesidad, resumen, reglas, proveedor o modalidades.
+- **MT-017**. Retirar consentimiento crea una nueva decisión `WITHDRAWN`; no
+  modifica el consentimiento otorgado ni la evaluación histórica.
+- **MT-018**. Revocación o solicitud de eliminación bloquea nuevas lecturas
+  profesionales y la aceptación comercial vinculada a la evaluación.
+- **MT-019**. Una solicitud de eliminación se bloquea primero y requiere
+  resolución por un proceso de privacidad separado; el runtime no borra directo.
+- **MT-020**. El artefacto aprobado y el protocolo activo en PostgreSQL deben
+  producir la misma huella SHA-256 o producción no arranca.
+- **MT-021**. El MVP no utiliza proveedor externo de MENTA.
 
 ## 12. Auditoría y datos
 

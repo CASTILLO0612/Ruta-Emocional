@@ -73,6 +73,20 @@ export interface TriageRepository {
     reviewedAt: Date,
     audit: TriageAuditContext
   ): Promise<TriageAssessmentRecord>;
+  withdrawConsent(
+    patientUserId: string,
+    assessmentId: string,
+    withdrawnAt: Date,
+    audit: TriageAuditContext
+  ): Promise<TriageAssessmentRecord>;
+  requestErasure(
+    patientUserId: string,
+    assessmentId: string,
+    policyVersion: string,
+    requestedAt: Date,
+    dueAt: Date,
+    audit: TriageAuditContext
+  ): Promise<TriageAssessmentRecord>;
 }
 
 export interface TriageOrientationProvider {
@@ -95,4 +109,3 @@ export class TriageProviderUnavailableError extends Error {
 export function hashTriagePayload(input: unknown): string {
   return createHash('sha256').update(JSON.stringify(input), 'utf8').digest('hex');
 }
-

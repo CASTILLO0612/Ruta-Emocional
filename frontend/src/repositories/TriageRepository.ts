@@ -4,6 +4,7 @@ import { apiV1Request } from '../services/apiClient';
 export type TriageRiskLevel = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 export type TriageModality = 'CHAT' | 'CALL' | 'IN_PERSON';
 export type TriageProviderOutcome = 'NOT_USED' | 'SUCCEEDED' | 'UNAVAILABLE' | 'REJECTED_OUTPUT';
+export type TriageErasureRequestStatus = 'BLOCKED' | 'UNDER_REVIEW' | 'RESOLVED' | 'DENIED';
 
 export interface TriageQuestionOption {
   readonly code: string;
@@ -63,6 +64,15 @@ export interface TriageAssessment {
   readonly recommendedModalities: readonly TriageModality[];
   readonly reviewedAt: string | null;
   readonly reviewedBy: { readonly userId: string; readonly displayName: string } | null;
+  readonly consentWithdrawnAt: string | null;
+  readonly erasureRequest: {
+    readonly id: string;
+    readonly status: TriageErasureRequestStatus;
+    readonly policyVersion: string;
+    readonly requestedAt: string;
+    readonly dueAt: string;
+    readonly resolvedAt: string | null;
+  } | null;
   readonly createdAt: string;
   readonly automatedSystem: true;
   readonly diagnostic: false;
@@ -131,6 +141,26 @@ export async function reviewTriageAssessment(
 ): Promise<TriageAssessment> {
   return (await apiV1Request<Envelope<TriageAssessment>>(
     `/triage/assessments/${encodeURIComponent(assessmentId)}/review`,
+    'POST',
+    {}
+  )).data;
+}
+
+export async function withdrawTriageConsent(
+  assessmentId: string
+): Promise<TriageAssessment> {
+  return (await apiV1Request<Envelope<TriageAssessment>>(
+    `/triage/assessments/${encodeURIComponent(assessmentId)}/consent-withdrawal`,
+    'POST',
+    {}
+  )).data;
+}
+
+export async function requestTriageErasure(
+  assessmentId: string
+): Promise<TriageAssessment> {
+  return (await apiV1Request<Envelope<TriageAssessment>>(
+    `/triage/assessments/${encodeURIComponent(assessmentId)}/erasure-request`,
     'POST',
     {}
   )).data;

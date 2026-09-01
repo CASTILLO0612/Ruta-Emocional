@@ -14,7 +14,7 @@ El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La 
 | Mensajería | conversaciones y mensajes persistidos, autorización por participante y entrega Socket.IO mediante outbox |
 | Agenda | disponibilidad, reserva, reprogramación y transiciones de cita con prevención de solapamientos |
 | Historia clínica | expedientes, encuentros, notas versionadas, firma, enmiendas y planes de tratamiento para el psicólogo autorizado |
-| MENTA | orientación determinista con consentimiento, reglas versionadas, recursos de crisis y revisión profesional |
+| MENTA | orientación determinista con consentimiento revocable, solicitudes de eliminación, reglas versionadas, recursos de crisis y revisión profesional |
 | Administración | cola local de verificación, decisión y auditoría sin acceso clínico implícito |
 
 Pagos y audio/video no forman parte del recorrido funcional. MENTA se encuentra
@@ -35,7 +35,7 @@ protocolo y los recursos de crisis.
 ### API y datos
 
 - Node.js, Express, TypeScript y Socket.IO.
-- PostgreSQL/PostGIS con 20 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
+- PostgreSQL/PostGIS con 21 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
 - Prisma como adaptador de persistencia dentro de módulos separados por dominio.
 - Contratos REST versionados bajo `/api/v1` y respuestas mediante DTO explícitos.
 - Sesiones rotativas, contraseñas con scrypt y pepper, límites de peticiones, CORS por lista permitida y auditoría de acciones sensibles.

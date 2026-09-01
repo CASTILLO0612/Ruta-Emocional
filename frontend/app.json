@@ -8,26 +8,23 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rutaemocional.app",
-      "config": {
-        "googleMapsApiKey": "PLACEHOLDER_GOOGLE_MAPS_API_KEY"
-      }
+      "bundleIdentifier": "com.rutaemocional.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       },
-      "package": "com.rutaemocional.app",
-      "config": {
-        "googleMaps": {
-          "apiKey": "PLACEHOLDER_GOOGLE_MAPS_API_KEY"
-        }
-      }
+      "package": "com.rutaemocional.app"
     },
     "plugins": [
       "expo-status-bar",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
       "expo-font",
       [
         "expo-splash-screen",

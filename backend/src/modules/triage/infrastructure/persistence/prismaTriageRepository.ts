@@ -16,6 +16,7 @@ import {
 import {
   TriageAssessmentRecord,
   TriageDefinition,
+  TriageErasureRequestStatusValue,
   TriageModality,
   TriageProviderOutcomeValue,
   TriageRiskLevelValue,
@@ -32,6 +33,17 @@ const assessmentInclude = {
   },
   reviewedByPsychologist: {
     select: { user: { select: { id: true, displayName: true } } },
+  },
+  consentWithdrawal: { select: { withdrawnAt: true } },
+  erasureRequest: {
+    select: {
+      id: true,
+      status: true,
+      policyVersion: true,
+      requestedAt: true,
+      dueAt: true,
+      resolvedAt: true,
+    },
   },
 } satisfies Prisma.TriageAssessmentInclude;
 
@@ -316,6 +328,8 @@ export class PrismaTriageRepository implements TriageRepository {
                   },
                 },
               },
+              consentWithdrawal: { is: null },
+              erasureRequest: { is: null },
             },
           ],
         },
@@ -351,6 +365,21 @@ export class PrismaTriageRepository implements TriageRepository {
       });
       if (!professional) throw AppError.notFound('TRIAGE_ASSESSMENT_NOT_FOUND');
 
+      const processingAllowed = await transaction.triageAssessment.findFirst({
+        where: {
+          id: assessmentId,
+          consentWithdrawal: { is: null },
+          erasureRequest: { is: null },
+        },
+        select: { id: true },
+      });
+      if (!processingAllowed) {
+        throw AppError.conflict(
+          'TRIAGE_PROCESSING_RESTRICTED',
+          'La evaluación ya no admite procesamiento profesional.'
+        );
+      }
+
       const update = await transaction.triageAssessment.updateMany({
         where: {
           id: assessmentId,
@@ -382,6 +411,101 @@ export class PrismaTriageRepository implements TriageRepository {
     });
   }
 
+  async withdrawConsent(
+    patientUserId: string,
+    assessmentId: string,
+    withdrawnAt: Date,
+    audit: TriageAuditContext
+  ): Promise<TriageAssessmentRecord> {
+    return this.prisma.$transaction(async (transaction) => {
+      await this.lockOperation(
+        transaction,
+        patientUserId,
+        'triage.consent.withdraw',
+        assessmentId
+      );
+      const assessment = await transaction.triageAssessment.findFirst({
+        where: { id: assessmentId, patientProfile: { userId: patientUserId } },
+        include: {
+          ...assessmentInclude,
+          consentDecision: { select: { consentDocumentId: true } },
+        },
+      });
+      if (!assessment) throw AppError.notFound('TRIAGE_ASSESSMENT_NOT_FOUND');
+      if (assessment.consentWithdrawal) return this.toRecord(assessment);
+
+      const withdrawalDecision = await transaction.patientConsent.create({
+        data: {
+          patientProfileId: assessment.patientProfileId,
+          consentDocumentId: assessment.consentDecision.consentDocumentId,
+          decision: ConsentDecision.WITHDRAWN,
+          occurredAt: withdrawnAt,
+          ipAddress: audit.ipAddress,
+        },
+        select: { id: true },
+      });
+      await transaction.triageConsentWithdrawal.create({
+        data: {
+          triageAssessmentId: assessment.id,
+          patientProfileId: assessment.patientProfileId,
+          withdrawalDecisionId: withdrawalDecision.id,
+          withdrawnAt,
+        },
+      });
+      await this.writeAudit(
+        transaction,
+        audit,
+        'triage.consent_withdrawn',
+        assessment.id,
+        { effectiveAt: withdrawnAt.toISOString() }
+      );
+      return this.requireAssessment(transaction, assessment.id);
+    });
+  }
+
+  async requestErasure(
+    patientUserId: string,
+    assessmentId: string,
+    policyVersion: string,
+    requestedAt: Date,
+    dueAt: Date,
+    audit: TriageAuditContext
+  ): Promise<TriageAssessmentRecord> {
+    return this.prisma.$transaction(async (transaction) => {
+      await this.lockOperation(
+        transaction,
+        patientUserId,
+        'triage.erasure.request',
+        assessmentId
+      );
+      const assessment = await transaction.triageAssessment.findFirst({
+        where: { id: assessmentId, patientProfile: { userId: patientUserId } },
+        include: assessmentInclude,
+      });
+      if (!assessment) throw AppError.notFound('TRIAGE_ASSESSMENT_NOT_FOUND');
+      if (assessment.erasureRequest) return this.toRecord(assessment);
+
+      await transaction.triageErasureRequest.create({
+        data: {
+          triageAssessmentId: assessment.id,
+          patientProfileId: assessment.patientProfileId,
+          status: 'BLOCKED',
+          policyVersion,
+          requestedAt,
+          dueAt,
+        },
+      });
+      await this.writeAudit(
+        transaction,
+        audit,
+        'triage.erasure_requested',
+        assessment.id,
+        { policyVersion, dueAt: dueAt.toISOString() }
+      );
+      return this.requireAssessment(transaction, assessment.id);
+    });
+  }
+
   private toRecord(row: AssessmentRow): TriageAssessmentRecord {
     return {
       id: row.id,
@@ -404,8 +528,31 @@ export class PrismaTriageRepository implements TriageRepository {
           displayName: row.reviewedByPsychologist.user.displayName,
         }
         : null,
+      consentWithdrawnAt: row.consentWithdrawal?.withdrawnAt.toISOString() ?? null,
+      erasureRequest: row.erasureRequest
+        ? {
+          id: row.erasureRequest.id,
+          status: row.erasureRequest.status as TriageErasureRequestStatusValue,
+          policyVersion: row.erasureRequest.policyVersion,
+          requestedAt: row.erasureRequest.requestedAt.toISOString(),
+          dueAt: row.erasureRequest.dueAt.toISOString(),
+          resolvedAt: row.erasureRequest.resolvedAt?.toISOString() ?? null,
+        }
+        : null,
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  private async requireAssessment(
+    transaction: Prisma.TransactionClient,
+    assessmentId: string
+  ): Promise<TriageAssessmentRecord> {
+    const assessment = await transaction.triageAssessment.findUnique({
+      where: { id: assessmentId },
+      include: assessmentInclude,
+    });
+    if (!assessment) throw AppError.notFound('TRIAGE_ASSESSMENT_NOT_FOUND');
+    return this.toRecord(assessment);
   }
 
   private lockOperation(

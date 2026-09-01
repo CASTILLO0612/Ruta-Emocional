@@ -3,6 +3,9 @@
 **Estado:** fase de ingeniería cerrada el 30 de agosto de 2026. La validación
 local y el pipeline remoto finalizaron correctamente.
 
+**Endurecimiento productivo:** implementado el 31 de agosto de 2026; las
+aprobaciones humanas y servicios externos continúan fail closed.
+
 ## 1. Resultado
 
 MENTA vuelve al producto como orientación automatizada estructurada, no como
@@ -23,6 +26,9 @@ El alcance entregado comprende:
 - revisión profesional append-only con auditoría;
 - interfaz Expo para paciente y acceso desde el expediente profesional;
 - adaptador externo cerrado por feature flag hasta seleccionar proveedor.
+- revocación histórica, solicitud de eliminación bloqueante y auditoría;
+- verificación criptográfica entre protocolo activo y aprobación profesional;
+- validación efectiva del login PostgreSQL runtime al arranque productivo.
 
 ## 2. Decisiones de dominio
 
@@ -56,6 +62,8 @@ La migración `20260830001000_secure_triage_menta` agrega:
 | `triage_assessment_modalities` | `(assessment_id, modality) → priority` |
 | `triage_assessment_rule_results` | `(assessment_id, rule_id) → matched, evidence_option_code` |
 | `request_triage_assessments` | `(service_request_id, triage_assessment_id) → linked_at` |
+| `triage_consent_withdrawals` | `assessment_id → decisión retirada, paciente, fecha` |
+| `triage_erasure_requests` | `assessment_id → política, plazo, estado, resolución` |
 
 Las modalidades no se duplican: referencian `care_modalities`. El
 consentimiento referencia `patient_consents` y `consent_documents`. Las reglas
@@ -72,6 +80,8 @@ La base impone mediante constraints y triggers:
 - ausencia de modalidades en riesgo alto/crítico;
 - salida inmutable y revisión profesional de una sola asignación;
 - congelación temporal correcta en el origen de la relación asistencial.
+- correspondencia entre evaluación, paciente y decisión `WITHDRAWN`;
+- máquina de estados y plazo inmutable de solicitudes de eliminación.
 
 ## 4. Seguridad y privacidad
 
@@ -93,6 +103,9 @@ La base impone mediante constraints y triggers:
 - El rol PostgreSQL de runtime puede insertar resultados, pero no modificar
   reglas, consentimientos o evaluaciones; solo dispone de actualización por
   columna para los dos campos de revisión.
+- El paciente puede retirar el consentimiento y solicitar eliminación. Ambos
+  comandos son idempotentes por evaluación y bloquean nuevos usos profesionales
+  o comerciales sin borrar historia automáticamente.
 
 ## 5. Recursos y habilitación
 
@@ -110,9 +123,8 @@ riesgo alto o crítico. `TRIAGE_PROTOCOL_APPROVED=false` permanece como valor de
 ejemplo. En producción, habilitar MENTA exige aprobación explícita del
 protocolo y recursos.
 
-`TRIAGE_EXTERNAL_PROVIDER_ENABLED=false` permanece obligatorio hasta aprobar
-proveedor, contrato, residencia, retención y pruebas clínicas. No existe un
-fallback que simule IA externa.
+`TRIAGE_EXTERNAL_PROVIDER_ENABLED=false` es una decisión aceptada para el MVP
+mediante `ADR-005`. No existe un fallback que simule IA externa.
 
 ## 6. API y experiencia
 
@@ -123,6 +135,8 @@ GET  /api/v1/triage/policy
 POST /api/v1/triage/assessments
 GET  /api/v1/triage/assessments/{assessmentId}
 POST /api/v1/triage/assessments/{assessmentId}/review
+POST /api/v1/triage/assessments/{assessmentId}/consent-withdrawal
+POST /api/v1/triage/assessments/{assessmentId}/erasure-request
 ```
 
 La pestaña **Orientación** usa preguntas dinámicas del backend, estado de carga,
@@ -130,23 +144,29 @@ reintento, consentimiento accesible e iconos Material. Un resultado de riesgo
 alto/crítico prioriza acciones y enlaces telefónicos antes del resumen. El
 panel profesional expone la evaluación congelada dentro del paciente activo y
 permite registrar su revisión sin editarla.
+El resultado del paciente incorpora un panel minimalista de control de datos,
+confirmación accesible y estado de revocación/solicitud.
 
 ## 7. Verificación ejecutada
 
 | Evidencia | Resultado |
 |---|---|
 | Prisma format/validate/generate | correcto |
-| 20 migraciones desde una base vacía | correcto |
+| 21 migraciones desde una base vacía | correcto |
 | TypeScript backend y frontend | correcto |
-| Pruebas unitarias | 33/33 |
+| Pruebas unitarias | 41/41 |
 | Integraciones secuenciales PostgreSQL/WebSocket | 8/8 |
-| Integración específica MENTA | propietario/ajeno/profesional, idempotencia, inmutabilidad, revisión y bloqueo crítico correctos |
-| Grants de runtime | permisos requeridos presentes y destructivos ausentes |
-| Revisión Expo Web | escritorio y viewport 390×844 correctos |
+| Integración específica MENTA | propietario/ajeno/profesional, idempotencia, inmutabilidad, retiro, eliminación, revisión y bloqueos de seguridad correctos |
+| Grants de runtime | grupo y login separado verificados; permisos requeridos presentes y destructivos ausentes |
+| Backup/restauración local | 21 migraciones y tablas críticas verificadas en destino desechable |
+| Expo SDK 57 | dependencias exactas, TypeScript y configuración nativa correctos |
+| Exportación Expo Web | bundle generado y sin nombres de secretos públicos prohibidos |
 | CI del commit de implementación `64dfac3` | [Quality #33340045465](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33340045465) correcto |
 
 La integración comprueba además que el identificador de triaje congelado se
-proyecta al expediente del profesional responsable.
+proyecta al expediente del profesional responsable, que el retiro de
+consentimiento es naturalmente idempotente y que una solicitud de eliminación
+impide continuar el tratamiento comercial de la evaluación.
 
 ## 8. Rollback
 
@@ -159,18 +179,39 @@ reversión funcional:
 4. investigar y corregir antes de reactivar;
 5. revertir físicamente la migración solo en un entorno efímero sin datos.
 
-## 9. Gates productivos abiertos
+## 9. Endurecimiento ejecutable incorporado
+
+- configuración productiva exige secretos externos versionados, proveedor de
+  backup/observabilidad, alerta activa, RPO/RTO y restore reciente;
+- `DATABASE_URL` no puede usar una identidad administrativa;
+- antes de escuchar tráfico, PostgreSQL confirma login separado, membresía en
+  rol runtime, ausencia de atributos/DDL y permisos positivos/negativos;
+- MENTA exige aprobación profesional vigente que coincida con la huella del
+  protocolo realmente cargado desde PostgreSQL;
+- cada recurso exige responsable y `reviewDueAt`; un vencimiento impide arranque;
+- readiness expone outbox y solicitudes de privacidad vencidas;
+- CI restaura un dump desechable y verifica tablas/migraciones críticas;
+- Expo está alineado con las versiones recomendadas, usa perfiles EAS y valida
+  configuración nativa/ausencia de secretos públicos prohibidos.
+
+## 10. Gates productivos abiertos
 
 La fase funcional está implementada, pero MENTA no se declara clínicamente
 aprobada para producción hasta cerrar:
 
 - aprobación firmada del cuestionario, reglas, textos y acciones de crisis;
 - verificación periódica y responsable operativo de los recursos por país;
-- selección y evaluación del proveedor externo, si realmente se necesita;
-- gestor de secretos, rotación coordinada de credenciales y rol runtime real;
-- política legal de retención, revocación y eliminación;
-- observabilidad externa, alertas y prueba de backup/restauración;
-- pruebas de accesibilidad en dispositivos nativos y evaluación de seguridad.
+- firma real del protocolo y aprobación legal de retención;
+- titular/suplente nominados para recursos y evidencia del calendario;
+- cuenta/hosting con gestor de secretos y rotación coordinada de la credencial
+  administrativa previamente compartida;
+- aplicación de los roles en la base desplegada, no sólo local/CI;
+- backup administrado, restauración del proveedor y alerta externa recibida;
+- pruebas de accesibilidad/seguridad sobre builds release Android/iOS.
+
+Los formatos y runbooks se encuentran en `docs/governance`, `docs/operations`
+y `docs/security`. El servidor no permite sustituir su evidencia con booleanos
+sin contenido verificable.
 
 La siguiente fase funcional es la **Fase 9 — Proveedores opcionales**. Pagos y
 RTC continuarán deshabilitados mientras no existan proveedores y políticas

@@ -22,6 +22,8 @@ inventar una relación alternativa en código.
 | Relación asistencial–Encuentro | Implementado | La FK es obligatoria y una restricción cruzada valida expediente, paciente y profesional. |
 | Relación asistencial–Plan | Implementado | Todo plan conserva la relación que autorizó su creación y la unicidad de plan abierto se delimita por esa relación. |
 | Consentimiento con contexto | Implementado para MENTA | La evaluación referencia la decisión otorgada sobre la versión exacta. Otros alcances y la política legal general permanecen pendientes. |
+| Revocación MENTA | Implementado | `triage_consent_withdrawals` relaciona evaluación, paciente y una decisión histórica `WITHDRAWN` sobre el mismo documento. |
+| Solicitud de eliminación MENTA | Implementado, política por aprobar | `triage_erasure_requests` bloquea usos nuevos, conserva plazo/estado y exige resolución separada sin borrado directo. |
 | Diagnóstico con contexto | Preparado, flujo no habilitado | Existe FK opcional a relación para migración compatible. Se hará obligatoria al habilitar diagnósticos. |
 | Catálogo/reglas de triaje | Implementado | Preguntas, opciones, necesidades y reglas son catálogos normalizados; la N:N conserva resultado y evidencia minimizada para todas las reglas vigentes. |
 | Triaje–Solicitud–Relación | Implementado | Una solicitud conserva 0..N evaluaciones; la aceptación congela la más reciente anterior al vínculo en `care_relationship_sources.triage_assessment_id`. |
@@ -43,6 +45,8 @@ inventar una relación alternativa en código.
 7. MENTA consume `care_modalities`; no mantiene otro catálogo de modalidades.
 8. Una fase futura no puede mutar una evaluación histórica; debe crear una nueva
    evaluación y conservar la regla/versiones aplicadas.
+9. La revocación y la eliminación se representan como hechos y solicitudes
+   separadas, no como flags mutables en la evaluación.
 
 ## Evidencia de cierre de Fase 8
 
@@ -52,10 +56,12 @@ inventar una relación alternativa en código.
   clínica en verde;
 - cero dependencia `mongoose` y cero rutas MongoDB en el proceso;
 - esquema y grants runtime actualizados para las tablas consolidadas;
-- migración de triaje aplicada como la número 20 desde una base vacía;
+- migración de triaje y gobierno de privacidad aplicadas de forma incremental;
 - motor, autorización, congelación temporal e inmutabilidad cubiertos por
   pruebas PostgreSQL;
 - grants runtime incluyen inserción de resultados y actualización limitada de
   revisión;
+- el login productivo se verifica por identidad, membresía, atributos y
+  privilegios efectivos antes de escuchar tráfico;
 - cualquier gate externo no resuelto permanece deshabilitado y documentado en
   [`phase-8-secure-menta.md`](../roadmap/phase-8-secure-menta.md).

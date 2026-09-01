@@ -38,6 +38,14 @@ interface TriageEnvelope {
     readonly crisisResources: readonly { readonly code: string }[];
     readonly reviewedAt: string | null;
     readonly reviewedBy: { readonly userId: string } | null;
+    readonly consentWithdrawnAt: string | null;
+    readonly erasureRequest: {
+      readonly id: string;
+      readonly status: string;
+      readonly policyVersion: string;
+      readonly requestedAt: string;
+      readonly dueAt: string;
+    } | null;
   };
 }
 
@@ -294,6 +302,91 @@ test('triage HTTP flow is deterministic, private, immutable, reviewable and inte
       /Triage assessment output is immutable/
     );
 
+    const privacyRequestId = await createRequest('privacy');
+    const privacyResponse = await fetch(`${baseUrl}/triage/assessments`, {
+      method: 'POST',
+      headers: headers(patient.accessToken, randomUUID()),
+      body: JSON.stringify(assessmentBody(
+        privacyRequestId,
+        policy.data.consentDocument,
+        'SAFETY_SAFE_NOW'
+      )),
+    });
+    assert.equal(privacyResponse.status, 201);
+    const privacyAssessment = await privacyResponse.json() as TriageEnvelope;
+
+    const outsiderWithdrawal = await fetch(
+      `${baseUrl}/triage/assessments/${privacyAssessment.data.id}/consent-withdrawal`,
+      { method: 'POST', headers: headers(outsider.accessToken) }
+    );
+    assert.equal(outsiderWithdrawal.status, 404);
+
+    const withdrawalResponse = await fetch(
+      `${baseUrl}/triage/assessments/${privacyAssessment.data.id}/consent-withdrawal`,
+      { method: 'POST', headers: headers(patient.accessToken) }
+    );
+    assert.equal(withdrawalResponse.status, 200);
+    const withdrawn = await withdrawalResponse.json() as TriageEnvelope;
+    assert.ok(withdrawn.data.consentWithdrawnAt);
+    const withdrawalReplay = await fetch(
+      `${baseUrl}/triage/assessments/${privacyAssessment.data.id}/consent-withdrawal`,
+      { method: 'POST', headers: headers(patient.accessToken) }
+    );
+    assert.equal(withdrawalReplay.status, 200);
+
+    const erasureResponse = await fetch(
+      `${baseUrl}/triage/assessments/${privacyAssessment.data.id}/erasure-request`,
+      { method: 'POST', headers: headers(patient.accessToken) }
+    );
+    assert.equal(erasureResponse.status, 202);
+    const erasure = await erasureResponse.json() as TriageEnvelope;
+    assert.equal(erasure.data.erasureRequest?.status, 'BLOCKED');
+    assert.equal(erasure.data.erasureRequest?.policyVersion, config.triage.retentionPolicy.version);
+    assert.ok(erasure.data.erasureRequest?.dueAt);
+    const erasureReplay = await fetch(
+      `${baseUrl}/triage/assessments/${privacyAssessment.data.id}/erasure-request`,
+      { method: 'POST', headers: headers(patient.accessToken) }
+    );
+    assert.equal(erasureReplay.status, 202);
+    assert.equal(
+      (await erasureReplay.json() as TriageEnvelope).data.erasureRequest?.id,
+      erasure.data.erasureRequest?.id
+    );
+    assert.equal(await prisma.patientConsent.count({
+      where: {
+        patientProfile: { userId: patient.userId },
+        decision: 'WITHDRAWN',
+        triageConsentWithdrawal: { is: { triageAssessmentId: privacyAssessment.data.id } },
+      },
+    }), 1);
+    assert.equal(await prisma.auditEvent.count({
+      where: {
+        resourceId: privacyAssessment.data.id,
+        action: { in: ['triage.consent_withdrawn', 'triage.erasure_requested'] },
+      },
+    }), 2);
+
+    const privacyOfferId = await createOffer(privacyRequestId);
+    const privacyBlocked = await fetch(
+      `${baseUrl}/service-requests/${privacyRequestId}/offers/${privacyOfferId}/accept`,
+      { method: 'POST', headers: headers(patient.accessToken, randomUUID()) }
+    );
+    assert.equal(privacyBlocked.status, 409);
+    assert.equal(
+      (await privacyBlocked.json() as { readonly code: string }).code,
+      'TRIAGE_PROCESSING_RESTRICTED'
+    );
+    await prisma.$transaction([
+      prisma.offer.update({
+        where: { id: privacyOfferId },
+        data: { status: 'REJECTED' },
+      }),
+      prisma.serviceRequest.update({
+        where: { id: privacyRequestId },
+        data: { status: 'CANCELLED' },
+      }),
+    ]);
+
     const criticalRequestId = await createRequest('critical');
     const criticalResponse = await fetch(`${baseUrl}/triage/assessments`, {
       method: 'POST',
@@ -369,6 +462,12 @@ test('triage HTTP flow is deterministic, private, immutable, reviewable and inte
           where: { serviceRequestId: { in: requestIds } },
         });
         await transaction.serviceRequest.deleteMany({ where: { id: { in: requestIds } } });
+        await transaction.triageErasureRequest.deleteMany({
+          where: { patientProfileId: { in: patientProfileIds } },
+        });
+        await transaction.triageConsentWithdrawal.deleteMany({
+          where: { patientProfileId: { in: patientProfileIds } },
+        });
         await transaction.triageAssessment.deleteMany({
           where: { patientProfileId: { in: patientProfileIds } },
         });

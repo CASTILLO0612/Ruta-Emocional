@@ -55,8 +55,8 @@ Fuentes metodológicas:
 
 La revisión de las 62 observaciones produce:
 
-- **38 tipos de entidad conceptual** con identidad o ciclo de vida propio;
-- **64 asociaciones semánticas** con cardinalidad y participación definidas;
+- **39 tipos de entidad conceptual** con identidad o ciclo de vida propio;
+- **68 asociaciones semánticas** con cardinalidad y participación definidas;
 - **1 jerarquía ISA** parcial y superpuesta;
 - **7 relaciones N:N explícitas**, todavía sin resolver en el DER;
 - **20 dominios de estado o clasificación**, representados como atributos y no
@@ -105,6 +105,7 @@ exponiendo una llave primaria física.
 | Consentimiento | Decisión de consentimiento | Identificador de decisión | decisión, ocurrencia, dirección de red |
 | Orientación | Evaluación de triaje | Identificador de evaluación | proveedor, modelo, versión del evaluador, necesidad, orientación, resultado del proveedor, país, riesgo, revisión, creación |
 | Orientación | Regla de triaje | Código + versión | nombre, nivel de riesgo, vigente desde, vigente hasta, estado |
+| Privacidad | Solicitud de eliminación | Identificador de solicitud | estado, versión de política, solicitada en, vence en, resuelta en, resultado |
 | Pagos | Pago | Identificador de pago | importe, moneda, método, referencia de transacción, estado, creación |
 | Pagos | Evento de pago | Identificador de evento | estados anterior/nuevo, referencia externa, ocurrencia, origen |
 | Plataforma | Evento de auditoría | Identificador de evento | acción, recurso, resultado, correlación, dirección de red, metadatos, ocurrencia, origen |
@@ -222,6 +223,10 @@ y su primera versión dentro de la misma operación atómica.
 | Relación asistencial | conserva como origen | Evaluación de triaje | 0..1 | 0..1 |
 | Evaluación de triaje | recomienda | Modalidad de atención | 0..N | 0..N |
 | Evaluación de triaje | aplica | Regla de triaje | 1..N | 0..N |
+| Decisión de consentimiento | retira autorización de | Evaluación de triaje | 0..1 | 0..1 |
+| Paciente | solicita | Solicitud de eliminación | 0..N | 1 |
+| Evaluación de triaje | es objeto de | Solicitud de eliminación | 0..1 | 1 |
+| Usuario | resuelve | Solicitud de eliminación | 0..N | 0..1 |
 | Usuario | origina | Evento de auditoría | 0..N | 0..1 |
 | Usuario | delimita | Registro de idempotencia | 0..N | 1 |
 
@@ -290,7 +295,12 @@ entidades conceptuales.
 16. Cada evaluación referencia la decisión exacta que autorizó el tratamiento
     de sus respuestas. Si una oferta se acepta, la relación puede congelar como
     origen una única evaluación anterior a esa aceptación.
-17. Auditoría, outbox e idempotencia forman un bloque conceptual de plataforma,
+17. Retirar consentimiento se representa mediante una nueva decisión vinculada
+    a la evaluación, sin sobrescribir la autorización histórica.
+18. Cada evaluación admite como máximo una solicitud de eliminación. La
+    solicitud pertenece al paciente y sólo un usuario autorizado puede
+    resolverla; mientras está abierta bloquea procesamiento nuevo.
+19. Auditoría, outbox e idempotencia forman un bloque conceptual de plataforma,
     separado del dominio clínico y comercial.
 
 ## 8. Trazabilidad y 3FN

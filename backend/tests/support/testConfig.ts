@@ -9,6 +9,20 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
     allowedOrigins: ['http://localhost:8081'],
     trustProxy: false,
     jsonBodyLimit: '256kb',
+    secrets: {
+      source: 'LOCAL_ENV',
+      bundleVersion: null,
+    },
+    operations: {
+      runtimeDatabaseRole: null,
+      backupProvider: null,
+      lastRestoreVerifiedAt: null,
+      maximumRestoreAgeDays: 30,
+      rpoMinutes: 60,
+      rtoMinutes: 240,
+      observabilityProvider: null,
+      alertingEnabled: false,
+    },
     jwt: {
       accessSecret: `${namespace}-jwt-secret-with-sufficient-entropy-for-integration-tests`,
       issuer: `ruta-emocional-${namespace}`,
@@ -113,6 +127,7 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
     triage: {
       enabled: true,
       protocolApproved: true,
+      protocolApproval: null,
       externalProviderEnabled: false,
       evaluatorVersion: 'test-evaluator-1.0.0',
       consentDocumentCode: 'MENTA_ORIENTATION',
@@ -126,6 +141,8 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
           value: '118',
           sourceUrl: 'https://example.test/emergency-source',
           verifiedAt: '2026-08-30',
+          reviewDueAt: '2026-11-30',
+          owner: 'Equipo de operaciones de prueba',
         }],
       },
       safetyActions: {
@@ -135,6 +152,12 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       maximumProviderSummaryLength: 1_000,
       assessmentsPerMinute: 60,
       idempotencyTtlHours: 24,
+      retentionPolicy: {
+        approved: false,
+        version: 'PENDING',
+        assessmentRetentionDays: 0,
+        erasureRequestSlaBusinessDays: 5,
+      },
     },
   };
 }

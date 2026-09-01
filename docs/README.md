@@ -27,6 +27,13 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 21. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
 22. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
 23. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
+24. [Aprobación profesional de MENTA](governance/triage-clinical-approval.md)
+25. [Verificación de recursos por país](governance/triage-resource-verification.md)
+26. [Borrador de retención MENTA](governance/triage-retention-policy-draft.md)
+27. [Secretos y rotación PostgreSQL](operations/secrets-and-database-rotation.md)
+28. [Observabilidad y alertas](operations/observability-and-alerting.md)
+29. [Accesibilidad y seguridad nativa](security/native-accessibility-and-security.md)
+30. [ADR: sin proveedor externo MENTA en MVP](architecture/ADR-005-no-external-menta-provider-for-mvp.md)
 
 ## Decisiones vigentes
 
@@ -39,6 +46,8 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
   ejecutarse offline, de forma controlada e idempotente.
 - La información clínica y de triaje se considera altamente sensible.
 - MENTA orienta y deriva; no diagnostica, prescribe ni sustituye atención profesional o de emergencia.
+- MENTA no usa proveedor externo en el MVP; su protocolo activo debe coincidir
+  criptográficamente con la aprobación profesional antes de producción.
 
 ## Estado documental
 

@@ -19,6 +19,10 @@ realiza:
 5. comprobación de tablas críticas y migraciones completas;
 6. eliminación de la base creada por el propio script y del artefacto temporal.
 
+La comprobación incluye MENTA, consentimientos, revocaciones y solicitudes de
+eliminación. CI ejecuta el mismo script después de reconstruir el esquema desde
+cero.
+
 Ejemplo local, usando valores explícitos y entrada enmascarada:
 
 ```powershell

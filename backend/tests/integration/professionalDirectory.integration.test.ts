@@ -49,6 +49,8 @@ test('professional directory HTTP flow protects verification and exposes a minim
     allowedOrigins: ['http://localhost:8081'],
     trustProxy: false,
     jsonBodyLimit: '256kb',
+    secrets: createTestConfig(databaseUrl, 'directory-integration').secrets,
+    operations: createTestConfig(databaseUrl, 'directory-integration').operations,
     jwt: {
       accessSecret: 'directory-integration-jwt-secret-with-sufficient-entropy',
       issuer: 'ruta-emocional-api-test',

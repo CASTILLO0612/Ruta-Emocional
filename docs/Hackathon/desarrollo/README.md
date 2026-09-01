@@ -18,11 +18,11 @@ Este directorio reúne la evidencia verificable de Ruta Emocional para la catego
 
 El archivo [`modelo-entidad-relacion-conceptual-ruta-emocional.pdf`](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf) contiene:
 
-- 38 entidades conceptuales con cada atributo declarado en un óvalo propio;
-- 64 asociaciones semánticas con cardinalidad y participación;
+- 39 entidades conceptuales con cada atributo declarado en un óvalo propio;
+- 68 asociaciones semánticas con cardinalidad y participación;
 - una jerarquía `ISA` parcial y superpuesta para Usuario, Paciente y Psicólogo;
 - 7 relaciones N:N conservadas explícitamente en el nivel conceptual;
-- cobertura trazable de los 52 modelos Prisma;
+- cobertura trazable de los 54 modelos Prisma;
 - separación de su resolución mediante estructuras asociativas en el modelo lógico;
 - exclusión explícita de tablas, tipos SQL, llaves foráneas, índices, triggers y detalles del motor.
 

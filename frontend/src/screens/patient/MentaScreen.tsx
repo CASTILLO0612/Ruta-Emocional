@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { AppButton } from '../../components/common/AppButton';
+import { CustomAlert } from '../../components/common/CustomAlert';
 import {
   createTriageAssessment,
   fetchTriagePolicy,
@@ -21,6 +22,8 @@ import {
   TriageModality,
   TriagePolicy,
   TriageRiskLevel,
+  requestTriageErasure,
+  withdrawTriageConsent,
 } from '../../repositories/TriageRepository';
 import { ApiError } from '../../services/apiClient';
 import { Colors } from '../../theme/colors';
@@ -40,10 +43,19 @@ const RISK_LABELS: Readonly<Record<TriageRiskLevel, string>> = {
   CRITICAL: 'Atención inmediata',
 };
 
+const ERASURE_STATUS_LABELS = {
+  BLOCKED: 'bloqueada',
+  UNDER_REVIEW: 'en revisión',
+  RESOLVED: 'resuelta',
+  DENIED: 'denegada',
+} as const;
+
 interface PendingAttempt {
   readonly fingerprint: string;
   readonly idempotencyKey: string;
 }
+
+type PrivacyAction = 'WITHDRAW_CONSENT' | 'REQUEST_ERASURE';
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError || error instanceof Error) return error.message;
@@ -68,6 +80,8 @@ export const MentaScreen: React.FC = () => {
   const [loadingPolicy, setLoadingPolicy] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [privacyAction, setPrivacyAction] = useState<PrivacyAction | null>(null);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
   const pendingAttempt = useRef<PendingAttempt | null>(null);
 
   const loadPolicy = () => {
@@ -139,9 +153,27 @@ export const MentaScreen: React.FC = () => {
     pendingAttempt.current = null;
   };
 
+  const confirmPrivacyAction = async () => {
+    if (!assessment || !privacyAction || privacyBusy) return;
+    setPrivacyBusy(true);
+    setError(null);
+    try {
+      const updated = privacyAction === 'WITHDRAW_CONSENT'
+        ? await withdrawTriageConsent(assessment.id)
+        : await requestTriageErasure(assessment.id);
+      setAssessment(updated);
+      setPrivacyAction(null);
+    } catch (privacyError) {
+      setError(errorMessage(privacyError));
+      setPrivacyAction(null);
+    } finally {
+      setPrivacyBusy(false);
+    }
+  };
+
   if (loadingPolicy && !policy) {
     return (
-      <View style={styles.centered}>
+      <View style={styles.centered} accessibilityLiveRegion="polite">
         <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={styles.loadingText}>Cargando orientación segura...</Text>
       </View>
@@ -171,7 +203,13 @@ export const MentaScreen: React.FC = () => {
             <AppButton label="Volver a intentar" onPress={loadPolicy} variant="outline" />
           </View>
         ) : assessment ? (
-          <AssessmentResult assessment={assessment} onRestart={restart} />
+          <AssessmentResult
+            assessment={assessment}
+            onRestart={restart}
+            onPrivacyAction={setPrivacyAction}
+            privacyBusy={privacyBusy}
+            privacyError={error}
+          />
         ) : (
           <>
             <View style={styles.noticeCard}>
@@ -206,7 +244,11 @@ export const MentaScreen: React.FC = () => {
                     {question.helpText && <Text style={styles.questionHelp}>{question.helpText}</Text>}
                   </View>
                 </View>
-                <View style={styles.options} accessibilityRole="radiogroup">
+                <View
+                  style={styles.options}
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel={question.prompt}
+                >
                   {question.options.map((option) => {
                     const selected = answers[question.code] === option.code;
                     return (
@@ -216,6 +258,8 @@ export const MentaScreen: React.FC = () => {
                         onPress={() => selectAnswer(question.code, option.code)}
                         activeOpacity={0.8}
                         accessibilityRole="radio"
+                        accessibilityLabel={option.label}
+                        accessibilityHint={option.helpText ?? undefined}
                         accessibilityState={{ checked: selected }}
                       >
                         <MaterialIcons
@@ -245,6 +289,8 @@ export const MentaScreen: React.FC = () => {
               }}
               activeOpacity={0.82}
               accessibilityRole="checkbox"
+              accessibilityLabel={`Aceptar ${policy.consentDocument.title}, versión ${policy.consentDocument.version}`}
+              accessibilityHint="Puedes retirar este consentimiento después desde la evaluación."
               accessibilityState={{ checked: consentGranted }}
             >
               <MaterialIcons
@@ -260,7 +306,11 @@ export const MentaScreen: React.FC = () => {
             </TouchableOpacity>
 
             {error && (
-              <View style={styles.errorCard}>
+              <View
+                style={styles.errorCard}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
                 <MaterialIcons name="error-outline" size={20} color={Colors.error} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
@@ -274,6 +324,7 @@ export const MentaScreen: React.FC = () => {
               isLoading={submitting}
               disabled={!canSubmit}
               icon={<MaterialIcons name="arrow-forward" size={19} color={Colors.primary} />}
+              accessibilityHint="Procesa únicamente las opciones seleccionadas."
             />
             <Text style={styles.privacyNote}>
               Solo se envían las opciones seleccionadas. Este formulario no solicita texto clínico libre.
@@ -281,6 +332,20 @@ export const MentaScreen: React.FC = () => {
           </>
         )}
       </ScrollView>
+      <CustomAlert
+        visible={privacyAction !== null}
+        title={privacyAction === 'WITHDRAW_CONSENT'
+          ? 'Retirar consentimiento'
+          : 'Solicitar revisión de eliminación'}
+        message={privacyAction === 'WITHDRAW_CONSENT'
+          ? 'Ruta Emocional dejará de usar esta orientación en flujos nuevos. La decisión no modifica el historial previo.'
+          : 'La evaluación quedará bloqueada mientras se revisan las obligaciones legales de conservación y eliminación.'}
+        confirmText={privacyAction === 'WITHDRAW_CONSENT' ? 'Retirar' : 'Enviar solicitud'}
+        cancelText="Volver"
+        showCancel
+        onCancel={() => !privacyBusy && setPrivacyAction(null)}
+        onConfirm={() => void confirmPrivacyAction()}
+      />
     </SafeAreaView>
   );
 };
@@ -288,12 +353,20 @@ export const MentaScreen: React.FC = () => {
 const AssessmentResult: React.FC<{
   readonly assessment: TriageAssessment;
   readonly onRestart: () => void;
-}> = ({ assessment, onRestart }) => {
+  readonly onPrivacyAction: (action: PrivacyAction) => void;
+  readonly privacyBusy: boolean;
+  readonly privacyError: string | null;
+}> = ({ assessment, onRestart, onPrivacyAction, privacyBusy, privacyError }) => {
   const accentColor = riskColor(assessment.riskLevel);
   return (
     <>
       {assessment.requiresImmediateHelp && (
-        <View style={styles.immediateCard}>
+        <View
+          style={styles.immediateCard}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+          accessibilityLabel="Tu seguridad es lo primero. Revisa las acciones y recursos inmediatos."
+        >
           <View style={styles.immediateHeading}>
             <MaterialIcons name="crisis-alert" size={25} color={Colors.error} />
             <Text style={styles.immediateTitle}>Tu seguridad es lo primero</Text>
@@ -311,6 +384,8 @@ const AssessmentResult: React.FC<{
               onPress={() => void Linking.openURL(resourceTarget(resource.channel, resource.value))}
               activeOpacity={0.82}
               accessibilityRole="link"
+              accessibilityLabel={`${resource.label}: ${resource.value}`}
+              accessibilityHint={resource.channel === 'PHONE' ? 'Inicia una llamada.' : 'Abre el recurso externo.'}
             >
               <MaterialIcons
                 name={resource.channel === 'PHONE' ? 'call' : 'open-in-new'}
@@ -326,7 +401,10 @@ const AssessmentResult: React.FC<{
         </View>
       )}
 
-      <View style={[styles.resultCard, { borderTopColor: accentColor }]}>
+      <View
+        style={[styles.resultCard, { borderTopColor: accentColor }]}
+        accessibilityLiveRegion="polite"
+      >
         <View style={styles.resultHeading}>
           <View style={[styles.resultIcon, { backgroundColor: `${accentColor}16` }]}>
             <MaterialIcons name="insights" size={27} color={accentColor} />
@@ -365,6 +443,63 @@ const AssessmentResult: React.FC<{
           </Text>
         </View>
       </View>
+
+      <View style={styles.privacyControls}>
+        <View style={styles.privacyControlsHeading}>
+          <MaterialIcons name="privacy-tip" size={21} color={Colors.primary} />
+          <View style={styles.privacyControlsCopy}>
+            <Text style={styles.resultSectionTitle}>Control de tus datos</Text>
+            <Text style={styles.privacyControlsText}>
+              Puedes retirar el consentimiento o solicitar la revisión de eliminación de esta evaluación.
+            </Text>
+          </View>
+        </View>
+
+        {assessment.consentWithdrawnAt ? (
+          <View style={styles.privacyStatus} accessibilityLiveRegion="polite">
+            <MaterialIcons name="check-circle-outline" size={19} color={Colors.primary} />
+            <Text style={styles.privacyStatusText}>Consentimiento retirado.</Text>
+          </View>
+        ) : (
+          <AppButton
+            label="Retirar consentimiento"
+            onPress={() => onPrivacyAction('WITHDRAW_CONSENT')}
+            variant="outline"
+            fullWidth
+            disabled={privacyBusy}
+            accessibilityHint="Requiere confirmación y bloquea usos nuevos de esta orientación."
+          />
+        )}
+
+        {assessment.erasureRequest ? (
+          <View style={styles.privacyStatus} accessibilityLiveRegion="polite">
+            <MaterialIcons name="schedule" size={19} color={Colors.primary} />
+            <Text style={styles.privacyStatusText}>
+              Solicitud recibida · {ERASURE_STATUS_LABELS[assessment.erasureRequest.status]}
+            </Text>
+          </View>
+        ) : (
+          <AppButton
+            label="Solicitar revisión de eliminación"
+            onPress={() => onPrivacyAction('REQUEST_ERASURE')}
+            variant="ghost"
+            fullWidth
+            disabled={privacyBusy}
+            accessibilityHint="Bloquea el procesamiento mientras se revisa la retención aplicable."
+          />
+        )}
+      </View>
+
+      {privacyError && (
+        <View
+          style={styles.errorCard}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+        >
+          <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+          <Text style={styles.errorText}>{privacyError}</Text>
+        </View>
+      )}
 
       <AppButton label="Nueva orientación" onPress={onRestart} variant="outline" fullWidth />
     </>
@@ -567,4 +702,24 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.divider,
   },
   transparencyText: { ...Typography.caption, flex: 1, color: Colors.textTertiary },
+  privacyControls: {
+    padding: Spacing.base,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface,
+  },
+  privacyControlsHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  privacyControlsCopy: { flex: 1, gap: Spacing.xs },
+  privacyControlsText: { ...Typography.bodySmall, color: Colors.textSecondary },
+  privacyStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primaryTint,
+  },
+  privacyStatusText: { ...Typography.bodySmall, flex: 1, fontWeight: '700', color: Colors.primary },
 });

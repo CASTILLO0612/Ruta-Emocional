@@ -194,12 +194,16 @@ El administrador de plataforma no hereda acceso clínico. La autorización clín
 | Iniciar orientación | Sí propia, consentimiento vigente | — | — | — | Entrada categórica opcional | — |
 | Ver resultado estructurado | Sí propio | Solo si la relación aceptada congeló la evaluación | — | Por propósito autorizado | Nunca identidad | Recursos configurados, sin transmisión automática |
 | Revisar evaluación | — | Sí, profesional responsable verificado; una vez | — | Sí | — | — |
+| Retirar consentimiento | Sí propia | — | — | — | — | — |
+| Solicitar eliminación | Sí propia | — | Flujo de privacidad separado | Por propósito autorizado | — | — |
 | Mutar riesgo, reglas o salida | — | — | — | — | — | — |
 | Vincular a relación | Mediante aceptación propia | Oferta del profesional | — | — | — | Riesgo crítico lo impide |
 
 El comando no admite texto libre, presupuesto o actor. Una evaluación ajena y
 una evaluación consultada por un psicólogo antes de constituir la relación
 responden `404`. El acceso y la revisión se auditan sin contenido clínico.
+Una revocación o solicitud bloqueada impide lectura/revisión profesional y
+aceptación de oferta nueva, pero el paciente conserva acceso a su estado.
 
 ## 10. Pagos
 

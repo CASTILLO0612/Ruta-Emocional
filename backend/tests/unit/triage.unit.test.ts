@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import { TriageService } from '../../src/modules/triage/application/triageService';
+import {
+  addBusinessDays,
+  TriageService,
+} from '../../src/modules/triage/application/triageService';
 import {
   PersistTriageAssessmentInput,
   TriageAuditContext,
@@ -26,6 +29,10 @@ import { AuthenticatedActor } from '../../src/modules/identity/application/ident
 import { AppError } from '../../src/shared/domain/appError';
 import { Clock } from '../../src/shared/application/clock';
 import { createTestConfig } from '../support/testConfig';
+import {
+  buildTriageProtocolArtifact,
+  hashTriageProtocolArtifact,
+} from '../../src/modules/triage/domain/triageProtocolArtifact';
 
 const definition: TriageDefinition = {
   consentDocument: {
@@ -161,12 +168,16 @@ class MemoryTriageRepository implements TriageRepository {
       recommendedModalities: input.recommendedModalities,
       reviewedAt: null,
       reviewedBy: null,
+      consentWithdrawnAt: null,
+      erasureRequest: null,
       createdAt: '2026-08-30T12:00:00.000Z',
     };
   }
 
   async getAssessment(): Promise<TriageAssessmentRecord> { throw new Error('not used'); }
   async reviewAssessment(): Promise<TriageAssessmentRecord> { throw new Error('not used'); }
+  async withdrawConsent(): Promise<TriageAssessmentRecord> { throw new Error('not used'); }
+  async requestErasure(): Promise<TriageAssessmentRecord> { throw new Error('not used'); }
 }
 
 class RecordingProvider implements TriageOrientationProvider {
@@ -206,6 +217,23 @@ test('triage input is closed and never accepts free text, actor or budget fields
   }), (error: unknown) => error instanceof AppError
     && error.errors?.filter(({ code }) => code === 'UNKNOWN_FIELD').length === 3);
   assert.throws(() => parseTriageIdempotencyKey('retry-1'), AppError);
+});
+
+test('privacy request deadline counts business days in UTC', () => {
+  assert.equal(
+    addBusinessDays(new Date('2026-08-28T12:00:00.000Z'), 5).toISOString(),
+    '2026-09-04T12:00:00.000Z'
+  );
+});
+
+test('clinical approval artifact hash changes when an active message changes', () => {
+  const policy = createTestConfig('postgresql://integration.invalid/db', 'triage-unit').triage;
+  const artifact = buildTriageProtocolArtifact(definition, policy);
+  const altered = {
+    ...artifact,
+    emergencyDisclaimer: `${artifact.emergencyDisclaimer} Texto alterado.`,
+  };
+  assert.notEqual(hashTriageProtocolArtifact(artifact), hashTriageProtocolArtifact(altered));
 });
 
 test('deterministic engine suppresses modalities in critical risk', () => {

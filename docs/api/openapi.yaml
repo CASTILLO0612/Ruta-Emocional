@@ -1214,6 +1214,42 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /triage/assessments/{assessmentId}/consent-withdrawal:
+    post:
+      tags: [Triage]
+      operationId: withdrawTriageConsent
+      description: Registra una decisión WITHDRAWN nueva sin alterar el consentimiento histórico.
+      parameters:
+        - $ref: '#/components/parameters/TriageAssessmentId'
+      responses:
+        '200':
+          description: Revocación efectiva o repetición idempotente de la misma revocación.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TriageAssessmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /triage/assessments/{assessmentId}/erasure-request:
+    post:
+      tags: [Triage]
+      operationId: requestTriageErasure
+      description: Bloquea nuevos usos y abre una solicitud sujeta a revisión de retención y obligaciones aplicables.
+      parameters:
+        - $ref: '#/components/parameters/TriageAssessmentId'
+      responses:
+        '202':
+          description: Solicitud bloqueada para procesamiento o repetición idempotente de la solicitud existente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TriageAssessmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 components:
   securitySchemes:
     bearerAuth:
@@ -2454,7 +2490,7 @@ components:
     TriageAssessment:
       type: object
       additionalProperties: false
-      required: [id, patientUserId, primaryNeed, provider, model, evaluatorVersion, providerOutcome, countryCode, orientationSummary, riskLevel, recommendedModalities, reviewedAt, reviewedBy, createdAt, automatedSystem, diagnostic, requiresImmediateHelp, safetyActions, crisisResources]
+      required: [id, patientUserId, primaryNeed, provider, model, evaluatorVersion, providerOutcome, countryCode, orientationSummary, riskLevel, recommendedModalities, reviewedAt, reviewedBy, consentWithdrawnAt, erasureRequest, createdAt, automatedSystem, diagnostic, requiresImmediateHelp, safetyActions, crisisResources]
       properties:
         id: { type: string, format: uuid }
         patientUserId: { type: string, format: uuid }
@@ -2486,6 +2522,20 @@ components:
               properties:
                 userId: { type: string, format: uuid }
                 displayName: { type: string }
+        consentWithdrawnAt: { type: [string, 'null'], format: date-time }
+        erasureRequest:
+          oneOf:
+            - type: 'null'
+            - type: object
+              additionalProperties: false
+              required: [id, status, policyVersion, requestedAt, dueAt, resolvedAt]
+              properties:
+                id: { type: string, format: uuid }
+                status: { type: string, enum: [BLOCKED, UNDER_REVIEW, RESOLVED, DENIED] }
+                policyVersion: { type: string }
+                requestedAt: { type: string, format: date-time }
+                dueAt: { type: string, format: date-time }
+                resolvedAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
         automatedSystem: { type: boolean, const: true }
         diagnostic: { type: boolean, const: false }

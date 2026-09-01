@@ -28,6 +28,7 @@ export interface AppDependencies {
 interface OutboxReadinessRow {
   readonly deadLettered: boolean;
   readonly lagging: boolean;
+  readonly overduePrivacyRequests: boolean;
 }
 
 async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
@@ -97,22 +98,35 @@ export function createApp(dependencies: AppDependencies): Express {
                AND "published_at" IS NULL
                AND "dead_lettered_at" IS NULL
                AND "available_at" < ${lagCutoff}
-          ) AS "lagging"
+          ) AS "lagging",
+          EXISTS (
+            SELECT 1
+              FROM "triage_erasure_requests"
+             WHERE "status" IN ('BLOCKED', 'UNDER_REVIEW')
+               AND "due_at" < CURRENT_TIMESTAMP
+          ) AS "overduePrivacyRequests"
       `), 2_000);
       const messagingOutbox = outbox?.deadLettered
         ? 'dead-lettered-events'
         : outbox?.lagging
           ? 'lagging'
           : 'ok';
-      const status = messagingOutbox === 'ok' ? 'ok' : 'degraded';
+      const privacyRequests = outbox?.overduePrivacyRequests ? 'overdue' : 'ok';
+      const status = messagingOutbox === 'ok' && privacyRequests === 'ok'
+        ? 'ok'
+        : 'degraded';
       response.status(status === 'ok' ? 200 : 503).json({
         status,
-        checks: { database: 'ok', messagingOutbox },
+        checks: { database: 'ok', messagingOutbox, privacyRequests },
       });
     } catch {
       response.status(503).json({
         status: 'degraded',
-        checks: { database: 'unavailable', messagingOutbox: 'unknown' },
+        checks: {
+          database: 'unavailable',
+          messagingOutbox: 'unknown',
+          privacyRequests: 'unknown',
+        },
       });
     }
   }));

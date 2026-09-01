@@ -25,15 +25,21 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   showCancel = false,
 }) => {
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={styles.alertCard}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.overlay} accessibilityViewIsModal>
+        <View style={styles.alertCard} accessibilityRole="alert">
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
           
           <View style={styles.buttonRow}>
             {showCancel && onCancel && (
-              <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={onCancel}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={cancelText}
+              >
                 <Text style={styles.cancelBtnText}>{cancelText}</Text>
               </TouchableOpacity>
             )}
@@ -41,6 +47,8 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
               style={[styles.confirmBtn, !showCancel && { flex: 1 }]} 
               onPress={onConfirm}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={confirmText}
             >
               <Text style={styles.confirmBtnText}>{confirmText}</Text>
             </TouchableOpacity>

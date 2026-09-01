@@ -14,6 +14,10 @@ import {
   TriageProviderOutcomeValue,
 } from '../domain/triageTypes';
 import {
+  TRIAGE_AUTOMATED_NOTICE,
+  TRIAGE_EMERGENCY_DISCLAIMER,
+} from '../domain/triageProtocolArtifact';
+import {
   CreateTriageAssessmentCommand,
   hashTriagePayload,
   TriageAuditContext,
@@ -24,8 +28,6 @@ import {
 
 const INTERNAL_PROVIDER = 'RUTA_EMOCIONAL';
 const DETERMINISTIC_MODEL = 'DETERMINISTIC_TRIAGE';
-const AUTOMATED_NOTICE = 'MENTA es un sistema automatizado de orientación y siempre se identifica como tal.';
-const EMERGENCY_DISCLAIMER = 'MENTA no es un servicio de emergencia, no realiza diagnósticos y no contacta servicios de emergencia por ti.';
 
 export class TriageService {
   constructor(
@@ -45,8 +47,8 @@ export class TriageService {
       protocolApproved: this.policy.protocolApproved,
       externalProviderEnabled: this.policy.externalProviderEnabled,
       evaluatorVersion: this.policy.evaluatorVersion,
-      automatedSystemNotice: AUTOMATED_NOTICE,
-      emergencyDisclaimer: EMERGENCY_DISCLAIMER,
+      automatedSystemNotice: TRIAGE_AUTOMATED_NOTICE,
+      emergencyDisclaimer: TRIAGE_EMERGENCY_DISCLAIMER,
       defaultCountryCode: this.policy.defaultCountryCode,
       supportedCountryCodes: Object.keys(this.policy.crisisResources).sort(),
       consentDocument: {
@@ -170,6 +172,39 @@ export class TriageService {
     ));
   }
 
+  async withdrawConsent(
+    actor: AuthenticatedActor,
+    assessmentId: string,
+    audit: TriageAuditContext
+  ): Promise<TriageAssessmentView> {
+    this.assertCapability(actor, 'triage:create:self');
+    this.assertAvailable();
+    return this.toView(await this.repository.withdrawConsent(
+      actor.user.id,
+      assessmentId,
+      this.clock.now(),
+      audit
+    ));
+  }
+
+  async requestErasure(
+    actor: AuthenticatedActor,
+    assessmentId: string,
+    audit: TriageAuditContext
+  ): Promise<TriageAssessmentView> {
+    this.assertCapability(actor, 'triage:create:self');
+    this.assertAvailable();
+    const requestedAt = this.clock.now();
+    return this.toView(await this.repository.requestErasure(
+      actor.user.id,
+      assessmentId,
+      this.policy.retentionPolicy.version,
+      requestedAt,
+      addBusinessDays(requestedAt, this.policy.retentionPolicy.erasureRequestSlaBusinessDays),
+      audit
+    ));
+  }
+
   private async definition() {
     return this.repository.getDefinition(
       this.policy.consentDocumentCode,
@@ -195,7 +230,14 @@ export class TriageService {
     const requiresImmediateHelp = record.riskLevel === 'HIGH' || record.riskLevel === 'CRITICAL';
     const safetyActions = requiresImmediateHelp ? this.policy.safetyActions[record.riskLevel] : [];
     const crisisResources = requiresImmediateHelp
-      ? this.policy.crisisResources[record.countryCode] ?? []
+      ? (this.policy.crisisResources[record.countryCode] ?? []).map((resource) => ({
+        code: resource.code,
+        label: resource.label,
+        channel: resource.channel,
+        value: resource.value,
+        sourceUrl: resource.sourceUrl,
+        verifiedAt: resource.verifiedAt,
+      }))
       : [];
     return {
       ...record,
@@ -242,4 +284,15 @@ export class TriageService {
       throw AppError.forbidden('TRIAGE_CAPABILITY_REQUIRED');
     }
   }
+}
+
+export function addBusinessDays(start: Date, businessDays: number): Date {
+  const result = new Date(start);
+  let remaining = businessDays;
+  while (remaining > 0) {
+    result.setUTCDate(result.getUTCDate() + 1);
+    const day = result.getUTCDay();
+    if (day !== 0 && day !== 6) remaining -= 1;
+  }
+  return result;
 }

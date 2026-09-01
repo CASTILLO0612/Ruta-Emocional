@@ -1,5 +1,6 @@
 import path from 'path';
 import dotenv from 'dotenv';
+import { assertProductionReadiness } from './productionReadiness';
 
 export type RuntimeEnvironment = 'development' | 'test' | 'production';
 
@@ -10,6 +11,19 @@ export interface TriageCrisisResourceConfig {
   readonly value: string;
   readonly sourceUrl: string;
   readonly verifiedAt: string;
+  readonly reviewDueAt: string;
+  readonly owner: string;
+}
+
+export interface TriageProtocolApprovalConfig {
+  readonly approvalId: string;
+  readonly evaluatorVersion: string;
+  readonly consentDocumentCode: string;
+  readonly consentDocumentVersion: string;
+  readonly reviewerRegistration: string;
+  readonly artifactSha256: string;
+  readonly approvedAt: string;
+  readonly expiresAt: string;
 }
 
 export interface AppConfig {
@@ -19,6 +33,20 @@ export interface AppConfig {
   readonly allowedOrigins: readonly string[];
   readonly trustProxy: boolean;
   readonly jsonBodyLimit: string;
+  readonly secrets: {
+    readonly source: 'LOCAL_ENV' | 'EXTERNAL_INJECTION';
+    readonly bundleVersion: string | null;
+  };
+  readonly operations: {
+    readonly runtimeDatabaseRole: string | null;
+    readonly backupProvider: string | null;
+    readonly lastRestoreVerifiedAt: string | null;
+    readonly maximumRestoreAgeDays: number;
+    readonly rpoMinutes: number;
+    readonly rtoMinutes: number;
+    readonly observabilityProvider: string | null;
+    readonly alertingEnabled: boolean;
+  };
   readonly jwt: {
     readonly accessSecret: string;
     readonly issuer: string;
@@ -121,6 +149,7 @@ export interface AppConfig {
   readonly triage: {
     readonly enabled: boolean;
     readonly protocolApproved: boolean;
+    readonly protocolApproval: TriageProtocolApprovalConfig | null;
     readonly externalProviderEnabled: boolean;
     readonly evaluatorVersion: string;
     readonly consentDocumentCode: string;
@@ -131,6 +160,12 @@ export interface AppConfig {
     readonly maximumProviderSummaryLength: number;
     readonly assessmentsPerMinute: number;
     readonly idempotencyTtlHours: number;
+    readonly retentionPolicy: {
+      readonly approved: boolean;
+      readonly version: string;
+      readonly assessmentRetentionDays: number;
+      readonly erasureRequestSlaBusinessDays: number;
+    };
   };
 }
 
@@ -293,6 +328,76 @@ function parseJsonObject(source: NodeJS.ProcessEnv, name: string): Record<string
   return parsed as Record<string, unknown>;
 }
 
+function readOptionalTriageProtocolApproval(
+  source: NodeJS.ProcessEnv
+): TriageProtocolApprovalConfig | null {
+  const raw = source.TRIAGE_PROTOCOL_APPROVAL_JSON?.trim();
+  if (!raw) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new ConfigurationError('TRIAGE_PROTOCOL_APPROVAL_JSON must contain valid JSON');
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ConfigurationError('TRIAGE_PROTOCOL_APPROVAL_JSON must contain a JSON object');
+  }
+  const record = value as Record<string, unknown>;
+  const fields = [
+    'approvalId',
+    'evaluatorVersion',
+    'consentDocumentCode',
+    'consentDocumentVersion',
+    'reviewerRegistration',
+    'artifactSha256',
+    'approvedAt',
+    'expiresAt',
+  ] as const;
+  if (Object.keys(record).some((key) => !fields.includes(key as typeof fields[number]))) {
+    throw new ConfigurationError('TRIAGE_PROTOCOL_APPROVAL_JSON contains unknown fields');
+  }
+  const text = (field: typeof fields[number]): string => (
+    typeof record[field] === 'string' ? record[field].trim() : ''
+  );
+  const result = {
+    approvalId: text('approvalId'),
+    evaluatorVersion: text('evaluatorVersion'),
+    consentDocumentCode: text('consentDocumentCode'),
+    consentDocumentVersion: text('consentDocumentVersion'),
+    reviewerRegistration: text('reviewerRegistration'),
+    artifactSha256: text('artifactSha256').toLowerCase(),
+    approvedAt: text('approvedAt'),
+    expiresAt: text('expiresAt'),
+  };
+  if (!/^[A-Z0-9][A-Z0-9._-]{2,79}$/i.test(result.approvalId)) {
+    throw new ConfigurationError('TRIAGE protocol approvalId is invalid');
+  }
+  if (
+    !result.evaluatorVersion
+    || !/^[A-Z][A-Z0-9_]{1,79}$/.test(result.consentDocumentCode)
+    || !result.consentDocumentVersion
+    || result.reviewerRegistration.length < 3
+    || result.reviewerRegistration.length > 160
+    || !/^[0-9a-f]{64}$/.test(result.artifactSha256)
+  ) {
+    throw new ConfigurationError('TRIAGE protocol approval metadata is incomplete or invalid');
+  }
+  for (const field of ['approvedAt', 'expiresAt'] as const) {
+    if (!result[field] || Number.isNaN(Date.parse(result[field]))) {
+      throw new ConfigurationError(`TRIAGE protocol ${field} must be an ISO-8601 instant`);
+    }
+  }
+  return Object.freeze(result);
+}
+
+function readSecretsSource(source: NodeJS.ProcessEnv): 'LOCAL_ENV' | 'EXTERNAL_INJECTION' {
+  const value = source.SECRETS_SOURCE?.trim().toUpperCase() || 'LOCAL_ENV';
+  if (value !== 'LOCAL_ENV' && value !== 'EXTERNAL_INJECTION') {
+    throw new ConfigurationError('SECRETS_SOURCE must be LOCAL_ENV or EXTERNAL_INJECTION');
+  }
+  return value;
+}
+
 function readCrisisResources(
   source: NodeJS.ProcessEnv
 ): Readonly<Record<string, readonly TriageCrisisResourceConfig[]>> {
@@ -318,7 +423,16 @@ function readCrisisResources(
         throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}[${index}] must be an object`);
       }
       const resource = rawResource as Record<string, unknown>;
-      const allowed = ['code', 'label', 'channel', 'value', 'sourceUrl', 'verifiedAt'];
+      const allowed = [
+        'code',
+        'label',
+        'channel',
+        'value',
+        'sourceUrl',
+        'verifiedAt',
+        'reviewDueAt',
+        'owner',
+      ];
       if (Object.keys(resource).some((key) => !allowed.includes(key))) {
         throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}[${index}] has unknown fields`);
       }
@@ -328,6 +442,8 @@ function readCrisisResources(
       const value = typeof resource.value === 'string' ? resource.value.trim() : '';
       const sourceUrl = typeof resource.sourceUrl === 'string' ? resource.sourceUrl.trim() : '';
       const verifiedAt = typeof resource.verifiedAt === 'string' ? resource.verifiedAt.trim() : '';
+      const reviewDueAt = typeof resource.reviewDueAt === 'string' ? resource.reviewDueAt.trim() : '';
+      const owner = typeof resource.owner === 'string' ? resource.owner.trim() : '';
       if (!/^[A-Z][A-Z0-9_]{2,49}$/.test(code) || codes.has(code)) {
         throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode} contains an invalid or repeated code`);
       }
@@ -349,8 +465,28 @@ function readCrisisResources(
       if (!/^\d{4}-\d{2}-\d{2}$/.test(verifiedAt) || Number.isNaN(Date.parse(`${verifiedAt}T00:00:00Z`))) {
         throw new ConfigurationError(`TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}.${code} has an invalid verifiedAt date`);
       }
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(reviewDueAt)
+        || Number.isNaN(Date.parse(`${reviewDueAt}T00:00:00Z`))
+        || reviewDueAt <= verifiedAt
+        || owner.length < 3
+        || owner.length > 120
+      ) {
+        throw new ConfigurationError(
+          `TRIAGE_CRISIS_RESOURCES_JSON.${countryCode}.${code} requires a valid owner and reviewDueAt`
+        );
+      }
       codes.add(code);
-      return Object.freeze({ code, label, channel, value, sourceUrl, verifiedAt });
+      return Object.freeze({
+        code,
+        label,
+        channel,
+        value,
+        sourceUrl,
+        verifiedAt,
+        reviewDueAt,
+        owner,
+      });
     }));
   }
   return Object.freeze(result);
@@ -436,6 +572,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const supportedCurrencies = readCurrencies(source);
   const triageEnabled = readBoolean(source, 'TRIAGE_ENABLED', false);
   const triageProtocolApproved = readBoolean(source, 'TRIAGE_PROTOCOL_APPROVED', false);
+  const triageProtocolApproval = readOptionalTriageProtocolApproval(source);
   const triageExternalProviderEnabled = readBoolean(
     source,
     'TRIAGE_EXTERNAL_PROVIDER_ENABLED',
@@ -459,6 +596,26 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     allowedOrigins: readOrigins(source, environment),
     trustProxy: readBoolean(source, 'TRUST_PROXY', false),
     jsonBodyLimit: source.JSON_BODY_LIMIT?.trim() || '256kb',
+    secrets: {
+      source: readSecretsSource(source),
+      bundleVersion: source.SECRETS_BUNDLE_VERSION?.trim() || null,
+    },
+    operations: {
+      runtimeDatabaseRole: source.POSTGRES_RUNTIME_ROLE?.trim() || null,
+      backupProvider: source.BACKUP_PROVIDER?.trim() || null,
+      lastRestoreVerifiedAt: source.BACKUP_LAST_RESTORE_VERIFIED_AT?.trim() || null,
+      maximumRestoreAgeDays: readInteger(
+        source,
+        'BACKUP_MAXIMUM_RESTORE_AGE_DAYS',
+        30,
+        1,
+        365
+      ),
+      rpoMinutes: readInteger(source, 'BACKUP_RPO_MINUTES', 60, 1, 10_080),
+      rtoMinutes: readInteger(source, 'BACKUP_RTO_MINUTES', 240, 1, 10_080),
+      observabilityProvider: source.OBSERVABILITY_PROVIDER?.trim() || null,
+      alertingEnabled: readBoolean(source, 'OBSERVABILITY_ALERTING_ENABLED', false),
+    },
     jwt: {
       accessSecret: requireJwtAccessSecret(source),
       issuer: source.JWT_ISSUER?.trim() || 'ruta-emocional-api',
@@ -767,6 +924,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     triage: {
       enabled: triageEnabled,
       protocolApproved: triageProtocolApproved,
+      protocolApproval: triageProtocolApproval,
       externalProviderEnabled: triageExternalProviderEnabled,
       evaluatorVersion: readRequired(source, 'TRIAGE_EVALUATOR_VERSION'),
       consentDocumentCode: source.TRIAGE_CONSENT_DOCUMENT_CODE?.trim() || 'MENTA_ORIENTATION',
@@ -792,6 +950,24 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         1,
         168
       ),
+      retentionPolicy: {
+        approved: readBoolean(source, 'TRIAGE_RETENTION_POLICY_APPROVED', false),
+        version: source.TRIAGE_RETENTION_POLICY_VERSION?.trim() || 'PENDING',
+        assessmentRetentionDays: readInteger(
+          source,
+          'TRIAGE_ASSESSMENT_RETENTION_DAYS',
+          0,
+          0,
+          3_650
+        ),
+        erasureRequestSlaBusinessDays: readInteger(
+          source,
+          'TRIAGE_ERASURE_REQUEST_SLA_BUSINESS_DAYS',
+          5,
+          1,
+          30
+        ),
+      },
     },
   };
 
@@ -845,14 +1021,11 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       'TRIAGE_DEFAULT_COUNTRY_CODE must have configured crisis resources'
     );
   }
-  if (environment === 'production' && config.triage.enabled && !config.triage.protocolApproved) {
+  try {
+    assertProductionReadiness(config);
+  } catch (error) {
     throw new ConfigurationError(
-      'TRIAGE_PROTOCOL_APPROVED must be true before enabling MENTA in production'
-    );
-  }
-  if (environment === 'production' && config.triage.externalProviderEnabled) {
-    throw new ConfigurationError(
-      'External MENTA requires a selected provider adapter and approved data-processing contract'
+      error instanceof Error ? error.message : 'Production readiness validation failed'
     );
   }
 

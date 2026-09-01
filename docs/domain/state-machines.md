@@ -224,6 +224,18 @@ LOW | MODERATE | HIGH | CRITICAL
 vigente vinculada a una solicitud es `CRITICAL`, la transición de aceptación de
 oferta se rechaza; no se crea relación, conversación ni aceptación parcial.
 
+La solicitud de eliminación asociada sigue una máquina independiente:
+
+```text
+BLOCKED ──► UNDER_REVIEW ──► RESOLVED
+    │              │
+    └──────────────┴──────► DENIED
+```
+
+Identidad, evaluación, política, fecha de solicitud y vencimiento son
+inmutables. Sólo el proceso de privacidad podrá registrar resolución. La
+identidad runtime ordinaria dispone de `SELECT`/`INSERT`, no `UPDATE`/`DELETE`.
+
 ## 13. Concurrencia e idempotencia
 
 - Los comandos mutables aceptan `Idempotency-Key` cuando una repetición pueda duplicar efectos.

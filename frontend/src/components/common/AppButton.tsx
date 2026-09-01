@@ -25,6 +25,8 @@ interface AppButtonProps {
   fullWidth?: boolean;
   icon?: React.ReactNode;
   style?: ViewStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export const AppButton: React.FC<AppButtonProps> = ({
@@ -37,6 +39,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
   fullWidth = false,
   icon,
   style,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const isDisabled = disabled || isLoading;
 
@@ -45,6 +49,10 @@ export const AppButton: React.FC<AppButtonProps> = ({
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
       style={[
         styles.base,
         styles[`size_${size}`],

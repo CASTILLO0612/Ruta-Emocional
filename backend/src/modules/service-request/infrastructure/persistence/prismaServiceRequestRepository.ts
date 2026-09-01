@@ -672,9 +672,24 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
         ],
         select: {
           triageAssessmentId: true,
-          triageAssessment: { select: { riskLevel: true } },
+          triageAssessment: {
+            select: {
+              riskLevel: true,
+              consentWithdrawal: { select: { id: true } },
+              erasureRequest: { select: { status: true } },
+            },
+          },
         },
       });
+      if (
+        currentTriage?.triageAssessment.consentWithdrawal
+        || currentTriage?.triageAssessment.erasureRequest
+      ) {
+        throw AppError.conflict(
+          'TRIAGE_PROCESSING_RESTRICTED',
+          'La evaluación vinculada ya no autoriza continuar el flujo comercial.'
+        );
+      }
       if (currentTriage?.triageAssessment.riskLevel === 'CRITICAL') {
         throw AppError.conflict(
           'CRITICAL_TRIAGE_INTERRUPTS_COMMERCIAL_FLOW',

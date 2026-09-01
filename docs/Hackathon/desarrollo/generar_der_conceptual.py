@@ -104,12 +104,13 @@ ENTITY_GROUPS: Sequence[tuple[str, Sequence[str]]] = (
         ),
     ),
     (
-        "Consentimiento y orientación",
+        "Consentimiento, orientación y privacidad",
         (
             "Documento de consentimiento",
             "Decisión de consentimiento",
             "Evaluación de triaje",
             "Regla de triaje",
+            "Solicitud de eliminación",
         ),
     ),
     ("Plataforma", ("Evento de auditoría", "Evento de salida", "Registro de idempotencia")),
@@ -191,6 +192,10 @@ ATTRIBUTES: dict[str, tuple[str, str]] = {
         "Código + versión",
         "nombre, nivel de riesgo, vigente desde, vigente hasta, estado",
     ),
+    "Solicitud de eliminación": (
+        "Identificador",
+        "estado, versión de política, solicitada en, vence en, resuelta en, resultado",
+    ),
     "Evento de auditoría": (
         "Identificador",
         "acción, recurso, resultado, correlación, dirección de red, metadatos, ocurrencia, origen",
@@ -270,6 +275,10 @@ RELATIONSHIPS: Sequence[tuple[str, str, str, str, str, str]] = (
     ("Orientación", "Relación asistencial", "conserva como origen", "Evaluación de triaje", "0..1", "0..1"),
     ("Orientación", "Evaluación de triaje", "recomienda", "Modalidad de atención", "0..N", "0..N"),
     ("Orientación", "Evaluación de triaje", "aplica", "Regla de triaje", "1..N", "0..N"),
+    ("Privacidad", "Decisión de consentimiento", "retira autorización de", "Evaluación de triaje", "0..1", "0..1"),
+    ("Privacidad", "Paciente", "solicita", "Solicitud de eliminación", "0..N", "1"),
+    ("Privacidad", "Evaluación de triaje", "es objeto de", "Solicitud de eliminación", "0..1", "1"),
+    ("Privacidad", "Usuario", "resuelve", "Solicitud de eliminación", "0..N", "0..1"),
     ("Plataforma", "Usuario", "origina", "Evento de auditoría", "0..N", "0..1"),
     ("Plataforma", "Usuario", "delimita", "Registro de idempotencia", "0..N", "1"),
 )
@@ -716,7 +725,10 @@ def draw_relation_pages(pdf: canvas.Canvas, start_page: int) -> int:
         ("Relaciones: agenda, reputación y pagos", {"Agenda", "Reputación", "Pagos"}),
         ("Relaciones: mensajería e historia clínica I", {"Mensajería", "Clínica I"}),
         ("Relaciones: historia clínica II", {"Clínica II"}),
-        ("Relaciones: consentimiento y orientación", {"Consentimiento", "Orientación"}),
+        (
+            "Relaciones: consentimiento, orientación y privacidad",
+            {"Consentimiento", "Orientación", "Privacidad"},
+        ),
         ("Relaciones: plataforma", {"Plataforma"}),
     )
     page_number = start_page
@@ -884,14 +896,14 @@ def draw_attribute_catalog(pdf: canvas.Canvas, page_number: int) -> int:
 
 def validate_model() -> None:
     entities = {entity for _, group in ENTITY_GROUPS for entity in group}
-    if len(entities) != 38:
-        raise ValueError(f"Se esperaban 38 entidades conceptuales y se obtuvieron {len(entities)}")
+    if len(entities) != 39:
+        raise ValueError(f"Se esperaban 39 entidades conceptuales y se obtuvieron {len(entities)}")
     if set(ATTRIBUTES) != entities:
         missing = sorted(entities - set(ATTRIBUTES))
         extra = sorted(set(ATTRIBUTES) - entities)
         raise ValueError(f"Catálogo inconsistente. Faltan={missing}; sobran={extra}")
-    if len(RELATIONSHIPS) != 64:
-        raise ValueError(f"Se esperaban 64 relaciones y se obtuvieron {len(RELATIONSHIPS)}")
+    if len(RELATIONSHIPS) != 68:
+        raise ValueError(f"Se esperaban 68 relaciones y se obtuvieron {len(RELATIONSHIPS)}")
     referenced = {item for relationship in RELATIONSHIPS for item in (relationship[1], relationship[3])}
     if not referenced.issubset(entities):
         raise ValueError(f"Relaciones con entidades desconocidas: {sorted(referenced - entities)}")

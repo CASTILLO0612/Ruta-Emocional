@@ -58,6 +58,8 @@ GRANT SELECT, INSERT ON TABLE
   conversation_participants,
   messages,
   patient_consents,
+  triage_consent_withdrawals,
+  triage_erasure_requests,
   triage_assessments,
   triage_assessment_modalities,
   triage_assessment_rule_results,
