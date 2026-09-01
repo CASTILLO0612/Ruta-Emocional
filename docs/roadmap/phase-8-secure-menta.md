@@ -161,7 +161,7 @@ confirmación accesible y estado de revocación/solicitud.
 | Backup/restauración local | 21 migraciones y tablas críticas verificadas en destino desechable |
 | Expo SDK 57 | dependencias exactas, TypeScript y configuración nativa correctos |
 | Exportación Expo Web | bundle generado y sin nombres de secretos públicos prohibidos |
-| CI del commit de implementación `64dfac3` | [Quality #33340045465](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33340045465) correcto |
+| CI del endurecimiento productivo `f305d65` | [Quality #33462146189](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33462146189) correcto |
 
 La integración comprueba además que el identificador de triaje congelado se
 proyecta al expediente del profesional responsable, que el retiro de
