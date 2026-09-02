@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -42,18 +42,19 @@ const PROFESSIONAL_BIO_MIN_LENGTH = 20;
 const PROFESSIONAL_BIO_MAX_LENGTH = 3000;
 
 interface SelectedEvidence {
-  readonly asset: DocumentPicker.DocumentPickerAsset;
+  readonly file: File;
+  readonly fileName: string;
   readonly contentType: 'application/pdf' | 'image/jpeg' | 'image/png';
   readonly licenseId: string;
 }
 
 function evidenceContentType(
-  asset: DocumentPicker.DocumentPickerAsset,
+  file: File,
   accepted: readonly string[]
 ): SelectedEvidence['contentType'] | null {
-  const reported = asset.mimeType?.split(';', 1)[0].trim().toLowerCase();
+  const reported = file.type.split(';', 1)[0].trim().toLowerCase();
   if (reported && accepted.includes(reported)) return reported as SelectedEvidence['contentType'];
-  const extension = asset.name.toLowerCase().split('.').pop();
+  const extension = file.name.toLowerCase().split('.').pop();
   const inferred = extension === 'pdf'
     ? 'application/pdf'
     : extension === 'png'
@@ -62,6 +63,24 @@ function evidenceContentType(
         ? 'image/jpeg'
         : null;
   return inferred && accepted.includes(inferred) ? inferred : null;
+}
+
+const EVIDENCE_FILE_EXTENSIONS: Readonly<Record<SelectedEvidence['contentType'], string>> = {
+  'application/pdf': '.pdf',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+};
+
+function evidenceFileName(file: File, contentType: SelectedEvidence['contentType']): string {
+  const extension = EVIDENCE_FILE_EXTENSIONS[contentType];
+  const sanitized = file.name
+    .replace(/[\\/\u0000-\u001F\u007F]/g, '_')
+    .trim();
+  const nameWithExtension = sanitized.toLowerCase().endsWith(extension)
+    ? sanitized
+    : `${sanitized || 'evidencia'}${extension}`;
+  if (nameWithExtension.length <= 180) return nameWithExtension;
+  return `${nameWithExtension.slice(0, 180 - extension.length)}${extension}`;
 }
 
 function formatFileSize(bytes: number | undefined): string {
@@ -195,42 +214,49 @@ export const VerificationScreen: React.FC = () => {
 
   const handleSelectEvidence = async (licenseId: string) => {
     if (evidencePolicy.mode !== 'LOCAL_QA') return;
-    const result = await DocumentPicker.getDocumentAsync({
-      type: [...evidencePolicy.acceptedContentTypes],
-      multiple: false,
-      copyToCacheDirectory: true,
-      base64: false,
+    const result = await File.pickFileAsync({
+      mimeTypes: [...evidencePolicy.acceptedContentTypes],
+      multipleFiles: false,
     });
     if (result.canceled) return;
-    const asset = result.assets[0];
-    const contentType = evidenceContentType(asset, evidencePolicy.acceptedContentTypes);
+    const file = result.result;
+    const contentType = evidenceContentType(file, evidencePolicy.acceptedContentTypes);
     if (!contentType) {
       showAlert('Archivo no permitido', 'Selecciona un archivo PDF, JPEG o PNG.');
       return;
     }
-    if (asset.size !== undefined && asset.size > evidencePolicy.maximumBytes) {
+    if (!file.exists || file.size < 1) {
+      showAlert('No pudimos leer el archivo', 'Selecciona nuevamente el documento desde el explorador de archivos.');
+      return;
+    }
+    if (file.size > evidencePolicy.maximumBytes) {
       showAlert(
         'Archivo demasiado grande',
         `El tamaño máximo es ${formatFileSize(evidencePolicy.maximumBytes)}.`
       );
       return;
     }
-    setSelectedEvidence({ asset, contentType, licenseId });
+    setSelectedEvidence({
+      file,
+      fileName: evidenceFileName(file, contentType),
+      contentType,
+      licenseId,
+    });
   };
 
   const handleSubmitEvidence = async () => {
     if (!selectedEvidence || evidencePolicy.mode !== 'LOCAL_QA') return;
     setIsUploadingEvidence(true);
     try {
-      const selectedSize = selectedEvidence.asset.size;
-      if (selectedSize !== undefined && (selectedSize < 1 || selectedSize > evidencePolicy.maximumBytes)) {
+      const selectedSize = selectedEvidence.file.size;
+      if (selectedSize < 1 || selectedSize > evidencePolicy.maximumBytes) {
         throw new Error(`El tamaño máximo es ${formatFileSize(evidencePolicy.maximumBytes)}.`);
       }
       const updated = await uploadLocalQaEvidence({
         licenseId: selectedEvidence.licenseId,
-        fileName: selectedEvidence.asset.name,
+        fileName: selectedEvidence.fileName,
         contentType: selectedEvidence.contentType,
-        fileUri: selectedEvidence.asset.uri,
+        file: selectedEvidence.file,
       });
       setProfile(updated);
       setSelectedEvidence(null);
@@ -366,10 +392,10 @@ export const VerificationScreen: React.FC = () => {
                               <MaterialIcons name="description" size={22} color={Colors.primary} />
                               <View style={styles.selectedFileCopy}>
                                 <Text style={styles.selectedFileName} numberOfLines={1}>
-                                  {selectedForLicense.asset.name}
+                                  {selectedForLicense.fileName}
                                 </Text>
                                 <Text style={styles.helperText}>
-                                  {formatFileSize(selectedForLicense.asset.size)}
+                                  {formatFileSize(selectedForLicense.file.size)}
                                 </Text>
                               </View>
                             </View>

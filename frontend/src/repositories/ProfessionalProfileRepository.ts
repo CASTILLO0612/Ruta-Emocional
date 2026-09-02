@@ -1,3 +1,4 @@
+import type { File } from 'expo-file-system';
 import { DirectoryModality } from '../models/Psychologist';
 import {
   EvidenceUploadPolicy,
@@ -54,11 +55,11 @@ export async function uploadLocalQaEvidence(input: {
   readonly licenseId: string;
   readonly fileName: string;
   readonly contentType: string;
-  readonly fileUri: string;
+  readonly file: File;
 }): Promise<ProfessionalProfile> {
   const response = await apiV1FileRequest<Envelope<ProfessionalProfile>>(
     `/psychologists/me/verification-evidence/local/${input.licenseId}`,
-    input.fileUri,
+    input.file,
     { contentType: input.contentType, fileName: input.fileName }
   );
   return response.data;

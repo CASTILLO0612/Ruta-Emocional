@@ -1,6 +1,4 @@
-import { fetch as expoFetch } from 'expo/fetch';
-import { File } from 'expo-file-system';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, UploadType } from 'expo-file-system';
 import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -177,7 +175,7 @@ async function executeRequest<T>(
 
 async function executeFileUpload<T>(
   endpoint: string,
-  fileUri: string,
+  file: File,
   options: ApiRequestOptions & {
     readonly contentType: string;
     readonly fileName: string;
@@ -196,37 +194,21 @@ async function executeFileUpload<T>(
   let status: number;
   let responseBody: string;
   try {
-    const response = await expoFetch(`${getVersionOneApiBaseUrl()}${endpoint}`, {
-      method: 'PUT',
+    const result = await file.upload(`${getVersionOneApiBaseUrl()}${endpoint}`, {
+      httpMethod: 'PUT',
+      uploadType: UploadType.BINARY_CONTENT,
       headers,
-      body: new File(fileUri),
+      signal: options.signal,
     });
-    status = response.status;
-    responseBody = await response.text();
-  } catch (primaryCause) {
-    try {
-      const result = await FileSystem.uploadAsync(`${getVersionOneApiBaseUrl()}${endpoint}`, fileUri, {
-        httpMethod: 'PUT',
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers,
-      });
-      status = result.status;
-      responseBody = result.body;
-    } catch (fallbackCause) {
-      if (__DEV__) {
-        console.warn('professional.evidence.upload.transport_failed', {
-          uriScheme: fileUri.split(':', 1)[0] ?? 'unknown',
-          primaryCause,
-          fallbackCause,
-        });
-      }
-      throw new ApiError({
-        status: 0,
-        code: 'FILE_UPLOAD_ERROR',
-        message: 'No pudimos transferir el archivo seleccionado. Verifica la conexión e inténtalo nuevamente.',
-        cause: fallbackCause,
-      });
-    }
+    status = result.status;
+    responseBody = result.body;
+  } catch (cause) {
+    throw new ApiError({
+      status: 0,
+      code: 'FILE_UPLOAD_ERROR',
+      message: 'No pudimos transferir el archivo seleccionado. Verifica la conexión e inténtalo nuevamente.',
+      cause,
+    });
   }
 
   if (
@@ -237,7 +219,7 @@ async function executeFileUpload<T>(
   ) {
     const nextAccessToken = await refreshAccessToken();
     if (nextAccessToken) {
-      return executeFileUpload<T>(endpoint, fileUri, {
+      return executeFileUpload<T>(endpoint, file, {
         ...options,
         retryUnauthorized: false,
       });
@@ -285,11 +267,11 @@ export function apiV1Request<T>(
 
 export function apiV1FileRequest<T>(
   endpoint: string,
-  fileUri: string,
+  file: File,
   options: ApiRequestOptions & {
     readonly contentType: string;
     readonly fileName: string;
   }
 ): Promise<T> {
-  return executeFileUpload<T>(endpoint, fileUri, options);
+  return executeFileUpload<T>(endpoint, file, options);
 }
