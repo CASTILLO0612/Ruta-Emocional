@@ -1,3 +1,5 @@
+import { fetch as expoFetch } from 'expo/fetch';
+import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
@@ -191,24 +193,44 @@ async function executeFileUpload<T>(
   };
   if (authenticated && accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  let result: FileSystem.FileSystemUploadResult;
+  let status: number;
+  let responseBody: string;
   try {
-    result = await FileSystem.uploadAsync(`${getVersionOneApiBaseUrl()}${endpoint}`, fileUri, {
-      httpMethod: 'PUT',
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    const response = await expoFetch(`${getVersionOneApiBaseUrl()}${endpoint}`, {
+      method: 'PUT',
       headers,
+      body: new File(fileUri),
     });
-  } catch (cause) {
-    throw new ApiError({
-      status: 0,
-      code: 'FILE_UPLOAD_ERROR',
-      message: 'No pudimos transferir el archivo seleccionado. Verifica la conexión e inténtalo nuevamente.',
-      cause,
-    });
+    status = response.status;
+    responseBody = await response.text();
+  } catch (primaryCause) {
+    try {
+      const result = await FileSystem.uploadAsync(`${getVersionOneApiBaseUrl()}${endpoint}`, fileUri, {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers,
+      });
+      status = result.status;
+      responseBody = result.body;
+    } catch (fallbackCause) {
+      if (__DEV__) {
+        console.warn('professional.evidence.upload.transport_failed', {
+          uriScheme: fileUri.split(':', 1)[0] ?? 'unknown',
+          primaryCause,
+          fallbackCause,
+        });
+      }
+      throw new ApiError({
+        status: 0,
+        code: 'FILE_UPLOAD_ERROR',
+        message: 'No pudimos transferir el archivo seleccionado. Verifica la conexión e inténtalo nuevamente.',
+        cause: fallbackCause,
+      });
+    }
   }
 
   if (
-    result.status === 401
+    status === 401
     && authenticated
     && options.retryUnauthorized !== false
     && refreshAccessToken
@@ -222,8 +244,8 @@ async function executeFileUpload<T>(
     }
   }
 
-  const payload = parseResponsePayload(result.status, result.body);
-  if (result.status < 200 || result.status >= 300) throw toApiError(result.status, payload);
+  const payload = parseResponsePayload(status, responseBody);
+  if (status < 200 || status >= 300) throw toApiError(status, payload);
   return payload as T;
 }
 
