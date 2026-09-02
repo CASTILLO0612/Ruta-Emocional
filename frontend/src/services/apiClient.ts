@@ -1,4 +1,4 @@
-import { fetch as expoFetch } from 'expo/fetch';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -58,10 +58,6 @@ interface PreparedRequestBody {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
-type FetchTransport = (input: string, init?: RequestInit) => Promise<Response>;
-
-const expoBinaryTransport: FetchTransport = (input, init) => expoFetch(input, init);
-
 let accessToken: string | null = null;
 let refreshAccessToken: RefreshAccessToken | null = null;
 
@@ -91,17 +87,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-async function readResponsePayload(response: Response): Promise<unknown> {
-  if (response.status === 204) return undefined;
-  const responseText = await response.text();
-  if (!responseText) return undefined;
+function parseResponsePayload(status: number, responseText: string): unknown {
+  if (status === 204 || !responseText) return undefined;
 
   try {
     return JSON.parse(responseText) as unknown;
   } catch {
-    if (response.ok) {
+    if (status >= 200 && status < 300) {
       throw new ApiError({
-        status: response.status,
+        status,
         code: 'INVALID_API_RESPONSE',
         message: 'El servidor devolvió una respuesta que no pudimos interpretar.',
       });
@@ -110,11 +104,15 @@ async function readResponsePayload(response: Response): Promise<unknown> {
   }
 }
 
-function toApiError(response: Response, payload: unknown): ApiError {
+async function readResponsePayload(response: Response): Promise<unknown> {
+  return parseResponsePayload(response.status, await response.text());
+}
+
+function toApiError(status: number, payload: unknown): ApiError {
   const problem = isRecord(payload) ? payload as ProblemDetails : undefined;
   return new ApiError({
-    status: response.status,
-    code: typeof problem?.code === 'string' ? problem.code : `HTTP_${response.status}`,
+    status,
+    code: typeof problem?.code === 'string' ? problem.code : `HTTP_${status}`,
     message: typeof problem?.detail === 'string'
       ? problem.detail
       : 'No pudimos completar la operación solicitada.',
@@ -128,8 +126,7 @@ async function executeRequest<T>(
   endpoint: string,
   method: HttpMethod,
   body: PreparedRequestBody,
-  options: ApiRequestOptions,
-  transport: FetchTransport = globalThis.fetch
+  options: ApiRequestOptions
 ): Promise<T> {
   validateEndpoint(endpoint);
 
@@ -141,7 +138,7 @@ async function executeRequest<T>(
 
   let response: Response;
   try {
-    response = await transport(`${baseUrl}${endpoint}`, {
+    response = await fetch(`${baseUrl}${endpoint}`, {
       method,
       headers,
       body: body.value,
@@ -167,12 +164,66 @@ async function executeRequest<T>(
       return executeRequest<T>(baseUrl, endpoint, method, body, {
         ...options,
         retryUnauthorized: false,
-      }, transport);
+      });
     }
   }
 
   const payload = await readResponsePayload(response);
-  if (!response.ok) throw toApiError(response, payload);
+  if (!response.ok) throw toApiError(response.status, payload);
+  return payload as T;
+}
+
+async function executeFileUpload<T>(
+  endpoint: string,
+  fileUri: string,
+  options: ApiRequestOptions & {
+    readonly contentType: string;
+    readonly fileName: string;
+  }
+): Promise<T> {
+  validateEndpoint(endpoint);
+
+  const authenticated = options.authenticated !== false;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': options.contentType,
+    'X-Evidence-File-Name': encodeURIComponent(options.fileName),
+  };
+  if (authenticated && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  let result: FileSystem.FileSystemUploadResult;
+  try {
+    result = await FileSystem.uploadAsync(`${getVersionOneApiBaseUrl()}${endpoint}`, fileUri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers,
+    });
+  } catch (cause) {
+    throw new ApiError({
+      status: 0,
+      code: 'FILE_UPLOAD_ERROR',
+      message: 'No pudimos transferir el archivo seleccionado. Verifica la conexión e inténtalo nuevamente.',
+      cause,
+    });
+  }
+
+  if (
+    result.status === 401
+    && authenticated
+    && options.retryUnauthorized !== false
+    && refreshAccessToken
+  ) {
+    const nextAccessToken = await refreshAccessToken();
+    if (nextAccessToken) {
+      return executeFileUpload<T>(endpoint, fileUri, {
+        ...options,
+        retryUnauthorized: false,
+      });
+    }
+  }
+
+  const payload = parseResponsePayload(result.status, result.body);
+  if (result.status < 200 || result.status >= 300) throw toApiError(result.status, payload);
   return payload as T;
 }
 
@@ -210,25 +261,13 @@ export function apiV1Request<T>(
   );
 }
 
-export function apiV1BinaryRequest<T>(
+export function apiV1FileRequest<T>(
   endpoint: string,
-  method: 'POST' | 'PUT',
-  body: Blob,
+  fileUri: string,
   options: ApiRequestOptions & {
     readonly contentType: string;
     readonly fileName: string;
   }
 ): Promise<T> {
-  return executeRequest<T>(
-    getVersionOneApiBaseUrl(),
-    endpoint,
-    method,
-    {
-      value: body,
-      contentType: options.contentType,
-      headers: { 'X-Evidence-File-Name': encodeURIComponent(options.fileName) },
-    },
-    options,
-    expoBinaryTransport
-  );
+  return executeFileUpload<T>(endpoint, fileUri, options);
 }

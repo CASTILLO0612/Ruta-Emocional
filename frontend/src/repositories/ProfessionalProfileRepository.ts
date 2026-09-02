@@ -6,7 +6,7 @@ import {
   SpecialtyCatalogItem,
   WeeklyAvailabilityRule,
 } from '../models/ProfessionalProfile';
-import { apiV1BinaryRequest, apiV1Request } from '../services/apiClient';
+import { apiV1FileRequest, apiV1Request } from '../services/apiClient';
 
 interface Envelope<T> {
   readonly data: T;
@@ -54,12 +54,11 @@ export async function uploadLocalQaEvidence(input: {
   readonly licenseId: string;
   readonly fileName: string;
   readonly contentType: string;
-  readonly blob: Blob;
+  readonly fileUri: string;
 }): Promise<ProfessionalProfile> {
-  const response = await apiV1BinaryRequest<Envelope<ProfessionalProfile>>(
+  const response = await apiV1FileRequest<Envelope<ProfessionalProfile>>(
     `/psychologists/me/verification-evidence/local/${input.licenseId}`,
-    'PUT',
-    input.blob,
+    input.fileUri,
     { contentType: input.contentType, fileName: input.fileName }
   );
   return response.data;
