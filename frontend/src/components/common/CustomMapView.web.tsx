@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { Shadow } from '../../theme/spacing';
+import { FontFamily, Typography } from '../../theme/typography';
 
 export const PROVIDER_GOOGLE = 'google';
 export const PROVIDER_DEFAULT = 'default';
@@ -88,7 +89,7 @@ const markerStyles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   labelContainer: {
-    backgroundColor: 'rgba(10,36,99,0.92)',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -99,8 +100,9 @@ const markerStyles = StyleSheet.create({
     ...Shadow.sm,
   },
   label: {
-    fontSize: 9,
-    fontWeight: '700',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 10,
     color: Colors.textInverse,
     textAlign: 'center',
   },
@@ -189,7 +191,7 @@ const CustomMapView: React.FC<MapViewProps> = (props) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#E5E9F0',
+    backgroundColor: Colors.surfaceMuted,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -199,7 +201,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(10,36,99,0.06)',
+    backgroundColor: Colors.primarySubtle,
     pointerEvents: 'none',
   },
 });

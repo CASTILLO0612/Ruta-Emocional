@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
+import { Typography } from '../../theme/typography';
 
 interface CustomAlertProps {
   visible: boolean;
@@ -62,7 +63,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(10,36,99,0.3)',
+    backgroundColor: Colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
@@ -79,16 +80,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.textPrimary,
     textAlign: 'center',
   },
   message: {
-    fontSize: 14,
+    ...Typography.body,
     color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -98,30 +97,28 @@ const styles = StyleSheet.create({
   confirmBtn: {
     flex: 1,
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.sm,
   },
   confirmBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...Typography.button,
     color: Colors.textInverse,
   },
   cancelBtn: {
     flex: 1,
     backgroundColor: Colors.background,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
     paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...Typography.button,
     color: Colors.textSecondary,
   },
 });

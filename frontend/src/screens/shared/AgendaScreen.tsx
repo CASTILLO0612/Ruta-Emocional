@@ -1,4 +1,16 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  Bell,
+  CalendarCheck,
+  CalendarDays,
+  CircleAlert,
+  Clock3,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Plus,
+  X,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { randomUUID } from 'expo-crypto';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -6,13 +18,13 @@ import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../components/common/AppButton';
 import {
@@ -37,7 +49,9 @@ import {
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
+import { formatModalityLabel } from '../../utils/modality';
 
 const STATUS_LABELS: Record<Appointment['status'], string> = {
   SCHEDULED: 'Pendiente de confirmar',
@@ -48,17 +62,24 @@ const STATUS_LABELS: Record<Appointment['status'], string> = {
   NO_SHOW: 'Inasistencia',
 };
 
-const MODALITY_LABELS: Record<AppointmentModality, string> = {
-  CHAT: 'Chat',
-  CALL: 'Llamada',
-  IN_PERSON: 'Presencial',
+const MODALITY_ICONS: Record<AppointmentModality, LucideIcon> = {
+  CHAT: MessageCircle,
+  CALL: Phone,
+  IN_PERSON: MapPin,
 };
 
-const MODALITY_ICONS: Record<AppointmentModality, keyof typeof MaterialIcons.glyphMap> = {
-  CHAT: 'chat-bubble-outline',
-  CALL: 'phone',
-  IN_PERSON: 'place',
-};
+function ModalityIcon({
+  modality,
+  color,
+  size = IconSize.inline,
+}: {
+  readonly modality: AppointmentModality;
+  readonly color: string;
+  readonly size?: number;
+}) {
+  const Icon = MODALITY_ICONS[modality];
+  return <Icon size={size} strokeWidth={IconStroke.regular} color={color} />;
+}
 
 function formatAppointmentDate(isoDate: string): string {
   return new Intl.DateTimeFormat('es-NI', {
@@ -286,7 +307,11 @@ export const AgendaScreen: React.FC = () => {
             onPress={() => isScheduleOpen ? setIsScheduleOpen(false) : openSchedule()}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           >
-            <MaterialIcons name={isScheduleOpen ? 'close' : 'add'} size={24} color={Colors.textInverse} />
+            {isScheduleOpen ? (
+              <X size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textInverse} />
+            ) : (
+              <Plus size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textInverse} />
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -303,7 +328,7 @@ export const AgendaScreen: React.FC = () => {
       >
         {error ? (
           <Pressable onPress={() => void refresh()} style={styles.errorBanner}>
-            <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+            <CircleAlert size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />
             <View style={styles.flex}>
               <Text style={styles.errorText}>{error}</Text>
               <Text style={styles.retryText}>Toca para volver a cargar</Text>
@@ -313,9 +338,9 @@ export const AgendaScreen: React.FC = () => {
 
         {reminderMessage ? (
           <Pressable onPress={() => setReminderMessage(null)} style={styles.reminderBanner}>
-            <MaterialIcons name="notifications-none" size={20} color={Colors.primary} />
+            <Bell size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
             <Text style={styles.reminderText}>{reminderMessage}</Text>
-            <MaterialIcons name="close" size={18} color={Colors.textTertiary} />
+            <X size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
           </Pressable>
         ) : null}
 
@@ -330,7 +355,7 @@ export const AgendaScreen: React.FC = () => {
                   Duración configurada: {policy.durationMinutes} minutos
                 </Text>
               </View>
-              <MaterialIcons name="event-available" size={24} color={Colors.primary} />
+              <CalendarCheck size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
             </View>
 
             {!rescheduling ? (
@@ -367,16 +392,15 @@ export const AgendaScreen: React.FC = () => {
                       modality === selectedModality && styles.modalitySelected,
                     ]}
                   >
-                    <MaterialIcons
-                      name={MODALITY_ICONS[modality]}
-                      size={16}
+                    <ModalityIcon
+                      modality={modality}
                       color={modality === selectedModality ? Colors.textInverse : Colors.primary}
                     />
                     <Text style={[
                       styles.modalityText,
                       modality === selectedModality && styles.modalityTextSelected,
                     ]}>
-                      {MODALITY_LABELS[modality]}
+                      {formatModalityLabel(modality)}
                     </Text>
                   </Pressable>
                 ))}
@@ -394,7 +418,7 @@ export const AgendaScreen: React.FC = () => {
                     onPress={() => void chooseSlot(slot)}
                     style={({ pressed }) => [styles.slot, pressed && styles.slotPressed]}
                   >
-                    <MaterialIcons name="schedule" size={16} color={Colors.primary} />
+                    <Clock3 size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
                     <Text style={styles.slotText}>{formatSlotDate(slot.startsAt)}</Text>
                   </Pressable>
                 ))}
@@ -424,7 +448,7 @@ export const AgendaScreen: React.FC = () => {
         {visibleAppointments.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
-              <MaterialIcons name="event-note" size={30} color={Colors.primary} />
+              <CalendarDays size={IconSize.state} strokeWidth={IconStroke.regular} color={Colors.primary} />
             </View>
             <Text style={styles.emptyTitle}>
               {scope === 'UPCOMING' ? 'No hay citas próximas' : 'No hay citas en el historial'}
@@ -443,9 +467,9 @@ export const AgendaScreen: React.FC = () => {
             <View key={appointment.id} style={styles.appointmentCard}>
               <View style={styles.cardTopRow}>
                 <View style={styles.modalityIcon}>
-                  <MaterialIcons
-                    name={MODALITY_ICONS[appointment.modality]}
-                    size={20}
+                  <ModalityIcon
+                    modality={appointment.modality}
+                    size={IconSize.action}
                     color={Colors.primary}
                   />
                 </View>
@@ -458,7 +482,7 @@ export const AgendaScreen: React.FC = () => {
                 </View>
               </View>
               <View style={styles.metaRow}>
-                <Text style={styles.metaText}>{MODALITY_LABELS[appointment.modality]}</Text>
+                <Text style={styles.metaText}>{formatModalityLabel(appointment.modality)}</Text>
                 <View style={styles.dot} />
                 <Text style={styles.metaText}>{appointment.timezone}</Text>
               </View>
@@ -603,9 +627,9 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.base,
     borderRadius: BorderRadius.md,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Colors.errorSurface,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: Colors.errorBorder,
   },
   errorText: { ...Typography.bodySmall, color: Colors.error },
   retryText: { ...Typography.caption, color: Colors.textSecondary, marginTop: Spacing.xxs },
@@ -616,9 +640,9 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.base,
     borderRadius: BorderRadius.md,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.infoSurface,
     borderWidth: 1,
-    borderColor: '#DCE4FA',
+    borderColor: Colors.infoBorder,
   },
   reminderText: { ...Typography.bodySmall, color: Colors.textPrimary, flex: 1 },
   schedulePanel: {
@@ -642,7 +666,7 @@ const styles = StyleSheet.create({
   },
   chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { ...Typography.bodySmall, color: Colors.textSecondary },
-  chipTextSelected: { color: Colors.textInverse, fontWeight: '600' },
+  chipTextSelected: { color: Colors.textInverse, fontFamily: FontFamily.bodySemiBold },
   modalityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.base },
   modalityChip: {
     flexDirection: 'row',
@@ -655,7 +679,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   modalitySelected: { backgroundColor: Colors.primary },
-  modalityText: { ...Typography.caption, color: Colors.primary, fontWeight: '600' },
+  modalityText: {
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.primary,
+  },
   modalityTextSelected: { color: Colors.textInverse },
   slotLoader: { marginVertical: Spacing.xl },
   slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.base },
@@ -666,23 +694,27 @@ const styles = StyleSheet.create({
     width: '48%',
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: '#F8FAFF',
+    backgroundColor: Colors.surfaceSoft,
     borderWidth: 1,
-    borderColor: '#E1E8F8',
+    borderColor: Colors.borderSubtle,
   },
-  slotPressed: { backgroundColor: '#EEF2FF' },
+  slotPressed: { backgroundColor: Colors.primaryTint },
   slotText: { ...Typography.caption, color: Colors.textPrimary, flex: 1 },
   emptySlots: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.base },
   segmentedControl: {
     flexDirection: 'row',
     padding: Spacing.xs,
     borderRadius: BorderRadius.md,
-    backgroundColor: '#F4F6FA',
+    backgroundColor: Colors.surfaceMuted,
     marginBottom: Spacing.base,
   },
   segment: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: BorderRadius.sm },
   segmentActive: { backgroundColor: Colors.surface },
-  segmentText: { ...Typography.bodySmall, color: Colors.textSecondary, fontWeight: '600' },
+  segmentText: {
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.textSecondary,
+  },
   segmentTextActive: { color: Colors.primary },
   emptyState: { alignItems: 'center', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.xxxl },
   emptyIcon: {
@@ -691,7 +723,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.primaryTint,
     marginBottom: Spacing.base,
   },
   emptyTitle: { ...Typography.h3, color: Colors.textPrimary, textAlign: 'center' },
@@ -708,12 +740,21 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.primaryTint,
   },
   counterpart: { ...Typography.h4, color: Colors.textPrimary },
   date: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xxs },
-  statusPill: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.full, backgroundColor: '#F4F6FA' },
-  statusText: { ...Typography.caption, color: Colors.primary, fontWeight: '600' },
+  statusPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceMuted,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.primary,
+  },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: 54, marginTop: Spacing.sm },
   metaText: { ...Typography.caption, color: Colors.textTertiary },
   dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: Colors.textTertiary },

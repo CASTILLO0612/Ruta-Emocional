@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Star, StarHalf } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconStroke } from '../../theme/icons';
 
 interface StarRatingProps {
   rating?: number;
@@ -22,23 +23,41 @@ export const StarRating: React.FC<StarRatingProps> = ({
 }) => {
   const safeRating = typeof rating === 'number' && !isNaN(rating) ? rating : 5.0;
 
-  const stars = Array.from({ length: maxStars }, (_, i) => {
-    const starValue = i + 1;
-    if (safeRating >= starValue) return 'star';
-    if (safeRating >= starValue - 0.5) return 'star-half';
-    return 'star-border';
-  });
-
   return (
     <View style={styles.container}>
-      {stars.map((iconName, i) => (
-        <MaterialIcons
-          key={i}
-          name={iconName as any}
-          size={size}
-          color={Colors.starFilled}
-        />
-      ))}
+      {Array.from({ length: maxStars }, (_, index) => {
+        const starValue = index + 1;
+        if (safeRating >= starValue) {
+          return (
+            <Star
+              key={index}
+              size={size}
+              strokeWidth={IconStroke.regular}
+              color={Colors.starFilled}
+              fill={Colors.starFilled}
+            />
+          );
+        }
+        if (safeRating >= starValue - 0.5) {
+          return (
+            <StarHalf
+              key={index}
+              size={size}
+              strokeWidth={IconStroke.regular}
+              color={Colors.starFilled}
+              fill={Colors.starFilled}
+            />
+          );
+        }
+        return (
+          <Star
+            key={index}
+            size={size}
+            strokeWidth={IconStroke.regular}
+            color={Colors.starEmpty}
+          />
+        );
+      })}
       {showValue && (
         <Text style={[styles.value, { fontSize: size - 2 }]}>
           {safeRating.toFixed(1)}
@@ -59,12 +78,12 @@ const styles = StyleSheet.create({
   },
   value: {
     ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textPrimary,
-    fontWeight: '600',
     marginLeft: Spacing.xs,
   },
   reviews: {
+    fontFamily: FontFamily.bodyRegular,
     color: Colors.textSecondary,
-    fontWeight: '400',
   },
 });

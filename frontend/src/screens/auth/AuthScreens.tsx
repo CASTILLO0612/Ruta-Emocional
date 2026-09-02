@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -12,12 +11,25 @@ import {
   StatusBar,
   Animated,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowRight,
+  BadgeCheck,
+  HeartHandshake,
+  LockKeyhole,
+  Mail,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { Eye, EyeOff } from 'lucide';
 import { useNavigation } from '@react-navigation/native';
 
+import { AppMorphIcon } from '../../components/common/AppMorphIcon';
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 import { BorderRadius, Spacing } from '../../theme/spacing';
+import { IconSize, IconStroke } from '../../theme/icons';
+import { MotionDuration } from '../../theme/motion';
 import { PSYCHOLOGIST_LICENSE_AUTHORITY } from '../../services/AuthService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Toast, useToast } from '../../components/common/Toast';
@@ -31,7 +43,8 @@ const MAXIMUM_LICENSE_NUMBER_LENGTH = 80;
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface FieldProps {
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon: LucideIcon;
+  label: string;
   placeholder: string;
   value: string;
   onChangeText: (v: string) => void;
@@ -46,6 +59,7 @@ interface FieldProps {
 
 const Field: React.FC<FieldProps> = ({
   icon,
+  label,
   placeholder,
   value,
   onChangeText,
@@ -58,32 +72,25 @@ const Field: React.FC<FieldProps> = ({
   rightElement,
 }) => {
   const [focused, setFocused] = useState(false);
-  const underlineAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(underlineAnim, {
-      toValue: focused ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [focused, underlineAnim]);
-
-  const underlineColor = underlineAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [Colors.border, hasError ? Colors.error : Colors.primary],
-  });
+  const FieldIcon = icon;
 
   return (
     <View style={fieldStyles.wrapper}>
-      <MaterialIcons
-        name={icon}
-        size={18}
-        color={focused ? Colors.primary : Colors.textTertiary}
-        style={fieldStyles.icon}
-      />
-      <View style={fieldStyles.inputArea}>
+      <Text style={fieldStyles.label}>{label}</Text>
+      <View
+        style={[
+          fieldStyles.inputShell,
+          focused && fieldStyles.inputShellFocused,
+          hasError && fieldStyles.inputShellError,
+        ]}
+      >
+        <FieldIcon
+          size={IconSize.action}
+          strokeWidth={IconStroke.regular}
+          color={focused ? Colors.primary : Colors.textTertiary}
+        />
         <TextInput
-          style={[fieldStyles.input, hasError && fieldStyles.inputError]}
+          style={fieldStyles.input}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -96,33 +103,43 @@ const Field: React.FC<FieldProps> = ({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
-        <Animated.View style={[fieldStyles.underline, { backgroundColor: underlineColor }]} />
+        {rightElement && <View style={fieldStyles.right}>{rightElement}</View>}
       </View>
-      {rightElement && <View style={fieldStyles.right}>{rightElement}</View>}
     </View>
   );
 };
 
 const fieldStyles = StyleSheet.create({
   wrapper: {
+    gap: Spacing.sm,
+  },
+  label: {
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.textSecondary,
+  },
+  inputShell: {
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.base,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
-  icon: { marginTop: 2 },
-  inputArea: { flex: 1 },
+  inputShellFocused: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primarySubtle,
+  },
+  inputShellError: { borderColor: Colors.error },
   input: {
     ...Typography.bodyLarge,
+    flex: 1,
     color: Colors.textPrimary,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
     padding: 0,
-  },
-  inputError: { color: Colors.error },
-  underline: {
-    height: 1.5,
-    borderRadius: 1,
-    marginTop: 2,
   },
   right: { marginLeft: Spacing.xs },
 });
@@ -148,8 +165,16 @@ export const LoginScreen: React.FC = () => {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: MotionDuration.normal,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: MotionDuration.slow,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
     ]).start();
   }, [fadeAnim, slideAnim]);
 
@@ -183,7 +208,11 @@ export const LoginScreen: React.FC = () => {
         <SafeAreaView>
           <View style={styles.heroContent}>
             <View style={styles.logoMark}>
-              <MaterialIcons name="favorite" size={26} color={Colors.accent} />
+              <HeartHandshake
+                size={28}
+                strokeWidth={IconStroke.emphasized}
+                color={Colors.accent}
+              />
             </View>
             <Text style={styles.appName}>Ruta Emocional</Text>
             <Text style={styles.tagline}>Apoyo profesional, cuando lo necesitas</Text>
@@ -212,31 +241,35 @@ export const LoginScreen: React.FC = () => {
 
             <View style={styles.fields}>
               <Field
-                icon="mail-outline"
-                placeholder="Correo electrónico"
+                icon={Mail}
+                label="Correo electrónico"
+                placeholder="nombre@correo.com"
                 value={email}
                 onChangeText={(v) => { setEmail(v); setEmailError(false); }}
                 keyboardType="email-address"
                 autoComplete="email"
-                accessibilityLabel="Email input"
+                accessibilityLabel="Correo electrónico"
                 hasError={emailError}
               />
               <Field
-                icon="lock-outline"
-                placeholder="Contraseña"
+                icon={LockKeyhole}
+                label="Contraseña"
+                placeholder="Ingresa tu contraseña"
                 value={password}
                 onChangeText={(v) => { setPassword(v); setPassError(false); }}
                 secureTextEntry={!showPass}
-                accessibilityLabel="Password input"
+                accessibilityLabel="Contraseña"
                 hasError={passError}
                 rightElement={
                   <TouchableOpacity
                     onPress={() => setShowPass((v) => !v)}
+                    style={styles.fieldAction}
                     accessibilityLabel={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
-                    <MaterialIcons
-                      name={showPass ? 'visibility-off' : 'visibility'}
-                      size={18}
+                    <AppMorphIcon
+                      icon={showPass ? EyeOff : Eye}
+                      size={IconSize.action}
+                      strokeWidth={IconStroke.regular}
                       color={Colors.textTertiary}
                     />
                   </TouchableOpacity>
@@ -249,7 +282,7 @@ export const LoginScreen: React.FC = () => {
               onPress={handleLogin}
               disabled={isLoading}
               activeOpacity={0.85}
-              accessibilityLabel="Login button"
+              accessibilityLabel="Iniciar sesión"
               accessibilityRole="button"
             >
               {isLoading ? (
@@ -257,7 +290,11 @@ export const LoginScreen: React.FC = () => {
               ) : (
                 <>
                   <Text style={styles.primaryBtnText}>Ingresar</Text>
-                  <MaterialIcons name="arrow-forward" size={18} color={Colors.textInverse} />
+                  <ArrowRight
+                    size={IconSize.action}
+                    strokeWidth={IconStroke.emphasized}
+                    color={Colors.textInverse}
+                  />
                 </>
               )}
             </TouchableOpacity>
@@ -265,7 +302,7 @@ export const LoginScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.switchLink}
               onPress={() => navigation.navigate('Register')}
-              accessibilityLabel="Go to register"
+              accessibilityLabel="Ir al registro"
             >
               <Text style={styles.switchText}>
                 ¿No tienes cuenta?{'  '}
@@ -306,8 +343,16 @@ export const RegisterScreen: React.FC = () => {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: MotionDuration.normal,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: MotionDuration.slow,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
     ]).start();
   }, [fadeAnim, slideAnim]);
 
@@ -365,7 +410,11 @@ export const RegisterScreen: React.FC = () => {
         <SafeAreaView>
           <View style={styles.heroContent}>
             <View style={styles.logoMark}>
-              <MaterialIcons name="favorite" size={26} color={Colors.accent} />
+              <HeartHandshake
+                size={28}
+                strokeWidth={IconStroke.emphasized}
+                color={Colors.accent}
+              />
             </View>
             <Text style={styles.appName}>Ruta Emocional</Text>
             <Text style={styles.tagline}>Crea tu cuenta en segundos</Text>
@@ -401,11 +450,19 @@ export const RegisterScreen: React.FC = () => {
                   accessibilityLabel={r === 'patient' ? 'Soy paciente' : 'Soy psicólogo'}
                   accessibilityState={{ selected: role === r }}
                 >
-                  <MaterialIcons
-                    name={r === 'patient' ? 'person-outline' : 'psychology'}
-                    size={16}
-                    color={role === r ? Colors.primary : Colors.textTertiary}
-                  />
+                  {r === 'patient' ? (
+                    <UserRound
+                      size={IconSize.action}
+                      strokeWidth={IconStroke.regular}
+                      color={role === r ? Colors.primary : Colors.textTertiary}
+                    />
+                  ) : (
+                    <HeartHandshake
+                      size={IconSize.action}
+                      strokeWidth={IconStroke.regular}
+                      color={role === r ? Colors.primary : Colors.textTertiary}
+                    />
+                  )}
                   <Text style={[styles.roleChipText, role === r && styles.roleChipTextActive]}>
                     {r === 'patient' ? 'Paciente' : 'Psicólogo'}
                   </Text>
@@ -415,32 +472,35 @@ export const RegisterScreen: React.FC = () => {
 
             <View style={styles.fields}>
               <Field
-                icon="person-outline"
-                placeholder="Nombre completo"
+                icon={UserRound}
+                label="Nombre completo"
+                placeholder="Escribe tu nombre"
                 value={name}
                 onChangeText={(v) => { setName(v); setNameError(false); }}
                 autoCapitalize="words"
                 autoComplete="name"
-                accessibilityLabel="Full name input"
+                accessibilityLabel="Nombre completo"
                 hasError={nameError}
               />
               <Field
-                icon="mail-outline"
-                placeholder="Correo electrónico"
+                icon={Mail}
+                label="Correo electrónico"
+                placeholder="nombre@correo.com"
                 value={email}
                 onChangeText={(v) => { setEmail(v); setEmailError(false); }}
                 keyboardType="email-address"
                 autoComplete="email"
-                accessibilityLabel="Email input"
+                accessibilityLabel="Correo electrónico"
                 hasError={emailError}
               />
               <Field
-                icon="lock-outline"
-                placeholder={`Contraseña (mín. ${MINIMUM_PASSWORD_LENGTH} caracteres)`}
+                icon={LockKeyhole}
+                label="Contraseña"
+                placeholder={`Mínimo ${MINIMUM_PASSWORD_LENGTH} caracteres`}
                 value={password}
                 onChangeText={(v) => { setPassword(v); setPassError(false); }}
                 secureTextEntry
-                accessibilityLabel="Password input"
+                accessibilityLabel="Contraseña"
                 hasError={passError}
               />
             </View>
@@ -449,11 +509,12 @@ export const RegisterScreen: React.FC = () => {
             {role === 'psychologist' && (
               <View style={styles.fields}>
                 <Field
-                  icon="verified-user"
-                  placeholder="Colegiatura MINSA (ej: MINSA-1234)"
+                  icon={BadgeCheck}
+                  label="Colegiatura MINSA"
+                  placeholder="Ejemplo: MINSA-1234"
                   value={licenseNumber}
                   onChangeText={(v) => { setLicenseNumber(v); setLicenseError(false); }}
-                  accessibilityLabel="MINSA license number input"
+                  accessibilityLabel="Número de colegiatura MINSA"
                   hasError={licenseError}
                 />
               </View>
@@ -464,7 +525,7 @@ export const RegisterScreen: React.FC = () => {
               onPress={handleRegister}
               disabled={isLoading}
               activeOpacity={0.85}
-              accessibilityLabel="Register button"
+              accessibilityLabel="Crear cuenta"
               accessibilityRole="button"
             >
               {isLoading ? (
@@ -472,7 +533,11 @@ export const RegisterScreen: React.FC = () => {
               ) : (
                 <>
                   <Text style={styles.primaryBtnText}>Crear cuenta</Text>
-                  <MaterialIcons name="arrow-forward" size={18} color={Colors.textInverse} />
+                  <ArrowRight
+                    size={IconSize.action}
+                    strokeWidth={IconStroke.emphasized}
+                    color={Colors.textInverse}
+                  />
                 </>
               )}
             </TouchableOpacity>
@@ -480,7 +545,7 @@ export const RegisterScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.switchLink}
               onPress={() => navigation.navigate('Login')}
-              accessibilityLabel="Go to login"
+              accessibilityLabel="Ir al inicio de sesión"
             >
               <Text style={styles.switchText}>
                 ¿Ya tienes cuenta?{'  '}
@@ -505,7 +570,7 @@ const styles = StyleSheet.create({
 
   hero: {
     backgroundColor: Colors.primary,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: Spacing.xl,
   },
   heroContent: {
     alignItems: 'center',
@@ -517,11 +582,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: Colors.borderOnBrand,
     marginBottom: Spacing.xs,
   },
   appName: {
@@ -531,19 +596,28 @@ const styles = StyleSheet.create({
   },
   tagline: {
     ...Typography.body,
-    color: 'rgba(255,255,255,0.55)',
+    color: Colors.textOnBrandMuted,
     textAlign: 'center',
   },
 
-  scrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingBottom: Spacing.base,
+  },
   formContainer: {
+    width: '100%',
+    maxWidth: 560,
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     paddingTop: Spacing.xxl,
     gap: Spacing.lg,
     minHeight: 380,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
   },
   formTitle: {
     ...Typography.h2,
@@ -567,9 +641,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
+    minHeight: 48,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceMuted,
   },
@@ -579,7 +654,7 @@ const styles = StyleSheet.create({
   },
   roleChipText: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textTertiary,
   },
   roleChipTextActive: { color: Colors.primary },
@@ -590,8 +665,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.sm,
     backgroundColor: Colors.primary,
-    paddingVertical: Spacing.base + 2,
-    borderRadius: BorderRadius.full,
+    minHeight: 52,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
     marginTop: Spacing.sm,
   },
   primaryBtnDisabled: { opacity: 0.6 },
@@ -601,7 +677,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  switchLink: { alignItems: 'center', paddingVertical: Spacing.xs },
+  fieldAction: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -Spacing.sm,
+    marginRight: -Spacing.md,
+  },
+  switchLink: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xs,
+  },
   switchText: { ...Typography.bodySmall, color: Colors.textSecondary },
-  switchBold: { color: Colors.primary, fontWeight: '700' },
+  switchBold: { color: Colors.primary, fontFamily: FontFamily.bodyBold },
 });

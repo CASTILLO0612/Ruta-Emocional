@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   TextInput,
   Animated,
@@ -15,12 +14,33 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  BadgeCheck,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Clock3,
+  HeartHandshake,
+  LockKeyhole,
+  RefreshCw,
+  Route,
+  Search,
+  Send,
+  ShieldCheck,
+  UserRound,
+  X,
+  Zap,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
+import { IconSize, IconStroke } from '../../theme/icons';
+import { MotionDuration } from '../../theme/motion';
 import { AppButton } from '../../components/common/AppButton';
 import { ModalitySelector } from '../../components/patient/ModalitySelector';
 import { BudgetInput } from '../../components/patient/BudgetInput';
@@ -128,7 +148,7 @@ export const HomeScreen: React.FC = () => {
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 500,
+      duration: MotionDuration.normal,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
 
@@ -242,7 +262,7 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.appBar}>
           <View style={styles.logoRow}>
             <View style={styles.logoMark}>
-              <MaterialIcons name="favorite" size={16} color={Colors.accent} />
+              <Route size={18} strokeWidth={IconStroke.emphasized} color={Colors.accent} />
             </View>
             <Text style={styles.appName}>Ruta Emocional</Text>
           </View>
@@ -251,7 +271,7 @@ export const HomeScreen: React.FC = () => {
             style={styles.profileBtn}
             accessibilityLabel="Mi perfil"
           >
-            <MaterialIcons name="person-outline" size={20} color={Colors.primary} />
+            <UserRound size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -275,15 +295,19 @@ export const HomeScreen: React.FC = () => {
             activeOpacity={0.85}
           >
             <View style={styles.actionIconBg}>
-              <MaterialIcons name="gavel" size={28} color={Colors.textInverse} />
+              <HeartHandshake size={28} strokeWidth={IconStroke.regular} color={Colors.textInverse} />
             </View>
             <View style={styles.actionText}>
-              <Text style={styles.actionTitle}>Solicitar Terapia</Text>
+              <Text style={styles.actionTitle}>Buscar acompañamiento</Text>
               <Text style={styles.actionDesc}>
-                Propón tu presupuesto y consulta las ofertas disponibles
+                Define lo que necesitas y encuentra profesionales disponibles
               </Text>
             </View>
-            <MaterialIcons name="chevron-right" size={22} color="rgba(255,255,255,0.5)" />
+            <ChevronRight
+              size={IconSize.navigation}
+              strokeWidth={IconStroke.regular}
+              color={Colors.textOnBrandMuted}
+            />
           </TouchableOpacity>
 
         </View>
@@ -291,7 +315,7 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Psicólogos disponibles</Text>
           <View style={styles.livePill}>
-            <MaterialIcons name="verified" size={13} color={Colors.accentDark} />
+            <BadgeCheck size={IconSize.inline} strokeWidth={IconStroke.emphasized} color={Colors.accentDark} />
             <Text style={styles.liveText}>Verificados</Text>
           </View>
         </View>
@@ -314,7 +338,7 @@ export const HomeScreen: React.FC = () => {
                     <Image source={{ uri: item.photoURL }} style={styles.psychAvatar} />
                   ) : (
                     <View style={styles.psychAvatarFallback}>
-                      <MaterialIcons name="person" size={24} color={Colors.primary} />
+                      <UserRound size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
                     </View>
                   )}
                 </View>
@@ -342,11 +366,11 @@ export const HomeScreen: React.FC = () => {
             {isDirectoryLoading ? (
               <ActivityIndicator color={Colors.primary} />
             ) : (
-              <MaterialIcons
-                name={directoryError ? 'refresh' : 'search'}
-                size={32}
-                color={Colors.textDisabled}
-              />
+              directoryError ? (
+                <RefreshCw size={IconSize.state} strokeWidth={IconStroke.regular} color={Colors.textDisabled} />
+              ) : (
+                <Search size={IconSize.state} strokeWidth={IconStroke.regular} color={Colors.textDisabled} />
+              )
             )}
             <Text style={styles.emptyText}>
               {isDirectoryLoading
@@ -360,11 +384,11 @@ export const HomeScreen: React.FC = () => {
 
         <View style={styles.infoRow}>
           <View style={styles.infoChip}>
-            <MaterialIcons name="lock" size={14} color={Colors.primary} />
+            <LockKeyhole size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
             <Text style={styles.infoChipText}>Directorio protegido</Text>
           </View>
           <View style={styles.infoChip}>
-            <MaterialIcons name="privacy-tip" size={14} color={Colors.primary} />
+            <ShieldCheck size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
             <Text style={styles.infoChipText}>Sin datos de contacto públicos</Text>
           </View>
         </View>
@@ -383,7 +407,7 @@ export const HomeScreen: React.FC = () => {
                 style={styles.closeBtn}
                 onPress={() => setShowRequestModal(false)}
               >
-                <MaterialIcons name="close" size={22} color={Colors.textSecondary} />
+                <X size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>Nueva solicitud</Text>
               <View style={{ width: 40 }} />
@@ -418,7 +442,7 @@ export const HomeScreen: React.FC = () => {
                   onPress={() => setIsScheduleLater(false)}
                   activeOpacity={0.8}
                 >
-                  <MaterialIcons name="flash-on" size={16} color={!isScheduleLater ? Colors.textInverse : Colors.primary} />
+                  <Zap size={IconSize.inline} strokeWidth={IconStroke.regular} color={!isScheduleLater ? Colors.textInverse : Colors.primary} />
                   <Text style={[styles.timeOptionText, !isScheduleLater && styles.timeOptionTextActive]}>Ahora mismo</Text>
                 </TouchableOpacity>
 
@@ -427,7 +451,7 @@ export const HomeScreen: React.FC = () => {
                   onPress={() => setIsScheduleLater(true)}
                   activeOpacity={0.8}
                 >
-                  <MaterialIcons name="schedule" size={16} color={isScheduleLater ? Colors.textInverse : Colors.primary} />
+                  <Clock3 size={IconSize.inline} strokeWidth={IconStroke.regular} color={isScheduleLater ? Colors.textInverse : Colors.primary} />
                   <Text style={[styles.timeOptionText, isScheduleLater && styles.timeOptionTextActive]}>Programar</Text>
                 </TouchableOpacity>
               </View>
@@ -440,15 +464,15 @@ export const HomeScreen: React.FC = () => {
                     onPress={() => setShowCalendarGrid(!showCalendarGrid)}
                     activeOpacity={0.85}
                   >
-                    <MaterialIcons name="calendar-today" size={18} color={Colors.primary} />
+                    <CalendarDays size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
                     <Text style={styles.calendarTriggerText}>
                       {selectedFormattedDayLabel}
                     </Text>
-                    <MaterialIcons 
-                      name={showCalendarGrid ? 'expand-less' : 'expand-more'} 
-                      size={20} 
-                      color={Colors.textSecondary} 
-                    />
+                    {showCalendarGrid ? (
+                      <ChevronUp size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
+                    ) : (
+                      <ChevronDown size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
+                    )}
                   </TouchableOpacity>
 
                   {showCalendarGrid && (
@@ -461,9 +485,9 @@ export const HomeScreen: React.FC = () => {
                           )}
                           accessibilityLabel="Mes anterior"
                         >
-                          <MaterialIcons
-                            name="chevron-left"
-                            size={22}
+                          <ChevronLeft
+                            size={IconSize.navigation}
+                            strokeWidth={IconStroke.regular}
                             color={canGoToPreviousMonth ? Colors.primary : Colors.textDisabled}
                           />
                         </TouchableOpacity>
@@ -475,9 +499,9 @@ export const HomeScreen: React.FC = () => {
                           onPress={() => setCalendarMonth(nextMonth)}
                           accessibilityLabel="Mes siguiente"
                         >
-                          <MaterialIcons
-                            name="chevron-right"
-                            size={22}
+                          <ChevronRight
+                            size={IconSize.navigation}
+                            strokeWidth={IconStroke.regular}
                             color={canGoToNextMonth ? Colors.primary : Colors.textDisabled}
                           />
                         </TouchableOpacity>
@@ -570,11 +594,11 @@ export const HomeScreen: React.FC = () => {
                 fullWidth
                 isLoading={isLoading}
                 disabled={!requestPolicy}
-                icon={<MaterialIcons name="send" size={18} color={Colors.primary} />}
+                icon={<Send size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textInverse} />}
               />
 
               <Text style={styles.disclaimer}>
-                <MaterialIcons name="lock-outline" size={12} color={Colors.textTertiary} />
+                <LockKeyhole size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
                 {'  '}Revisa los detalles antes de publicar tu solicitud
               </Text>
             </ScrollView>
@@ -616,15 +640,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   appName: {
-    fontSize: 17,
-    fontWeight: '700',
+    ...Typography.h4,
+    fontFamily: FontFamily.brandBold,
     color: Colors.textPrimary,
-    letterSpacing: -0.3,
   },
   profileBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -640,15 +663,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   greeting: {
-    fontSize: 26,
-    fontWeight: '700',
+    ...Typography.h1,
     color: Colors.textPrimary,
-    letterSpacing: -0.5,
   },
   greetingSub: {
-    fontSize: 15,
+    ...Typography.body,
     color: Colors.textSecondary,
-    lineHeight: 22,
   },
 
   quickActions: {
@@ -660,14 +680,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
   },
   actionIconBg: {
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -676,14 +696,13 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   actionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.h4,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.textInverse,
   },
   actionDesc: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
-    lineHeight: 18,
+    ...Typography.bodySmall,
+    color: Colors.textOnBrandMuted,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -692,8 +711,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.h4,
     color: Colors.textPrimary,
   },
   livePill: {
@@ -711,8 +729,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   liveText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.accentDark,
   },
 
@@ -723,7 +741,7 @@ const styles = StyleSheet.create({
   psychCard: {
     width: 140,
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: 5,
     borderWidth: 1,
@@ -762,20 +780,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.surface,
   },
   psychName: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textPrimary,
     textAlign: 'center',
-    lineHeight: 18,
   },
   psychSpecialty: {
-    fontSize: 11,
+    ...Typography.caption,
     color: Colors.textSecondary,
     textAlign: 'center',
   },
   psychPrice: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.primary,
     textAlign: 'center',
   },
@@ -785,14 +802,20 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyText: {
-    fontSize: 14,
-    color: Colors.textDisabled,
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 
   infoRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
     marginTop: Spacing.xl,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primarySubtle,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
   },
   infoChip: {
     flex: 1,
@@ -804,14 +827,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   infoChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+    ...Typography.caption,
+    fontFamily: FontFamily.bodyMedium,
+    color: Colors.textSecondary,
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(10,36,99,0.25)',
+    backgroundColor: Colors.overlay,
     justifyContent: 'flex-end',
   },
   modalSheet: {
@@ -831,16 +854,15 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.divider,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.textPrimary,
   },
   modalBody: {
@@ -865,28 +887,28 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
   },
   fieldSubLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: Spacing.sm,
   },
   textAreaWrapper: {
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
   textArea: {
-    fontSize: 15,
+    ...Typography.body,
     color: Colors.textPrimary,
     minHeight: 72,
   },
   disclaimer: {
-    fontSize: 12,
-    color: Colors.textDisabled,
+    ...Typography.caption,
+    color: Colors.textTertiary,
     textAlign: 'center',
     marginTop: Spacing.base,
   },
@@ -902,19 +924,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
+    minHeight: 48,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
   },
   timeOptionActive: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
   timeOptionText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.primary,
   },
   timeOptionTextActive: {
@@ -925,22 +948,24 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   scheduleInput: {
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    minHeight: 52,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    fontSize: 15,
+    ...Typography.body,
     color: Colors.textPrimary,
   },
 
   calendarTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    minHeight: 52,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
@@ -948,9 +973,8 @@ const styles = StyleSheet.create({
   },
   calendarTriggerText: {
     flex: 1,
-    fontSize: 15,
+    ...Typography.body,
     color: Colors.textPrimary,
-    fontWeight: '500',
   },
 
   calendarCard: {
@@ -969,8 +993,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   calendarMonthHeader: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.textPrimary,
     textAlign: 'center',
     textTransform: 'capitalize',
@@ -983,8 +1007,8 @@ const styles = StyleSheet.create({
   weekdayLabel: {
     width: 32,
     textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '600',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textSecondary,
   },
   calendarGrid: {
@@ -1008,8 +1032,8 @@ const styles = StyleSheet.create({
     opacity: 0.25,
   },
   calendarDayText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textPrimary,
   },
   calendarDayTextActive: {

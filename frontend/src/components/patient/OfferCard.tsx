@@ -6,14 +6,15 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { ArrowDown, ArrowUp, CircleCheck, UserRound } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Offer } from '../../models/Offer';
 import { StarRating } from '../common/StarRating';
 import { AppButton } from '../common/AppButton';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 import type { AppNavigation } from '../../navigation/navigationTypes';
 import { formatMoney } from '../../utils/money';
 
@@ -46,7 +47,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
             <Image source={{ uri: offer.psychologistPhotoURL }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <MaterialIcons name="person" size={28} color={Colors.primary} />
+              <UserRound size={28} strokeWidth={IconStroke.regular} color={Colors.primary} />
             </View>
           )}
         </TouchableOpacity>
@@ -73,7 +74,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
           </Text>
           {isBelowBudget && discount > 0 && (
             <View style={styles.savingsBadge}>
-              <MaterialIcons name="arrow-downward" size={10} color={Colors.accentDark} />
+              <ArrowDown size={12} strokeWidth={IconStroke.emphasized} color={Colors.accentDark} />
               <Text style={styles.savingsText}>
                 {formatMoney(discount, offer.currencyCode)} menos
               </Text>
@@ -81,7 +82,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
           )}
           {!isBelowBudget && (
             <View style={styles.overBudgetBadge}>
-              <MaterialIcons name="arrow-upward" size={10} color={Colors.error} />
+              <ArrowUp size={12} strokeWidth={IconStroke.emphasized} color={Colors.error} />
               <Text style={styles.overBudgetText}>Sobre tu límite</Text>
             </View>
           )}
@@ -92,7 +93,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.profileBtn} onPress={handleViewProfile}>
-          <MaterialIcons name="person-outline" size={16} color={Colors.primary} />
+          <UserRound size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
           <Text style={styles.profileBtnText}>Ver perfil</Text>
         </TouchableOpacity>
 
@@ -101,7 +102,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
           onPress={() => onAccept(offer)}
           variant="primary"
           size="sm"
-          icon={<MaterialIcons name="check-circle" size={16} color={Colors.primary} />}
+          icon={<CircleCheck size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textInverse} />}
         />
       </View>
     </View>
@@ -111,12 +112,12 @@ export const OfferCard: React.FC<OfferCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.base,
     marginHorizontal: Spacing.base,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
-    ...Shadow.md,
+    ...Shadow.sm,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -177,8 +178,8 @@ const styles = StyleSheet.create({
   },
   savingsText: {
     ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.accentDark,
-    fontWeight: '600',
   },
   overBudgetBadge: {
     flexDirection: 'row',
@@ -189,8 +190,8 @@ const styles = StyleSheet.create({
   },
   overBudgetText: {
     ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.error,
-    fontWeight: '600',
   },
   divider: {
     height: 1,
@@ -208,12 +209,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
     backgroundColor: 'transparent',
   },
   profileBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.primary,
   },
 });

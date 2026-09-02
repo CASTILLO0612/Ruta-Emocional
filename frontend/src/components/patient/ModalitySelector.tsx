@@ -1,15 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { MapPin, MessageCircle, Phone, type LucideIcon } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 import { Modality } from '../../models/Psychologist';
 
 interface ModalityOption {
   key: Modality;
   label: string;
-  icon: React.ReactNode;
+  icon: LucideIcon;
   description: string;
 }
 
@@ -17,19 +18,19 @@ const MODALITIES: ModalityOption[] = [
   {
     key: 'chat',
     label: 'Chat',
-    icon: <MaterialIcons name="chat-bubble-outline" size={22} color="inherit" />,
+    icon: MessageCircle,
     description: 'Texto seguro',
   },
   {
     key: 'call',
     label: 'Llamada',
-    icon: <Feather name="phone" size={22} color="inherit" />,
+    icon: Phone,
     description: 'Audio privado',
   },
   {
     key: 'in-person',
     label: 'Presencial',
-    icon: <MaterialIcons name="location-on" size={22} color="inherit" />,
+    icon: MapPin,
     description: 'En consultorio',
   },
 ];
@@ -49,6 +50,7 @@ export const ModalitySelector: React.FC<ModalitySelectorProps> = ({
       <View style={styles.row}>
         {MODALITIES.map((option) => {
           const isActive = selected === option.key;
+          const ModalityIcon = option.icon;
           return (
             <TouchableOpacity
               key={option.key}
@@ -57,9 +59,11 @@ export const ModalitySelector: React.FC<ModalitySelectorProps> = ({
               style={[styles.chip, isActive && styles.chipActive]}
             >
               <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
-                {React.cloneElement(option.icon as React.ReactElement<{ color?: string }>, {
-                  color: isActive ? Colors.textInverse : Colors.primary,
-                })}
+                <ModalityIcon
+                  size={IconSize.navigation}
+                  strokeWidth={IconStroke.regular}
+                  color={isActive ? Colors.textInverse : Colors.primary}
+                />
               </View>
               <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>
                 {option.label}
@@ -92,9 +96,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xs,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.border,
     gap: Spacing.xs,
   },
@@ -117,7 +121,7 @@ const styles = StyleSheet.create({
   },
   chipLabelActive: {
     color: Colors.textInverse,
-    fontWeight: '700',
+    fontFamily: FontFamily.bodyBold,
   },
   chipDesc: {
     ...Typography.caption,
@@ -126,6 +130,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   chipDescActive: {
-    color: 'rgba(255,255,255,0.7)',
+    color: Colors.textOnBrandMuted,
   },
 });

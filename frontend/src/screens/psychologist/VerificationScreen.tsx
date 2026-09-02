@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { File } from 'expo-file-system';
 import {
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -11,11 +10,25 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  CircleAlert,
+  Clock3,
+  FileText,
+  ListChecks,
+  LockKeyhole,
+  LogOut,
+  Paperclip,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react-native';
+import { Circle, CircleCheck } from 'lucide';
+import { AppMorphIcon } from '../../components/common/AppMorphIcon';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
-import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
+import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
+import { FontFamily, Typography } from '../../theme/typography';
 import { DirectoryModality } from '../../models/Psychologist';
 import {
   EvidenceUploadPolicy,
@@ -36,6 +49,7 @@ import {
 import { showAlert } from '../../utils/alert';
 import { subscribeToPsychologistVerificationUpdates } from '../../services/socketClient';
 import { ApiError } from '../../services/apiClient';
+import { formatModalityLabel } from '../../utils/modality';
 
 const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as const;
 const PROFESSIONAL_BIO_MIN_LENGTH = 20;
@@ -287,11 +301,9 @@ export const VerificationScreen: React.FC = () => {
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={[styles.iconContainer, rejected && styles.rejectedIconContainer]}>
-          <MaterialIcons
-            name={rejected ? 'error-outline' : 'verified-user'}
-            size={48}
-            color={rejected ? Colors.error : Colors.primary}
-          />
+          {rejected
+            ? <CircleAlert size={48} color={Colors.error} strokeWidth={1.6} />
+            : <ShieldCheck size={48} color={Colors.primary} strokeWidth={1.6} />}
         </View>
 
         <Text style={styles.title}>{title}</Text>
@@ -317,7 +329,7 @@ export const VerificationScreen: React.FC = () => {
         <View style={styles.progressCard}>
           <View style={styles.sectionHeadingRow}>
             <View style={styles.sectionIcon}>
-              <MaterialIcons name="checklist" size={22} color={Colors.primary} />
+              <ListChecks size={22} color={Colors.primary} strokeWidth={1.9} />
             </View>
             <View style={styles.sectionHeadingCopy}>
               <Text style={styles.formTitle}>Requisitos para habilitar el panel</Text>
@@ -333,10 +345,11 @@ export const VerificationScreen: React.FC = () => {
             { label: 'Evidencia enviada a revisión', ready: hasSubmittedEvidence, optional: false },
           ].map((step) => (
             <View key={step.label} style={styles.progressRow}>
-              <MaterialIcons
-                name={step.ready ? 'check-circle' : 'radio-button-unchecked'}
-                size={20}
+              <AppMorphIcon
+                icon={step.ready ? CircleCheck : Circle}
+                size={IconSize.action}
                 color={step.ready ? Colors.success : Colors.textTertiary}
+                strokeWidth={step.ready ? IconStroke.emphasized : IconStroke.regular}
               />
               <Text style={styles.progressText}>{step.label}</Text>
               {step.optional ? <Text style={styles.optionalText}>Recomendado</Text> : null}
@@ -352,7 +365,7 @@ export const VerificationScreen: React.FC = () => {
               <View style={styles.formCard}>
                 <View style={styles.sectionHeadingRow}>
                   <View style={styles.sectionIcon}>
-                    <MaterialIcons name="lock-outline" size={22} color={Colors.primary} />
+                    <LockKeyhole size={22} color={Colors.primary} strokeWidth={1.9} />
                   </View>
                   <View style={styles.sectionHeadingCopy}>
                     <Text style={styles.formTitle}>Evidencia profesional</Text>
@@ -372,7 +385,7 @@ export const VerificationScreen: React.FC = () => {
                       <Text style={styles.accountLabel}>{license.authority} · {license.number}</Text>
                       {!canSubmit ? (
                         <View style={styles.statusRow}>
-                          <MaterialIcons name="schedule" size={18} color={Colors.warning} />
+                          <Clock3 size={18} color={Colors.warning} strokeWidth={1.9} />
                           <Text style={styles.helperText}>Solicitud pendiente de revisión administrativa.</Text>
                         </View>
                       ) : (
@@ -384,12 +397,12 @@ export const VerificationScreen: React.FC = () => {
                             accessibilityRole="button"
                             accessibilityLabel="Seleccionar evidencia profesional"
                           >
-                            <MaterialIcons name="attach-file" size={19} color={Colors.primary} />
+                            <Paperclip size={19} color={Colors.primary} strokeWidth={2} />
                             <Text style={styles.secondaryButtonText}>Seleccionar archivo</Text>
                           </TouchableOpacity>
                           {selectedForLicense ? (
                             <View style={styles.selectedFileRow}>
-                              <MaterialIcons name="description" size={22} color={Colors.primary} />
+                              <FileText size={22} color={Colors.primary} strokeWidth={1.9} />
                               <View style={styles.selectedFileCopy}>
                                 <Text style={styles.selectedFileName} numberOfLines={1}>
                                   {selectedForLicense.fileName}
@@ -427,7 +440,7 @@ export const VerificationScreen: React.FC = () => {
               <View style={styles.formCard}>
                 <View style={styles.sectionHeadingRow}>
                   <View style={styles.sectionIcon}>
-                    <MaterialIcons name="lock-outline" size={22} color={Colors.warning} />
+                    <LockKeyhole size={22} color={Colors.warning} strokeWidth={1.9} />
                   </View>
                   <View style={styles.sectionHeadingCopy}>
                     <Text style={styles.formTitle}>Carga de evidencia no habilitada</Text>
@@ -519,7 +532,9 @@ export const VerificationScreen: React.FC = () => {
                     style={[styles.chip, modality === item && styles.selectedChip]}
                     onPress={() => setModality(item)}
                   >
-                    <Text style={modality === item ? styles.selectedChipText : styles.chipText}>{item}</Text>
+                    <Text style={modality === item ? styles.selectedChipText : styles.chipText}>
+                      {formatModalityLabel(item)}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -614,7 +629,7 @@ export const VerificationScreen: React.FC = () => {
           accessibilityRole="button"
           accessibilityLabel="Actualizar estado de verificación"
         >
-          <MaterialIcons name="refresh" size={19} color={Colors.primary} />
+          <RefreshCw size={19} color={Colors.primary} strokeWidth={2} />
           <Text style={styles.refreshButtonText}>Actualizar estado</Text>
         </TouchableOpacity>
 
@@ -629,7 +644,7 @@ export const VerificationScreen: React.FC = () => {
             <ActivityIndicator color={Colors.textInverse} />
           ) : (
             <>
-              <MaterialIcons name="logout" size={19} color={Colors.textInverse} />
+              <LogOut size={19} color={Colors.textInverse} strokeWidth={2} />
               <Text style={styles.signOutText}>Cerrar sesión</Text>
             </>
           )}
@@ -659,7 +674,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryFaded,
   },
   rejectedIconContainer: {
-    backgroundColor: '#FDECEC',
+    backgroundColor: Colors.errorSurface,
   },
   title: {
     ...Typography.h2,
@@ -682,6 +697,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     gap: Spacing.xs,
+    ...Shadow.sm,
   },
   accountLabel: {
     ...Typography.caption,
@@ -691,7 +707,7 @@ const styles = StyleSheet.create({
   accountName: {
     ...Typography.bodyLarge,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontFamily: FontFamily.bodyBold,
   },
   accountEmail: {
     ...Typography.bodySmall,
@@ -707,7 +723,7 @@ const styles = StyleSheet.create({
   licenseStatus: {
     ...Typography.bodySmall,
     color: Colors.primary,
-    fontWeight: '600',
+    fontFamily: FontFamily.bodySemiBold,
   },
   decisionReason: {
     ...Typography.bodySmall,
@@ -722,6 +738,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     gap: Spacing.md,
+    ...Shadow.sm,
   },
   progressCard: {
     width: '100%',
@@ -732,6 +749,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     gap: Spacing.md,
+    ...Shadow.sm,
   },
   progressRow: {
     flexDirection: 'row',
@@ -809,9 +827,10 @@ const styles = StyleSheet.create({
   selectedFileName: {
     ...Typography.body,
     color: Colors.textPrimary,
-    fontWeight: '600',
+    fontFamily: FontFamily.bodySemiBold,
   },
   input: {
+    ...Typography.body,
     minHeight: 48,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -849,7 +868,7 @@ const styles = StyleSheet.create({
   selectedChipText: {
     ...Typography.bodySmall,
     color: Colors.textInverse,
-    fontWeight: '700',
+    fontFamily: FontFamily.bodyBold,
   },
   helperText: {
     ...Typography.bodySmall,
@@ -892,7 +911,7 @@ const styles = StyleSheet.create({
   currencyText: {
     ...Typography.body,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontFamily: FontFamily.bodyBold,
   },
   saveButton: {
     minHeight: 46,
@@ -914,7 +933,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.primary,
   },
   refreshButton: {
@@ -924,7 +943,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.primary,
     backgroundColor: Colors.surface,

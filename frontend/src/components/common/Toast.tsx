@@ -4,12 +4,22 @@ import {
   Text,
   StyleSheet,
   Animated,
+  Platform,
   TouchableOpacity,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  Info,
+  X,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing, BorderRadius, Shadow } from '../../theme/spacing';
+import { IconSize, IconStroke } from '../../theme/icons';
+import { MotionDuration } from '../../theme/motion';
 
 export type ToastType = 'error' | 'success' | 'info' | 'warning';
 
@@ -25,19 +35,21 @@ interface ToastProps extends ToastConfig {
   onHide: () => void;
 }
 
-const TOAST_ICONS: Record<ToastType, keyof typeof MaterialIcons.glyphMap> = {
-  error: 'error-outline',
-  success: 'check-circle-outline',
-  info: 'info-outline',
-  warning: 'warning-amber',
+const TOAST_ICONS: Record<ToastType, LucideIcon> = {
+  error: CircleX,
+  success: CircleCheck,
+  info: Info,
+  warning: CircleAlert,
 };
 
 const TOAST_COLORS: Record<ToastType, string> = {
   error: Colors.error,
-  success: Colors.accent,
+  success: Colors.success,
   info: Colors.info,
   warning: Colors.warning,
 };
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 /** Toast no-intrusivo tipo iOS — aparece abajo y desaparece solo */
 export const Toast: React.FC<ToastProps> = ({
@@ -52,16 +64,32 @@ export const Toast: React.FC<ToastProps> = ({
 
   const hide = useCallback(() => {
     Animated.parallel([
-      Animated.timing(translateY, { toValue: 100, duration: 250, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(translateY, {
+        toValue: 100,
+        duration: MotionDuration.fast,
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: MotionDuration.fast,
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
     ]).start(() => onHide());
   }, [translateY, opacity, onHide]);
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: MotionDuration.normal,
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: MotionDuration.fast,
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
       ]).start();
 
       const timer = setTimeout(hide, duration);
@@ -72,6 +100,7 @@ export const Toast: React.FC<ToastProps> = ({
   if (!visible) return null;
 
   const accentColor = TOAST_COLORS[type];
+  const StatusIcon = TOAST_ICONS[type];
 
   return (
     <Animated.View
@@ -83,10 +112,10 @@ export const Toast: React.FC<ToastProps> = ({
       accessibilityLiveRegion="polite"
       accessibilityRole="alert"
     >
-      <MaterialIcons name={TOAST_ICONS[type]} size={18} color={accentColor} />
+      <StatusIcon size={IconSize.action} strokeWidth={IconStroke.regular} color={accentColor} />
       <Text style={styles.message} numberOfLines={2}>{message}</Text>
       <TouchableOpacity onPress={hide} style={styles.closeBtn} accessibilityLabel="Cerrar notificación">
-        <MaterialIcons name="close" size={14} color={Colors.textTertiary} />
+        <X size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -135,6 +164,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeBtn: {
-    padding: Spacing.xs,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: -Spacing.md,
+    marginLeft: 0,
   },
 });

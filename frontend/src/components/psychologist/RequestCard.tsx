@@ -1,24 +1,29 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  Check,
+  CircleHelp,
+  MapPin,
+  MessageCircle,
+  Phone,
+  RefreshCw,
+  Video,
+  WalletCards,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { ActiveRequest } from '../../models/ActiveRequest';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 import { formatMoney } from '../../utils/money';
+import { formatModalityLabel } from '../../utils/modality';
 
-const MODALITY_ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
-  chat: 'chat-bubble-outline',
-  call: 'phone',
-  video: 'videocam',
-  'in-person': 'location-on',
-};
-
-const MODALITY_LABELS: Record<string, string> = {
-  chat: 'Chat',
-  call: 'Llamada',
-  video: 'Video',
-  'in-person': 'Presencial',
+const MODALITY_ICONS: Record<string, LucideIcon> = {
+  chat: MessageCircle,
+  call: Phone,
+  video: Video,
+  'in-person': MapPin,
 };
 
 interface RequestCardProps {
@@ -32,6 +37,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
   onAccept,
   onCounterOffer,
 }) => {
+  const ModalityIcon = MODALITY_ICONS[request.modality] ?? CircleHelp;
   const timeAgo = (dateInput?: Date | string | number) => {
     if (!dateInput) return 'ahora';
     const d = new Date(dateInput);
@@ -47,20 +53,16 @@ export const RequestCard: React.FC<RequestCardProps> = ({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.modalityBadge}>
-          <MaterialIcons
-            name={MODALITY_ICONS[request.modality] ?? 'help-outline'}
-            size={16}
-            color={Colors.primary}
-          />
+          <ModalityIcon size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
           <Text style={styles.modalityText}>
-            {MODALITY_LABELS[request.modality] || request.modality}
+            {formatModalityLabel(request.modality)}
           </Text>
         </View>
 
         {request.status === 'bidding' && (
           <View style={styles.biddingBadge}>
             <View style={styles.biddingDot} />
-            <Text style={styles.biddingText}>En subasta</Text>
+            <Text style={styles.biddingText}>Recibiendo propuestas</Text>
           </View>
         )}
 
@@ -79,7 +81,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
       </View>
 
       <View style={styles.budgetRow}>
-        <MaterialIcons name="account-balance-wallet" size={16} color={Colors.textSecondary} />
+        <WalletCards size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
         <Text style={styles.budgetLabel}>Presupuesto: </Text>
         <Text style={styles.budgetAmount}>
           {formatMoney(request.proposedBudget, request.currencyCode)}
@@ -93,7 +95,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
           activeOpacity={0.82}
           accessibilityLabel="Proponer otra tarifa"
         >
-          <MaterialIcons name="swap-horiz" size={18} color={Colors.textSecondary} />
+          <RefreshCw size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
           <Text style={styles.counterBtnText}>Contraofertar</Text>
         </TouchableOpacity>
 
@@ -101,11 +103,11 @@ export const RequestCard: React.FC<RequestCardProps> = ({
           style={styles.acceptBtn}
           onPress={() => onAccept(request)}
           activeOpacity={0.82}
-          accessibilityLabel={`Ofertar ${formatMoney(request.proposedBudget, request.currencyCode)}`}
+          accessibilityLabel={`Aceptar ${formatMoney(request.proposedBudget, request.currencyCode)}`}
         >
-          <MaterialIcons name="check" size={18} color={Colors.textInverse} />
+          <Check size={IconSize.action} strokeWidth={IconStroke.emphasized} color={Colors.textInverse} />
           <Text style={styles.acceptBtnText}>
-            Ofertar {formatMoney(request.proposedBudget, request.currencyCode)}
+            Aceptar {formatMoney(request.proposedBudget, request.currencyCode)}
           </Text>
         </TouchableOpacity>
       </View>
@@ -116,12 +118,14 @@ export const RequestCard: React.FC<RequestCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.base,
     marginHorizontal: Spacing.base,
     marginBottom: Spacing.md,
     gap: Spacing.md,
-    ...Shadow.md,
+    ...Shadow.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
   },
   header: {
     flexDirection: 'row',
@@ -138,8 +142,8 @@ const styles = StyleSheet.create({
   },
   modalityText: {
     ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.primary,
-    fontWeight: '700',
     textTransform: 'uppercase',
   },
   biddingBadge: {
@@ -158,8 +162,8 @@ const styles = StyleSheet.create({
   },
   biddingText: {
     ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.accentDark,
-    fontWeight: '700',
   },
   timeAgo: {
     ...Typography.caption,
@@ -190,8 +194,8 @@ const styles = StyleSheet.create({
   },
   budgetAmount: {
     ...Typography.bodySmall,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.primary,
-    fontWeight: '700',
   },
   actions: {
     flexDirection: 'row',
@@ -204,7 +208,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
     backgroundColor: 'transparent',
   },
   counterBtnText: {
@@ -219,7 +224,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.primary,
   },
   acceptBtnText: {

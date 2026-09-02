@@ -64,7 +64,9 @@ export const AppButton: React.FC<AppButtonProps> = ({
     >
       {isLoading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? Colors.primary : Colors.textInverse}
+          color={['secondary', 'outline', 'ghost'].includes(variant)
+            ? Colors.primary
+            : Colors.textInverse}
           size="small"
         />
       ) : (
@@ -87,7 +89,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -110,7 +112,7 @@ const styles = StyleSheet.create({
   size_sm: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    minHeight: 36,
+    minHeight: 44,
   },
   size_md: {
     paddingHorizontal: Spacing.xl,
@@ -119,21 +121,23 @@ const styles = StyleSheet.create({
   },
   size_lg: {
     paddingHorizontal: Spacing.xxl,
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.base,
     minHeight: 56,
-    ...Shadow.md,
+    ...Shadow.sm,
   },
 
   variant_primary: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
   },
   variant_secondary: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryTint,
+    borderWidth: 1,
+    borderColor: Colors.primaryTintStrong,
   },
   variant_outline: {
     backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: Colors.primary,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   variant_ghost: {
     backgroundColor: 'transparent',
@@ -146,8 +150,8 @@ const styles = StyleSheet.create({
     ...Typography.button,
     textAlign: 'center',
   },
-  labelVariant_primary: { color: Colors.primary },
-  labelVariant_secondary: { color: Colors.textInverse },
+  labelVariant_primary: { color: Colors.textInverse },
+  labelVariant_secondary: { color: Colors.primary },
   labelVariant_outline: { color: Colors.primary },
   labelVariant_ghost: { color: Colors.primary },
   labelVariant_danger: { color: Colors.textInverse },

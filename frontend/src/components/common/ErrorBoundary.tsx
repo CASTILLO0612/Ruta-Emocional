@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { CircleAlert, RefreshCw } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing, BorderRadius } from '../../theme/spacing';
+import { IconSize, IconStroke } from '../../theme/icons';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -45,7 +46,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         <View style={styles.root}>
           <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
           <View style={styles.iconWrapper}>
-            <MaterialIcons name="error-outline" size={40} color={Colors.error} />
+            <CircleAlert size={40} strokeWidth={IconStroke.regular} color={Colors.error} />
           </View>
           <Text style={styles.title}>Algo salió mal</Text>
           <Text style={styles.subtitle}>
@@ -57,7 +58,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             </View>
           )}
           <TouchableOpacity style={styles.retryBtn} onPress={this.handleRetry}>
-            <MaterialIcons name="refresh" size={18} color={Colors.textInverse} />
+            <RefreshCw size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textInverse} />
             <Text style={styles.retryText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -116,7 +117,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
+    minHeight: 48,
+    borderRadius: BorderRadius.md,
     marginTop: Spacing.lg,
   },
   retryText: {

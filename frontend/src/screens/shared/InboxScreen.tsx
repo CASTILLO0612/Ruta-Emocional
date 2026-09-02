@@ -1,4 +1,4 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import { ChevronRight, CircleAlert, MessageCircle, UserRound } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
@@ -7,11 +7,11 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AppNavigation } from '../../navigation/navigationTypes';
 import {
@@ -21,6 +21,7 @@ import {
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 
 function displayActivity(isoDate: string): string {
   const date = new Date(isoDate);
@@ -118,7 +119,7 @@ export const InboxScreen: React.FC = () => {
           onPress={() => void refresh()}
           style={styles.errorBanner}
         >
-          <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+          <CircleAlert size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />
           <View style={styles.errorCopy}>
             <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.retryText}>Toca para intentar nuevamente</Text>
@@ -148,7 +149,7 @@ export const InboxScreen: React.FC = () => {
               <Image source={{ uri: item.counterpart.photoUrl }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarFallback}>
-                <MaterialIcons name="person-outline" size={24} color={Colors.primary} />
+                <UserRound size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
               </View>
             )}
             <View style={styles.content}>
@@ -165,13 +166,13 @@ export const InboxScreen: React.FC = () => {
                   : 'Inicia una conversación segura'}
               </Text>
             </View>
-            <MaterialIcons name="chevron-right" size={22} color={Colors.textTertiary} />
+            <ChevronRight size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
           </Pressable>
         )}
         ListEmptyComponent={(
           <View style={styles.centered}>
             <View style={styles.emptyIcon}>
-              <MaterialIcons name="forum" size={30} color={Colors.primary} />
+              <MessageCircle size={IconSize.state} strokeWidth={IconStroke.regular} color={Colors.primary} />
             </View>
             <Text style={styles.emptyTitle}>Aún no hay conversaciones</Text>
             <Text style={styles.emptyText}>
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.primaryTint,
   },
   content: { flex: 1, minWidth: 0 },
   rowHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.primaryTint,
     marginBottom: Spacing.base,
   },
   emptyTitle: { ...Typography.h3, color: Colors.textPrimary, textAlign: 'center' },
@@ -258,9 +259,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Colors.errorSurface,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: Colors.errorBorder,
   },
   errorCopy: { flex: 1 },
   errorText: { ...Typography.bodySmall, color: Colors.error },

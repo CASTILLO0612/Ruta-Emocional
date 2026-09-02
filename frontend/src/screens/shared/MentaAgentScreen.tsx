@@ -1,4 +1,15 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  ArrowRight,
+  ArrowUp,
+  ArrowUpRight,
+  BrainCircuit,
+  CircleAlert,
+  ClipboardCheck,
+  CloudOff,
+  LockKeyhole,
+  ShieldCheck,
+} from 'lucide-react-native';
+import { Square, SquareCheckBig } from 'lucide';
 import { randomUUID } from 'expo-crypto';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -14,6 +25,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { AppMorphIcon } from '../../components/common/AppMorphIcon';
 import type { AppNavigation } from '../../navigation/navigationTypes';
 import {
   fetchMentaBootstrap,
@@ -28,7 +40,8 @@ import { ApiError } from '../../services/apiClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 
 const TOOL_LABELS: Readonly<Record<MentaToolCode, string>> = {
   get_my_agenda: 'Agenda consultada',
@@ -55,7 +68,7 @@ function AssistantBubble({
   return (
     <View style={styles.assistantRow}>
       <View style={styles.agentAvatar}>
-        <MaterialIcons name="psychology" size={18} color={Colors.primary} />
+        <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
       </View>
       <View style={styles.assistantBubble}>
         <Text selectable style={styles.assistantText}>{message}</Text>
@@ -63,7 +76,7 @@ function AssistantBubble({
           <View style={styles.toolList}>
             {tools.map((tool) => (
               <View key={tool} style={styles.toolBadge}>
-                <MaterialIcons name="verified-user" size={13} color={Colors.primary} />
+                <ShieldCheck size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
                 <Text style={styles.toolBadgeText}>{TOOL_LABELS[tool]}</Text>
               </View>
             ))}
@@ -71,7 +84,7 @@ function AssistantBubble({
         ) : null}
         {unavailable ? (
           <View style={styles.availabilityNotice}>
-            <MaterialIcons name="cloud-off" size={14} color={Colors.textSecondary} />
+            <CloudOff size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
             <Text style={styles.availabilityNoticeText}>Respuesta segura de contingencia</Text>
           </View>
         ) : null}
@@ -167,7 +180,7 @@ export function MentaAgentScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.centeredState}>
           <View style={styles.largeIcon}>
-            <MaterialIcons name="psychology" size={42} color={Colors.primary} />
+            <BrainCircuit size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
           </View>
           <Text style={styles.stateTitle}>MENTA aún no está disponible</Text>
           <Text style={styles.stateText}>
@@ -184,13 +197,13 @@ export function MentaAgentScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView contentContainerStyle={styles.consentContainer}>
           <View style={styles.largeIcon}>
-            <MaterialIcons name="psychology" size={42} color={Colors.primary} />
+            <BrainCircuit size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
           </View>
           <Text style={styles.title}>Conoce a MENTA</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
           <View style={styles.disclosureCard}>
             <View style={styles.disclosureHeading}>
-              <MaterialIcons name="shield" size={22} color={Colors.primary} />
+              <ShieldCheck size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
               <Text style={styles.disclosureTitle}>Alcance y privacidad</Text>
             </View>
             <Text style={styles.disclosureText}>{bootstrap.disclosure}</Text>
@@ -202,9 +215,10 @@ export function MentaAgentScreen() {
             accessibilityRole="checkbox"
             accessibilityState={{ checked: consentGranted }}
           >
-            <MaterialIcons
-              name={consentGranted ? 'check-box' : 'check-box-outline-blank'}
-              size={25}
+            <AppMorphIcon
+              icon={consentGranted ? SquareCheckBig : Square}
+              size={IconSize.navigation}
+              strokeWidth={consentGranted ? IconStroke.emphasized : IconStroke.regular}
               color={consentGranted ? Colors.primary : Colors.textTertiary}
             />
             <Text style={styles.consentText}>
@@ -213,7 +227,7 @@ export function MentaAgentScreen() {
           </TouchableOpacity>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <TouchableOpacity
-            style={[styles.primaryButton, (!consentGranted || isOpening) && styles.disabled]}
+            style={[styles.primaryButton, !consentGranted && styles.disabled]}
             onPress={() => void handleOpenConversation()}
             disabled={!consentGranted || isOpening}
             accessibilityRole="button"
@@ -222,8 +236,15 @@ export function MentaAgentScreen() {
               <ActivityIndicator color={Colors.textInverse} />
             ) : (
               <>
-                <Text style={styles.primaryButtonText}>Iniciar conversación</Text>
-                <MaterialIcons name="arrow-forward" size={19} color={Colors.textInverse} />
+                <Text style={[
+                  styles.primaryButtonText,
+                  !consentGranted && styles.primaryButtonTextDisabled,
+                ]}>Iniciar conversación</Text>
+                <ArrowRight
+                  size={IconSize.action}
+                  strokeWidth={IconStroke.emphasized}
+                  color={consentGranted ? Colors.textInverse : Colors.textDisabled}
+                />
               </>
             )}
           </TouchableOpacity>
@@ -241,7 +262,7 @@ export function MentaAgentScreen() {
         <View style={styles.header}>
           <View style={styles.headerIdentity}>
             <View style={styles.headerIcon}>
-              <MaterialIcons name="psychology" size={24} color={Colors.primary} />
+              <BrainCircuit size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
             </View>
             <View style={styles.flex}>
               <Text style={styles.headerTitle}>MENTA</Text>
@@ -249,7 +270,7 @@ export function MentaAgentScreen() {
             </View>
           </View>
           <View style={styles.privateBadge}>
-            <MaterialIcons name="lock" size={13} color={Colors.primary} />
+            <LockKeyhole size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
             <Text style={styles.privateBadgeText}>Contexto privado</Text>
           </View>
         </View>
@@ -278,7 +299,7 @@ export function MentaAgentScreen() {
                     disabled={isSending}
                   >
                     <Text style={styles.suggestionText}>{prompt}</Text>
-                    <MaterialIcons name="north-east" size={16} color={Colors.primary} />
+                    <ArrowUpRight size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -309,7 +330,7 @@ export function MentaAgentScreen() {
               </View>
               <View style={styles.assistantRow}>
                 <View style={styles.agentAvatar}>
-                  <MaterialIcons name="psychology" size={18} color={Colors.primary} />
+                  <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
                 </View>
                 <View style={styles.typingBubble}>
                   <ActivityIndicator size="small" color={Colors.primary} />
@@ -325,12 +346,12 @@ export function MentaAgentScreen() {
               onPress={() => navigation.navigate('MentaSafety')}
               accessibilityRole="button"
             >
-              <MaterialIcons name="health-and-safety" size={18} color={Colors.primary} />
+              <ShieldCheck size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
               <Text style={styles.safetyLinkText}>Abrir orientación estructurada de seguridad</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.draftNotice}>
-              <MaterialIcons name="fact-check" size={17} color={Colors.textSecondary} />
+              <ClipboardCheck size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
               <Text style={styles.draftNoticeText}>
                 Todo contenido clínico generado es un borrador y requiere tu revisión profesional.
               </Text>
@@ -340,7 +361,7 @@ export function MentaAgentScreen() {
 
         {error ? (
           <View style={styles.errorBanner}>
-            <MaterialIcons name="error-outline" size={18} color={Colors.error} />
+            <CircleAlert size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />
             <Text style={styles.errorBannerText}>{error}</Text>
           </View>
         ) : null}
@@ -364,7 +385,7 @@ export function MentaAgentScreen() {
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
           >
-            <MaterialIcons name="arrow-upward" size={22} color={Colors.textInverse} />
+            <ArrowUp size={IconSize.navigation} strokeWidth={IconStroke.emphasized} color={Colors.textInverse} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -408,7 +429,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderSubtle,
     backgroundColor: Colors.surface,
     gap: Spacing.sm,
   },
@@ -421,6 +442,7 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     flexDirection: 'row',
     alignItems: 'flex-start',
+    minHeight: 48,
     paddingVertical: Spacing.sm,
     gap: Spacing.sm,
   },
@@ -437,7 +459,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   primaryButtonText: { ...Typography.button, color: Colors.textInverse },
-  disabled: { opacity: 0.5 },
+  primaryButtonTextDisabled: { color: Colors.textDisabled },
+  disabled: { backgroundColor: Colors.surfaceMuted },
   errorText: { ...Typography.bodySmall, color: Colors.error, textAlign: 'center' },
   header: {
     paddingHorizontal: Spacing.base,
@@ -468,13 +491,17 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.primaryTint,
   },
-  privateBadgeText: { ...Typography.caption, color: Colors.primary, fontWeight: '600' },
+  privateBadgeText: {
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.primary,
+  },
   messagesContent: { padding: Spacing.base, paddingBottom: Spacing.xl, gap: Spacing.lg },
   welcomeCard: {
     padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderSubtle,
     backgroundColor: Colors.surfaceRaised,
     gap: Spacing.sm,
   },
@@ -538,7 +565,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.primaryTint,
   },
-  toolBadgeText: { ...Typography.caption, color: Colors.primary, fontWeight: '600' },
+  toolBadgeText: {
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.primary,
+  },
   availabilityNotice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   availabilityNoticeText: { ...Typography.caption, color: Colors.textSecondary },
   typingBubble: {
@@ -560,7 +591,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.md,
   },
-  safetyLinkText: { ...Typography.bodySmall, color: Colors.primary, fontWeight: '600' },
+  safetyLinkText: {
+    ...Typography.bodySmall,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.primary,
+  },
   draftNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -592,12 +627,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   input: {
+    ...Typography.body,
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.borderStrong,
     color: Colors.textPrimary,

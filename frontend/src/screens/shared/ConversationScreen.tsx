@@ -1,6 +1,19 @@
-import { MaterialIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { randomUUID } from 'expo-crypto';
+import {
+  ArrowLeft,
+  Check,
+  CircleAlert,
+  Clock3,
+  History,
+  Info,
+  LockKeyhole,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  UserRound,
+  X,
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,12 +22,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AppNavigation, AppStackParamList } from '../../navigation/navigationTypes';
 import {
@@ -30,7 +43,7 @@ import type { RealtimeConnectionState } from '../../services/socketClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 
 type ConversationRoute = RouteProp<AppStackParamList, 'Consultation'>;
 type DeliveryState = 'sending' | 'sent' | 'failed';
@@ -245,7 +258,7 @@ export const ConversationScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.centered}>
-          <MaterialIcons name="lock-outline" size={36} color={Colors.textTertiary} />
+          <LockKeyhole size={36} color={Colors.textTertiary} strokeWidth={1.7} />
           <Text style={styles.emptyTitle}>Conversación no disponible</Text>
           <Text style={styles.emptyText}>{error ?? 'No tienes acceso a esta conversación.'}</Text>
           <Pressable style={styles.secondaryButton} onPress={() => navigation.goBack()}>
@@ -272,13 +285,13 @@ export const ConversationScreen: React.FC = () => {
             onPress={() => navigation.goBack()}
             style={styles.iconButton}
           >
-            <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
+            <ArrowLeft size={24} color={Colors.textPrimary} strokeWidth={2} />
           </Pressable>
           {conversation.counterpart.photoUrl ? (
             <Image source={{ uri: conversation.counterpart.photoUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarFallback}>
-              <MaterialIcons name="person-outline" size={22} color={Colors.primary} />
+              <UserRound size={22} color={Colors.primary} strokeWidth={1.8} />
             </View>
           )}
           <View style={styles.headerCopy}>
@@ -292,15 +305,15 @@ export const ConversationScreen: React.FC = () => {
             </View>
           </View>
           <View style={styles.secureBadge}>
-            <MaterialIcons name="lock-outline" size={17} color={Colors.primary} />
+            <LockKeyhole size={17} color={Colors.primary} strokeWidth={1.9} />
           </View>
         </View>
 
         {error ? (
           <Pressable style={styles.errorBanner} onPress={() => setError(null)}>
-            <MaterialIcons name="error-outline" size={18} color={Colors.error} />
+            <CircleAlert size={18} color={Colors.error} strokeWidth={1.9} />
             <Text numberOfLines={2} style={styles.errorText}>{error}</Text>
-            <MaterialIcons name="close" size={18} color={Colors.textSecondary} />
+            <X size={18} color={Colors.textSecondary} strokeWidth={2} />
           </Pressable>
         ) : null}
 
@@ -324,13 +337,13 @@ export const ConversationScreen: React.FC = () => {
             >
               {isLoadingOlder
                 ? <ActivityIndicator color={Colors.primary} size="small" />
-                : <MaterialIcons name="history" size={18} color={Colors.primary} />}
+                : <History size={18} color={Colors.primary} strokeWidth={1.9} />}
               <Text style={styles.olderButtonText}>Cargar mensajes anteriores</Text>
             </Pressable>
           ) : null}
           ListEmptyComponent={(
             <View style={styles.emptyConversation}>
-              <MaterialIcons name="verified-user" size={28} color={Colors.primary} />
+              <ShieldCheck size={28} color={Colors.primary} strokeWidth={1.8} />
               <Text style={styles.emptyTitle}>Canal de atención habilitado</Text>
               <Text style={styles.emptyText}>
                 Los mensajes se guardan en tu conversación y solo pueden consultarlos sus participantes.
@@ -348,16 +361,16 @@ export const ConversationScreen: React.FC = () => {
                     {messageTime(item.sentAt)}
                   </Text>
                   {item.isOwn && item.delivery === 'sending' ? (
-                    <MaterialIcons name="schedule" size={13} color="rgba(255,255,255,0.72)" />
+                    <Clock3 size={13} color={Colors.textOnBrandMuted} strokeWidth={1.9} />
                   ) : null}
                   {item.isOwn && item.delivery === 'sent' ? (
-                    <MaterialIcons name="check" size={14} color="rgba(255,255,255,0.8)" />
+                    <Check size={14} color={Colors.textOnBrandMuted} strokeWidth={2.2} />
                   ) : null}
                 </View>
               </View>
               {item.delivery === 'failed' ? (
                 <Pressable onPress={() => retry(item)} style={styles.retryButton}>
-                  <MaterialIcons name="refresh" size={16} color={Colors.error} />
+                  <RefreshCw size={16} color={Colors.error} strokeWidth={2} />
                   <Text style={styles.retryMessageText}>Reintentar</Text>
                 </Pressable>
               ) : null}
@@ -368,7 +381,7 @@ export const ConversationScreen: React.FC = () => {
         <View style={styles.composer}>
           {!conversation.canSend ? (
             <View style={styles.readOnlyNotice}>
-              <MaterialIcons name="info-outline" size={18} color={Colors.textSecondary} />
+              <Info size={18} color={Colors.textSecondary} strokeWidth={1.9} />
               <Text style={styles.readOnlyText}>La relación está pausada; la conversación es de solo lectura.</Text>
             </View>
           ) : (
@@ -394,7 +407,7 @@ export const ConversationScreen: React.FC = () => {
                   pressed && styles.sendButtonPressed,
                 ]}
               >
-                <MaterialIcons name="send" size={21} color={Colors.textInverse} />
+                <Send size={21} color={Colors.textInverse} strokeWidth={2} />
               </Pressable>
             </>
           )}
@@ -431,7 +444,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.primaryTint,
   },
   headerCopy: { flex: 1, minWidth: 0 },
   name: { ...Typography.h4, color: Colors.textPrimary },
@@ -445,7 +458,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.primaryTint,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -453,9 +466,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Colors.errorSurface,
     borderBottomWidth: 1,
-    borderBottomColor: '#FECACA',
+    borderBottomColor: Colors.errorBorder,
   },
   errorText: { ...Typography.bodySmall, color: Colors.error, flex: 1 },
   messageList: { flexGrow: 1, paddingHorizontal: Spacing.base, paddingVertical: Spacing.md },
@@ -468,7 +481,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  olderButtonText: { ...Typography.bodySmall, color: Colors.primary, fontWeight: '600' },
+  olderButtonText: { ...Typography.bodySmall, color: Colors.primary, fontFamily: FontFamily.bodySemiBold },
   emptyConversation: {
     flex: 1,
     alignItems: 'center',
@@ -496,7 +509,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: BorderRadius.xs,
   },
   bubbleOther: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Colors.surfaceMuted,
     borderRadius: BorderRadius.lg,
     borderBottomLeftRadius: BorderRadius.xs,
   },
@@ -504,9 +517,9 @@ const styles = StyleSheet.create({
   messageTextOwn: { color: Colors.textInverse },
   messageMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 },
   messageTime: { ...Typography.caption, color: Colors.textTertiary, marginTop: Spacing.xs },
-  messageTimeOwn: { color: 'rgba(255,255,255,0.72)' },
+  messageTimeOwn: { color: Colors.textOnBrandMuted },
   retryButton: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: Spacing.xs },
-  retryMessageText: { ...Typography.caption, color: Colors.error, fontWeight: '600' },
+  retryMessageText: { ...Typography.caption, color: Colors.error, fontFamily: FontFamily.bodySemiBold },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

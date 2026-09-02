@@ -14,7 +14,7 @@ interface AppCardProps {
 export const AppCard: React.FC<AppCardProps> = ({
   children,
   style,
-  elevation = 'md',
+  elevation = 'sm',
   padding = Spacing.base,
   noPadding = false,
 }) => {
@@ -35,7 +35,9 @@ export const AppCard: React.FC<AppCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
     overflow: 'hidden',
   },
 });

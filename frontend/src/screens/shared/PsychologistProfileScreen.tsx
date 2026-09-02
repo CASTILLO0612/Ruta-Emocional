@@ -3,17 +3,27 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Image,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  CircleAlert,
+  Info,
+  MapPin,
+  MessageCircle,
+  MonitorSmartphone,
+  PhoneCall,
+  UserRound,
+} from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { StarRating } from '../../components/common/StarRating';
 import { Modality, Psychologist } from '../../models/Psychologist';
@@ -22,14 +32,13 @@ import type {
   AppNavigation,
   PsychologistProfileRoute,
 } from '../../navigation/navigationTypes';
+import { formatModalityLabel } from '../../utils/modality';
 
-type MaterialIconName = React.ComponentProps<typeof MaterialIcons>['name'];
-
-const MODALITY_LABELS: Record<Modality, { icon: MaterialIconName; label: string }> = {
-  chat: { icon: 'chat-bubble-outline', label: 'Chat de texto' },
-  call: { icon: 'phone-in-talk', label: 'Llamada de audio' },
-  'in-person': { icon: 'location-on', label: 'Presencial' },
-};
+function ModalityIcon({ modality }: { readonly modality: Modality }) {
+  if (modality === 'chat') return <MessageCircle size={16} color={Colors.primary} strokeWidth={1.9} />;
+  if (modality === 'call') return <PhoneCall size={16} color={Colors.primary} strokeWidth={1.9} />;
+  return <MapPin size={16} color={Colors.primary} strokeWidth={1.9} />;
+}
 
 export const PsychologistProfileScreen: React.FC = () => {
   const navigation = useNavigation<AppNavigation>();
@@ -73,7 +82,7 @@ export const PsychologistProfileScreen: React.FC = () => {
   if (!psychologist) {
     return (
       <View style={styles.errorState}>
-        <MaterialIcons name="error-outline" size={48} color={Colors.textDisabled} />
+        <CircleAlert size={48} color={Colors.textDisabled} strokeWidth={1.6} />
         <Text style={styles.errorText}>{loadError ?? 'Perfil no disponible'}</Text>
         <TouchableOpacity onPress={loadProfile} style={styles.backLink}>
           <Text style={styles.backLinkText}>Reintentar</Text>
@@ -91,9 +100,9 @@ export const PsychologistProfileScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
-            accessibilityLabel="Back button"
+            accessibilityLabel="Volver"
           >
-            <MaterialIcons name="arrow-back" size={22} color={Colors.textInverse} />
+            <ArrowLeft size={22} color={Colors.textInverse} strokeWidth={2} />
           </TouchableOpacity>
         </SafeAreaView>
 
@@ -102,14 +111,14 @@ export const PsychologistProfileScreen: React.FC = () => {
             <Image source={{ uri: psychologist.photoURL }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <MaterialIcons name="person" size={48} color={Colors.textInverse} />
+              <UserRound size={48} color={Colors.textInverse} strokeWidth={1.6} />
             </View>
           )}
 
           <View style={styles.heroTextBlock}>
             <View style={styles.verifiedRow}>
               <Text style={styles.heroName}>{psychologist.displayName}</Text>
-              <MaterialIcons name="verified" size={18} color={Colors.accent} />
+              <BadgeCheck size={18} color={Colors.accent} strokeWidth={2} />
             </View>
             <Text style={styles.heroSpecialty}>{psychologist.specialty}</Text>
             <StarRating rating={psychologist.rating} size={14} showValue />
@@ -137,13 +146,13 @@ export const PsychologistProfileScreen: React.FC = () => {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{psychologist.rating}</Text>
-            <Text style={styles.statLabel}>rating</Text>
+            <Text style={styles.statLabel}>calificación</Text>
           </View>
         </View>
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionRow}>
-            <MaterialIcons name="badge" size={18} color={Colors.primary} />
+            <BadgeCheck size={18} color={Colors.primary} strokeWidth={1.9} />
             <Text style={styles.sectionTitle}>Credencial</Text>
           </View>
           <Text style={styles.licenseText}>Licencia profesional verificada</Text>
@@ -155,7 +164,7 @@ export const PsychologistProfileScreen: React.FC = () => {
         {psychologist.bio && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionRow}>
-              <MaterialIcons name="info-outline" size={18} color={Colors.primary} />
+              <Info size={18} color={Colors.primary} strokeWidth={1.9} />
               <Text style={styles.sectionTitle}>Acerca de</Text>
             </View>
             <Text style={styles.bioText}>{psychologist.bio}</Text>
@@ -164,17 +173,16 @@ export const PsychologistProfileScreen: React.FC = () => {
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionRow}>
-            <MaterialIcons name="devices" size={18} color={Colors.primary} />
+            <MonitorSmartphone size={18} color={Colors.primary} strokeWidth={1.9} />
             <Text style={styles.sectionTitle}>Modalidades de atención</Text>
           </View>
           <View style={styles.modalityList}>
             {psychologist.modalities.map((m) => {
-              const meta = MODALITY_LABELS[m];
-              if (!meta) return null;
+              const label = formatModalityLabel(m);
               return (
                 <View key={m} style={styles.modalityChip}>
-                  <MaterialIcons name={meta.icon} size={16} color={Colors.primary} />
-                  <Text style={styles.modalityLabel}>{meta.label}</Text>
+                  <ModalityIcon modality={m} />
+                  <Text style={styles.modalityLabel}>{label}</Text>
                 </View>
               );
             })}
@@ -215,7 +223,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -237,7 +245,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
@@ -253,20 +261,19 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   heroName: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.textInverse,
     flexShrink: 1,
   },
   heroSpecialty: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
-    fontWeight: '500',
+    ...Typography.bodySmall,
+    color: Colors.textOnBrandMuted,
+    fontFamily: FontFamily.bodyMedium,
     marginBottom: 4,
   },
   reviewCount: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    ...Typography.caption,
+    color: Colors.textOnBrandMuted,
     marginTop: 2,
   },
   scrollContent: {
@@ -274,30 +281,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginTop: -Spacing.lg,
     paddingBottom: Spacing.xxxl,
-  },
-  offerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    ...Shadow.sm,
-  },
-  offerBannerLeft: {
-    gap: 2,
-  },
-  offerBannerLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  offerBannerAmount: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: Colors.accent,
   },
   statsRow: {
     flexDirection: 'row',
@@ -314,12 +297,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.priceSm,
     color: Colors.textPrimary,
   },
   statLabel: {
-    fontSize: 11,
+    ...Typography.caption,
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -344,24 +326,22 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...Typography.h4,
     color: Colors.textPrimary,
   },
   licenseText: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...Typography.body,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   licenseNote: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.textSecondary,
   },
   bioText: {
-    fontSize: 14,
+    ...Typography.bodySmall,
     color: Colors.textSecondary,
-    lineHeight: 22,
   },
   modalityList: {
     flexDirection: 'row',
@@ -380,9 +360,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   modalityLabel: {
-    fontSize: 13,
+    ...Typography.bodySmall,
     color: Colors.textPrimary,
-    fontWeight: '500',
+    fontFamily: FontFamily.bodyMedium,
   },
   availabilityCard: {
     flexDirection: 'row',
@@ -396,9 +376,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   availabilityText: {
-    fontSize: 14,
+    ...Typography.bodySmall,
     color: Colors.textPrimary,
-    fontWeight: '500',
+    fontFamily: FontFamily.bodyMedium,
   },
   ctaBlock: {
     gap: Spacing.sm,
@@ -409,9 +389,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   secondaryBtnText: {
-    fontSize: 15,
+    ...Typography.button,
     color: Colors.textSecondary,
-    fontWeight: '500',
   },
   errorState: {
     flex: 1,
@@ -421,14 +400,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   errorText: {
-    fontSize: 16,
+    ...Typography.body,
     color: Colors.textSecondary,
   },
   backLink: {
     paddingVertical: Spacing.sm,
   },
   backLinkText: {
+    ...Typography.button,
     color: Colors.primary,
-    fontWeight: '600',
   },
 });

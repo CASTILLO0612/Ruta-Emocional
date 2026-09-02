@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TextInput,
   TouchableOpacity,
@@ -12,7 +11,8 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RadioTower, Send, Stethoscope } from 'lucide-react-native';
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
@@ -144,9 +144,9 @@ export const DashboardScreen: React.FC = () => {
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconBox}>
-        <MaterialIcons name="wifi-tethering" size={28} color={Colors.textDisabled} />
+        <RadioTower size={28} color={Colors.textDisabled} strokeWidth={1.8} />
       </View>
-      <Text style={styles.emptyTitle}>Escaneando solicitudes</Text>
+      <Text style={styles.emptyTitle}>Buscando solicitudes</Text>
       <Text style={styles.emptySub}>Las solicitudes disponibles aparecerán aquí.</Text>
     </View>
   );
@@ -159,7 +159,7 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.logoMark}>
-              <MaterialIcons name="psychology" size={14} color={Colors.accent} />
+              <Stethoscope size={16} color={Colors.accent} strokeWidth={2} />
             </View>
             <View>
               <Text style={styles.greeting}>Panel de Psicólogo</Text>
@@ -245,7 +245,7 @@ export const DashboardScreen: React.FC = () => {
                 disabled={isLoading}
                 accessibilityLabel="Enviar contraoferta"
               >
-                <MaterialIcons name="send" size={16} color={Colors.textInverse} />
+                <Send size={16} color={Colors.textInverse} strokeWidth={2} />
                 <Text style={styles.modalSendText}>Enviar oferta</Text>
               </TouchableOpacity>
             </View>
@@ -340,11 +340,11 @@ const styles = StyleSheet.create({
   emptySub: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', maxWidth: 260 },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
     paddingBottom: Spacing.xxl,
     gap: Spacing.lg,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   modalCancelBtn: {
     flex: 1,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.border,
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.primary,
   },
   modalSendText: { ...Typography.button, color: Colors.textInverse },

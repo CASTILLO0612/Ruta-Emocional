@@ -7,8 +7,11 @@ const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), '
 const appJson = JSON.parse(await readFile(path.join(root, 'app.json'), 'utf8'));
 const easJson = JSON.parse(await readFile(path.join(root, 'eas.json'), 'utf8'));
 
-assert.equal(packageJson.dependencies.expo, '~57.0.18');
-assert.equal(packageJson.dependencies['expo-font'], '~57.0.2');
+assert.equal(packageJson.dependencies.expo, '~57.0.19');
+assert.equal(packageJson.dependencies['expo-dev-client'], '~57.0.18');
+assert.equal(packageJson.dependencies['expo-font'], '~57.0.3');
+assert.equal(packageJson.dependencies['expo-location'], '~57.0.15');
+assert.equal(packageJson.dependencies['expo-secure-store'], '~57.0.3');
 assert.ok(Array.isArray(appJson.expo.plugins));
 assert.equal(JSON.stringify(appJson).includes('PLACEHOLDER_GOOGLE_MAPS_API_KEY'), false);
 for (const profile of ['development', 'preview', 'production']) {

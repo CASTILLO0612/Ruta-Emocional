@@ -1,10 +1,30 @@
 import { randomUUID } from 'expo-crypto';
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  ArrowRight,
+  Bot,
+  ChartNoAxesColumnIncreasing,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CircleDot,
+  Clock3,
+  CloudOff,
+  ExternalLink,
+  FlaskConical,
+  MapPin,
+  MessageCircle,
+  Phone,
+  PhoneCall,
+  Shield,
+  ShieldCheck,
+  Siren,
+  Square,
+  SquareCheckBig,
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,6 +32,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../components/common/AppButton';
 import { CustomAlert } from '../../components/common/CustomAlert';
@@ -28,7 +49,7 @@ import {
 import { ApiError } from '../../services/apiClient';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 
 const MODALITY_LABELS: Readonly<Record<TriageModality, string>> = {
   CHAT: 'Chat seguro',
@@ -66,6 +87,18 @@ function riskColor(riskLevel: TriageRiskLevel): string {
   if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') return Colors.error;
   if (riskLevel === 'MODERATE') return Colors.warning;
   return Colors.primary;
+}
+
+function riskSurface(riskLevel: TriageRiskLevel): string {
+  if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') return Colors.errorSurface;
+  if (riskLevel === 'MODERATE') return Colors.warningSurface;
+  return Colors.primaryTint;
+}
+
+function ModalityIcon({ modality }: { readonly modality: TriageModality }) {
+  if (modality === 'CHAT') return <MessageCircle size={17} color={Colors.primary} strokeWidth={1.9} />;
+  if (modality === 'CALL') return <PhoneCall size={17} color={Colors.primary} strokeWidth={1.9} />;
+  return <MapPin size={17} color={Colors.primary} strokeWidth={1.9} />;
 }
 
 function resourceTarget(channel: 'PHONE' | 'URL', value: string): string {
@@ -185,19 +218,19 @@ export const MentaScreen: React.FC = () => {
       <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
       <View style={styles.header}>
         <View style={styles.headerIcon}>
-          <MaterialIcons name="health-and-safety" size={21} color={Colors.textInverse} />
+          <ShieldCheck size={21} color={Colors.textInverse} strokeWidth={1.9} />
         </View>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>MENTA</Text>
           <Text style={styles.headerSubtitle}>Orientación automatizada y privada</Text>
         </View>
-        <MaterialIcons name="lock-outline" size={20} color={Colors.primary} />
+        <Shield size={20} color={Colors.primary} strokeWidth={1.9} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {!policy ? (
           <View style={styles.stateCard}>
-            <MaterialIcons name="cloud-off" size={30} color={Colors.textTertiary} />
+            <CloudOff size={30} color={Colors.textTertiary} strokeWidth={1.7} />
             <Text style={styles.stateTitle}>Orientación no disponible</Text>
             <Text style={styles.stateText}>{error}</Text>
             <AppButton label="Volver a intentar" onPress={loadPolicy} variant="outline" />
@@ -213,7 +246,7 @@ export const MentaScreen: React.FC = () => {
         ) : (
           <>
             <View style={styles.noticeCard}>
-              <MaterialIcons name="smart-toy" size={22} color={Colors.primary} />
+              <Bot size={22} color={Colors.primary} strokeWidth={1.8} />
               <View style={styles.noticeCopy}>
                 <Text style={styles.noticeTitle}>Sistema automatizado</Text>
                 <Text style={styles.noticeText}>{policy.automatedSystemNotice}</Text>
@@ -223,7 +256,7 @@ export const MentaScreen: React.FC = () => {
 
             {!policy.protocolApproved && (
               <View style={styles.demoBanner}>
-                <MaterialIcons name="science" size={19} color={Colors.warning} />
+                <FlaskConical size={19} color={Colors.warning} strokeWidth={1.9} />
                 <Text style={styles.demoText}>
                   Entorno de demostración. El protocolo requiere aprobación clínica antes de producción.
                 </Text>
@@ -262,11 +295,9 @@ export const MentaScreen: React.FC = () => {
                         accessibilityHint={option.helpText ?? undefined}
                         accessibilityState={{ checked: selected }}
                       >
-                        <MaterialIcons
-                          name={selected ? 'radio-button-checked' : 'radio-button-unchecked'}
-                          size={20}
-                          color={selected ? Colors.primary : Colors.textTertiary}
-                        />
+                        {selected
+                          ? <CircleDot size={20} color={Colors.primary} strokeWidth={2} />
+                          : <Circle size={20} color={Colors.textTertiary} strokeWidth={1.8} />}
                         <View style={styles.optionCopy}>
                           <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
                             {option.label}
@@ -293,11 +324,9 @@ export const MentaScreen: React.FC = () => {
               accessibilityHint="Puedes retirar este consentimiento después desde la evaluación."
               accessibilityState={{ checked: consentGranted }}
             >
-              <MaterialIcons
-                name={consentGranted ? 'check-box' : 'check-box-outline-blank'}
-                size={23}
-                color={consentGranted ? Colors.primary : Colors.textTertiary}
-              />
+              {consentGranted
+                ? <SquareCheckBig size={23} color={Colors.primary} strokeWidth={2} />
+                : <Square size={23} color={Colors.textTertiary} strokeWidth={1.8} />}
               <View style={styles.consentCopy}>
                 <Text style={styles.consentTitle}>{policy.consentDocument.title}</Text>
                 <Text style={styles.consentText}>{policy.consentDocument.content}</Text>
@@ -311,7 +340,7 @@ export const MentaScreen: React.FC = () => {
                 accessibilityRole="alert"
                 accessibilityLiveRegion="assertive"
               >
-                <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+                <CircleAlert size={20} color={Colors.error} strokeWidth={1.9} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
@@ -323,7 +352,7 @@ export const MentaScreen: React.FC = () => {
               size="lg"
               isLoading={submitting}
               disabled={!canSubmit}
-              icon={<MaterialIcons name="arrow-forward" size={19} color={Colors.primary} />}
+              icon={<ArrowRight size={19} color={Colors.textInverse} strokeWidth={2} />}
               accessibilityHint="Procesa únicamente las opciones seleccionadas."
             />
             <Text style={styles.privacyNote}>
@@ -368,12 +397,12 @@ const AssessmentResult: React.FC<{
           accessibilityLabel="Tu seguridad es lo primero. Revisa las acciones y recursos inmediatos."
         >
           <View style={styles.immediateHeading}>
-            <MaterialIcons name="crisis-alert" size={25} color={Colors.error} />
+            <Siren size={25} color={Colors.error} strokeWidth={1.9} />
             <Text style={styles.immediateTitle}>Tu seguridad es lo primero</Text>
           </View>
           {assessment.safetyActions.map((action) => (
             <View key={action} style={styles.actionRow}>
-              <MaterialIcons name="arrow-right" size={19} color={Colors.error} />
+              <ArrowRight size={19} color={Colors.error} strokeWidth={2} />
               <Text style={styles.actionText}>{action}</Text>
             </View>
           ))}
@@ -387,11 +416,9 @@ const AssessmentResult: React.FC<{
               accessibilityLabel={`${resource.label}: ${resource.value}`}
               accessibilityHint={resource.channel === 'PHONE' ? 'Inicia una llamada.' : 'Abre el recurso externo.'}
             >
-              <MaterialIcons
-                name={resource.channel === 'PHONE' ? 'call' : 'open-in-new'}
-                size={21}
-                color={Colors.textInverse}
-              />
+              {resource.channel === 'PHONE'
+                ? <Phone size={21} color={Colors.textInverse} strokeWidth={2} />
+                : <ExternalLink size={21} color={Colors.textInverse} strokeWidth={2} />}
               <View style={styles.resourceCopy}>
                 <Text style={styles.resourceLabel}>{resource.label}</Text>
                 <Text style={styles.resourceValue}>{resource.value}</Text>
@@ -406,8 +433,8 @@ const AssessmentResult: React.FC<{
         accessibilityLiveRegion="polite"
       >
         <View style={styles.resultHeading}>
-          <View style={[styles.resultIcon, { backgroundColor: `${accentColor}16` }]}>
-            <MaterialIcons name="insights" size={27} color={accentColor} />
+          <View style={[styles.resultIcon, { backgroundColor: riskSurface(assessment.riskLevel) }]}>
+            <ChartNoAxesColumnIncreasing size={27} color={accentColor} strokeWidth={1.8} />
           </View>
           <View style={styles.resultHeadingCopy}>
             <Text style={[styles.riskLabel, { color: accentColor }]}>
@@ -424,11 +451,7 @@ const AssessmentResult: React.FC<{
             <View style={styles.modalityList}>
               {assessment.recommendedModalities.map((modality) => (
                 <View key={modality} style={styles.modalityChip}>
-                  <MaterialIcons
-                    name={modality === 'CHAT' ? 'chat' : modality === 'CALL' ? 'call' : 'person-pin-circle'}
-                    size={17}
-                    color={Colors.primary}
-                  />
+                  <ModalityIcon modality={modality} />
                   <Text style={styles.modalityText}>{MODALITY_LABELS[modality]}</Text>
                 </View>
               ))}
@@ -437,7 +460,7 @@ const AssessmentResult: React.FC<{
         )}
 
         <View style={styles.transparencyRow}>
-          <MaterialIcons name="verified-user" size={17} color={Colors.textTertiary} />
+          <ShieldCheck size={17} color={Colors.textTertiary} strokeWidth={1.9} />
           <Text style={styles.transparencyText}>
             Resultado automatizado, no diagnóstico · Reglas {assessment.evaluatorVersion}
           </Text>
@@ -446,7 +469,7 @@ const AssessmentResult: React.FC<{
 
       <View style={styles.privacyControls}>
         <View style={styles.privacyControlsHeading}>
-          <MaterialIcons name="privacy-tip" size={21} color={Colors.primary} />
+          <Shield size={21} color={Colors.primary} strokeWidth={1.9} />
           <View style={styles.privacyControlsCopy}>
             <Text style={styles.resultSectionTitle}>Control de tus datos</Text>
             <Text style={styles.privacyControlsText}>
@@ -457,7 +480,7 @@ const AssessmentResult: React.FC<{
 
         {assessment.consentWithdrawnAt ? (
           <View style={styles.privacyStatus} accessibilityLiveRegion="polite">
-            <MaterialIcons name="check-circle-outline" size={19} color={Colors.primary} />
+            <CircleCheck size={19} color={Colors.primary} strokeWidth={1.9} />
             <Text style={styles.privacyStatusText}>Consentimiento retirado.</Text>
           </View>
         ) : (
@@ -473,7 +496,7 @@ const AssessmentResult: React.FC<{
 
         {assessment.erasureRequest ? (
           <View style={styles.privacyStatus} accessibilityLiveRegion="polite">
-            <MaterialIcons name="schedule" size={19} color={Colors.primary} />
+            <Clock3 size={19} color={Colors.primary} strokeWidth={1.9} />
             <Text style={styles.privacyStatusText}>
               Solicitud recibida · {ERASURE_STATUS_LABELS[assessment.erasureRequest.status]}
             </Text>
@@ -496,7 +519,7 @@ const AssessmentResult: React.FC<{
           accessibilityRole="alert"
           accessibilityLiveRegion="assertive"
         >
-          <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+          <CircleAlert size={20} color={Colors.error} strokeWidth={1.9} />
           <Text style={styles.errorText}>{privacyError}</Text>
         </View>
       )}
@@ -556,7 +579,7 @@ const styles = StyleSheet.create({
   noticeCopy: { flex: 1, gap: Spacing.xs },
   noticeTitle: { ...Typography.h4, color: Colors.primary },
   noticeText: { ...Typography.bodySmall, color: Colors.textSecondary },
-  emergencyText: { ...Typography.bodySmall, fontWeight: '700', color: Colors.textPrimary },
+  emergencyText: { ...Typography.bodySmall, fontFamily: FontFamily.bodyBold, color: Colors.textPrimary },
   demoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -575,7 +598,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   sectionTitle: { ...Typography.h3, color: Colors.textPrimary },
-  progressText: { ...Typography.bodySmall, fontWeight: '700', color: Colors.primary },
+  progressText: { ...Typography.bodySmall, fontFamily: FontFamily.bodyBold, color: Colors.primary },
   questionCard: {
     padding: Spacing.base,
     borderRadius: BorderRadius.lg,
@@ -604,7 +627,7 @@ const styles = StyleSheet.create({
   },
   optionSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryTint },
   optionCopy: { flex: 1 },
-  optionLabel: { ...Typography.body, fontWeight: '600', color: Colors.textPrimary },
+  optionLabel: { ...Typography.body, fontFamily: FontFamily.bodySemiBold, color: Colors.textPrimary },
   optionLabelSelected: { color: Colors.primary },
   optionHelp: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
   consentCard: {
@@ -620,7 +643,7 @@ const styles = StyleSheet.create({
   consentCopy: { flex: 1, gap: Spacing.xs },
   consentTitle: { ...Typography.h4, color: Colors.textPrimary },
   consentText: { ...Typography.bodySmall, color: Colors.textSecondary },
-  consentVersion: { ...Typography.caption, fontWeight: '700', color: Colors.primary },
+  consentVersion: { ...Typography.caption, fontFamily: FontFamily.bodyBold, color: Colors.primary },
   errorCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -657,7 +680,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.error,
   },
   resourceCopy: { flex: 1 },
-  resourceLabel: { ...Typography.body, fontWeight: '700', color: Colors.textInverse },
+  resourceLabel: { ...Typography.body, fontFamily: FontFamily.bodyBold, color: Colors.textInverse },
   resourceValue: { ...Typography.caption, color: Colors.textInverse, marginTop: 2 },
   resultCard: {
     padding: Spacing.lg,
@@ -692,7 +715,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.primaryTint,
   },
-  modalityText: { ...Typography.bodySmall, fontWeight: '700', color: Colors.primary },
+  modalityText: { ...Typography.bodySmall, fontFamily: FontFamily.bodyBold, color: Colors.primary },
   transparencyRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -721,5 +744,5 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.primaryTint,
   },
-  privacyStatusText: { ...Typography.bodySmall, flex: 1, fontWeight: '700', color: Colors.primary },
+  privacyStatusText: { ...Typography.bodySmall, flex: 1, fontFamily: FontFamily.bodyBold, color: Colors.primary },
 });

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   Animated,
   Easing,
   TouchableOpacity,
@@ -11,16 +10,24 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, {
   PROVIDER_GOOGLE,
   PROVIDER_DEFAULT,
 } from '../../components/common/CustomMapView';
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  ChevronUp,
+  HeartHandshake,
+  MapPin,
+  MessageCircle,
+  WalletCards,
+  X,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BottomSheetModal, BottomSheetModalProvider, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { OfferCard } from '../../components/patient/OfferCard';
 import { Offer } from '../../models/Offer';
@@ -258,9 +265,9 @@ export const RadarScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.backBtn}
               onPress={() => setCancelAlertVisible(true)}
-              accessibilityLabel="Cancel search button"
+              accessibilityLabel="Cancelar búsqueda"
             >
-              <MaterialIcons name="close" size={22} color={Colors.primary} />
+              <X size={22} color={Colors.primary} strokeWidth={2} />
             </TouchableOpacity>
             <View style={styles.statusPill}>
               <View style={styles.statusDot} />
@@ -281,7 +288,7 @@ export const RadarScreen: React.FC = () => {
             </Animated.View>
 
             <View style={styles.radarCore}>
-              <MaterialIcons name="psychology" size={32} color={Colors.accent} />
+              <HeartHandshake size={32} color={Colors.accent} strokeWidth={1.8} />
             </View>
 
             {incomingOffers.length > 0 && (
@@ -293,7 +300,7 @@ export const RadarScreen: React.FC = () => {
 
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <MaterialIcons name="account-balance-wallet" size={16} color={Colors.accent} />
+              <WalletCards size={16} color={Colors.accent} strokeWidth={1.9} />
               <Text style={styles.infoLabel}>Tu presupuesto</Text>
               <Text style={styles.infoValue}>
                 {activeRequest
@@ -302,7 +309,7 @@ export const RadarScreen: React.FC = () => {
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <MaterialIcons name="chat-bubble-outline" size={16} color={Colors.accent} />
+              <MessageCircle size={16} color={Colors.accent} strokeWidth={1.9} />
               <Text style={styles.infoLabel}>Modalidad</Text>
               <Text style={styles.infoValue}>
                 {activeRequest?.modality ?? '--'}
@@ -311,7 +318,7 @@ export const RadarScreen: React.FC = () => {
 
             {nearbyPsychologistCount > 0 && incomingOffers.length === 0 && (
               <View style={styles.nearbyRow}>
-                <MaterialIcons name="location-on" size={14} color={Colors.accent} />
+                <MapPin size={14} color={Colors.accent} strokeWidth={1.9} />
                 <Text style={styles.nearbyText}>
                   {nearbyPsychologistCount} profesionales verificados dentro del radio de búsqueda
                 </Text>
@@ -326,14 +333,14 @@ export const RadarScreen: React.FC = () => {
 
             {incomingOffers.length === 0 ? (
               <Text style={styles.waitingText}>
-                Esperando ofertas de psicólogos disponibles...
+                Esperando propuestas de profesionales disponibles...
               </Text>
             ) : (
               <TouchableOpacity
                 style={styles.viewOffersBtn}
                 onPress={() => bottomSheetRef.current?.present()}
               >
-                <MaterialIcons name="expand-less" size={18} color={Colors.primary} />
+                <ChevronUp size={18} color={Colors.primary} strokeWidth={2} />
                 <Text style={styles.viewOffersBtnText}>
                   Ver {incomingOffers.length} oferta{incomingOffers.length > 1 ? 's' : ''}
                 </Text>
@@ -375,7 +382,7 @@ export const RadarScreen: React.FC = () => {
         <CustomAlert
           visible={cancelAlertVisible}
           title="Cancelar búsqueda"
-          message="¿Seguro que deseas cancelar tu solicitud de terapia?"
+          message="¿Seguro que deseas cancelar tu solicitud de atención?"
           confirmText="Sí, cancelar"
           cancelText="No, continuar"
           showCancel
@@ -401,12 +408,12 @@ export const RadarScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#E5E9F0',
+    backgroundColor: Colors.surfaceMuted,
   },
   darkOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(10,36,99,0.06)',
+    backgroundColor: Colors.primarySubtle,
     pointerEvents: 'none',
   },
   mapUnavailable: {
@@ -439,12 +446,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: 'rgba(10,36,99,0.92)',
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(57,211,83,0.3)',
+    borderColor: Colors.borderOnBrand,
   },
   statusDot: {
     width: 8,
@@ -455,7 +462,7 @@ const styles = StyleSheet.create({
   statusText: {
     ...Typography.caption,
     color: Colors.textInverse,
-    fontWeight: '600',
+    fontFamily: FontFamily.bodySemiBold,
   },
   radarContainer: {
     flex: 1,
@@ -498,18 +505,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   offerBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.primary,
   },
   infoCard: {
     margin: Spacing.base,
-    backgroundColor: 'rgba(10,36,99,0.92)',
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.xl,
     padding: Spacing.base,
     gap: Spacing.sm,
     borderWidth: 1.5,
-    borderColor: 'rgba(57,211,83,0.3)',
+    borderColor: Colors.borderOnBrand,
     ...Shadow.lg,
   },
   infoRow: {
@@ -519,7 +526,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     ...Typography.bodySmall,
-    color: 'rgba(255,255,255,0.6)',
+    color: Colors.textOnBrandMuted,
     flex: 1,
   },
   infoValue: {
@@ -532,18 +539,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: 'rgba(57,211,83,0.1)',
+    backgroundColor: Colors.surfaceOnBrand,
     padding: Spacing.sm,
     borderRadius: BorderRadius.md,
   },
   nearbyText: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.accent,
-    fontWeight: '500',
+    fontFamily: FontFamily.bodyMedium,
   },
   waitingText: {
     ...Typography.bodySmall,
-    color: 'rgba(255,255,255,0.4)',
+    color: Colors.textOnBrandMuted,
     textAlign: 'center',
     fontStyle: 'italic',
   },

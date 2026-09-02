@@ -1,20 +1,38 @@
-import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { randomUUID } from 'expo-crypto';
+import {
+  BadgeCheck,
+  Bot,
+  ChevronRight,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  ClipboardList,
+  FileText,
+  History,
+  Layers3,
+  LockKeyhole,
+  ShieldCheck,
+  UserRound,
+  UsersRound,
+  X,
+} from 'lucide-react-native';
+import { FilePlus2, Plus, X as MorphX } from 'lucide';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../components/common/AppButton';
+import { AppMorphIcon } from '../../components/common/AppMorphIcon';
 import {
   amendClinicalNote,
   ClinicalEncounter,
@@ -42,6 +60,7 @@ import {
   TriageAssessment,
 } from '../../repositories/TriageRepository';
 import { Colors } from '../../theme/colors';
+import { IconSize, IconStroke } from '../../theme/icons';
 import { clinicalRecordsStyles as styles } from './clinicalRecordsStyles';
 
 type EditorMode = 'ENCOUNTER' | 'DRAFT' | 'AMENDMENT' | 'PLAN' | null;
@@ -420,7 +439,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
           <Text style={styles.subtitle}>Historia clínica privada y versionada</Text>
         </View>
         <View style={styles.securityMark} accessibilityLabel="Contenido cifrado">
-          <MaterialIcons name="lock-outline" size={18} color={Colors.primary} />
+          <LockKeyhole size={18} color={Colors.primary} strokeWidth={1.9} />
           <Text style={styles.securityText}>Privado</Text>
         </View>
       </View>
@@ -437,16 +456,16 @@ export const ClinicalRecordsScreen: React.FC = () => {
       >
         {error ? (
           <Pressable style={styles.errorBanner} onPress={() => setError(null)}>
-            <MaterialIcons name="error-outline" size={20} color={Colors.error} />
+            <CircleAlert size={20} color={Colors.error} strokeWidth={1.9} />
             <Text style={styles.errorText}>{error}</Text>
-            <MaterialIcons name="close" size={18} color={Colors.textTertiary} />
+            <X size={18} color={Colors.textTertiary} strokeWidth={2} />
           </Pressable>
         ) : null}
 
         {patients.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
-              <MaterialIcons name="people-outline" size={30} color={Colors.primary} />
+              <UsersRound size={30} color={Colors.primary} strokeWidth={1.7} />
             </View>
             <Text style={styles.emptyTitle}>Sin pacientes activos</Text>
             <Text style={styles.emptyText}>
@@ -467,10 +486,10 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     style={[styles.patientChip, selected && styles.patientChipSelected]}
                   >
                     <View style={[styles.avatar, selected && styles.avatarSelected]}>
-                      <MaterialIcons
-                        name="person-outline"
+                      <UserRound
                         size={20}
                         color={selected ? Colors.textInverse : Colors.primary}
+                        strokeWidth={1.9}
                       />
                     </View>
                     <View>
@@ -505,7 +524,12 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     onPress={editorMode === 'ENCOUNTER' ? closeEditor : openEncounterEditor}
                     style={({ pressed }) => [styles.primaryIconButton, pressed && styles.pressed]}
                   >
-                    <MaterialIcons name={editorMode === 'ENCOUNTER' ? 'close' : 'note-add'} size={23} color={Colors.textInverse} />
+                    <AppMorphIcon
+                      icon={editorMode === 'ENCOUNTER' ? MorphX : FilePlus2}
+                      size={IconSize.navigation}
+                      color={Colors.textInverse}
+                      strokeWidth={editorMode === 'ENCOUNTER' ? IconStroke.emphasized : IconStroke.regular}
+                    />
                   </Pressable>
                 </View>
 
@@ -514,7 +538,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     <View style={styles.triageCard}>
                       <View style={styles.triageHeading}>
                         <View style={styles.triageIcon}>
-                          <MaterialIcons name="health-and-safety" size={21} color={Colors.primary} />
+                          <ShieldCheck size={21} color={Colors.primary} strokeWidth={1.9} />
                         </View>
                         <View style={styles.flex}>
                           <Text style={styles.triageTitle}>Orientación MENTA vinculada</Text>
@@ -528,19 +552,19 @@ export const ClinicalRecordsScreen: React.FC = () => {
                           onPress={() => setTriageAssessment(null)}
                           style={({ pressed }) => pressed && styles.pressed}
                         >
-                          <MaterialIcons name="close" size={20} color={Colors.textTertiary} />
+                          <X size={20} color={Colors.textTertiary} strokeWidth={2} />
                         </Pressable>
                       </View>
                       <Text style={styles.triageSummary}>{triageAssessment.orientationSummary}</Text>
                       <View style={styles.triageTransparency}>
-                        <MaterialIcons name="smart-toy" size={16} color={Colors.textTertiary} />
+                        <Bot size={16} color={Colors.textTertiary} strokeWidth={1.8} />
                         <Text style={styles.triageTransparencyText}>
                           Orientación automatizada, no diagnóstico · Reglas {triageAssessment.evaluatorVersion}
                         </Text>
                       </View>
                       {triageAssessment.reviewedAt ? (
                         <View style={styles.reviewedMark}>
-                          <MaterialIcons name="verified" size={18} color={Colors.success} />
+                          <BadgeCheck size={18} color={Colors.success} strokeWidth={2} />
                           <Text style={styles.reviewedText}>
                             Revisada {formatDate(triageAssessment.reviewedAt)}
                           </Text>
@@ -564,7 +588,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                       {busyAction === 'triage-read' ? (
                         <ActivityIndicator color={Colors.primary} />
                       ) : (
-                        <MaterialIcons name="health-and-safety" size={22} color={Colors.primary} />
+                        <ShieldCheck size={22} color={Colors.primary} strokeWidth={1.9} />
                       )}
                       <View style={styles.flex}>
                         <Text style={styles.triageLauncherTitle}>Revisar orientación MENTA</Text>
@@ -572,7 +596,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                           Resultado previo congelado al iniciar la relación asistencial.
                         </Text>
                       </View>
-                      <MaterialIcons name="chevron-right" size={22} color={Colors.textTertiary} />
+                      <ChevronRight size={22} color={Colors.textTertiary} strokeWidth={2} />
                     </Pressable>
                   )
                 ) : null}
@@ -586,11 +610,9 @@ export const ClinicalRecordsScreen: React.FC = () => {
                             : editorMode === 'AMENDMENT' ? 'Enmendar nota'
                               : 'Nuevo plan de tratamiento'}
                       </Text>
-                      <MaterialIcons
-                        name={editorMode === 'PLAN' ? 'assignment' : 'description'}
-                        size={22}
-                        color={Colors.primary}
-                      />
+                      {editorMode === 'PLAN'
+                        ? <ClipboardList size={22} color={Colors.primary} strokeWidth={1.9} />
+                        : <FileText size={22} color={Colors.primary} strokeWidth={1.9} />}
                     </View>
 
                     {editorMode === 'PLAN' ? (
@@ -683,13 +705,18 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     onPress={() => editorMode === 'PLAN' ? closeEditor() : setEditorMode('PLAN')}
                     style={styles.secondaryIconButton}
                   >
-                    <MaterialIcons name={editorMode === 'PLAN' ? 'close' : 'add'} size={21} color={Colors.primary} />
+                    <AppMorphIcon
+                      icon={editorMode === 'PLAN' ? MorphX : Plus}
+                      size={IconSize.action}
+                      color={Colors.primary}
+                      strokeWidth={IconStroke.emphasized}
+                    />
                   </Pressable>
                 </View>
 
                 {record.treatmentPlans.length === 0 ? (
                   <View style={styles.inlineEmpty}>
-                    <MaterialIcons name="assignment" size={22} color={Colors.textTertiary} />
+                    <ClipboardList size={22} color={Colors.textTertiary} strokeWidth={1.9} />
                     <Text style={styles.inlineEmptyText}>Todavía no hay un plan de tratamiento.</Text>
                   </View>
                 ) : record.treatmentPlans.map((plan) => (
@@ -714,12 +741,10 @@ export const ClinicalRecordsScreen: React.FC = () => {
                         >
                           {busyAction === goal.id ? (
                             <ActivityIndicator size="small" color={Colors.primary} />
+                          ) : goal.status === 'ACHIEVED' ? (
+                            <CircleCheck size={20} color={Colors.success} strokeWidth={2} />
                           ) : (
-                            <MaterialIcons
-                              name={goal.status === 'ACHIEVED' ? 'check-circle' : 'radio-button-unchecked'}
-                              size={20}
-                              color={goal.status === 'ACHIEVED' ? Colors.success : Colors.primary}
-                            />
+                            <Circle size={20} color={Colors.primary} strokeWidth={1.8} />
                           )}
                           <View style={styles.flex}>
                             <Text style={styles.goalText}>{goal.description}</Text>
@@ -765,12 +790,12 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     <Text style={styles.sectionTitle}>Línea clínica</Text>
                     <Text style={styles.sectionCaption}>Notas propias en orden cronológico</Text>
                   </View>
-                  <MaterialIcons name="history" size={23} color={Colors.primary} />
+                  <History size={23} color={Colors.primary} strokeWidth={1.9} />
                 </View>
 
                 {record.encounters.length === 0 ? (
                   <View style={styles.inlineEmpty}>
-                    <MaterialIcons name="description" size={22} color={Colors.textTertiary} />
+                    <FileText size={22} color={Colors.textTertiary} strokeWidth={1.9} />
                     <Text style={styles.inlineEmptyText}>Aún no se han registrado encuentros.</Text>
                   </View>
                 ) : record.encounters.map((encounter) => (
@@ -791,12 +816,12 @@ export const ClinicalRecordsScreen: React.FC = () => {
                       </View>
                       <Text style={styles.noteText}>{encounter.note.content}</Text>
                       <View style={styles.noteMeta}>
-                        <MaterialIcons name="layers" size={15} color={Colors.textTertiary} />
+                        <Layers3 size={15} color={Colors.textTertiary} strokeWidth={1.9} />
                         <Text style={styles.metaText}>Versión {encounter.note.latestVersionNumber}</Text>
                         {encounter.note.signedAt ? (
                           <>
                             <View style={styles.dot} />
-                            <MaterialIcons name="verified" size={15} color={Colors.success} />
+                            <BadgeCheck size={15} color={Colors.success} strokeWidth={2} />
                             <Text style={styles.metaText}>Firmada</Text>
                           </>
                         ) : null}

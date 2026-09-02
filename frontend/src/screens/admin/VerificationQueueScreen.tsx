@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,7 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  BadgeCheck,
+  CircleCheckBig,
+  CircleX,
+  ListChecks,
+  LogOut,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react-native';
 import {
   decideVerification,
   getPendingVerifications,
@@ -19,8 +27,8 @@ import {
 } from '../../repositories/AdminVerificationRepository';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
-import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
+import { FontFamily, Typography } from '../../theme/typography';
 import { showAlert } from '../../utils/alert';
 
 const REJECTION_REASON_MIN_LENGTH = 10;
@@ -72,7 +80,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, onDecided }) => {
     <View style={styles.reviewCard}>
       <View style={styles.cardHeader}>
         <View style={styles.avatar}>
-          <MaterialIcons name="person" size={24} color={Colors.primary} />
+          <UserRound size={24} color={Colors.primary} strokeWidth={1.9} />
         </View>
         <View style={styles.cardHeaderCopy}>
           <Text style={styles.professionalName}>{item.psychologistName}</Text>
@@ -81,7 +89,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, onDecided }) => {
       </View>
 
       <View style={styles.evidenceRow}>
-        <MaterialIcons name="verified-user" size={20} color={Colors.primary} />
+        <BadgeCheck size={20} color={Colors.primary} strokeWidth={1.9} />
         <View style={styles.evidenceCopy}>
           <Text style={styles.evidenceLabel}>Evidencia privada recibida</Text>
           <Text style={styles.evidenceName} numberOfLines={1}>{evidenceName}</Text>
@@ -109,7 +117,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, onDecided }) => {
           accessibilityRole="button"
           accessibilityLabel={`Solicitar corrección a ${item.psychologistName}`}
         >
-          <MaterialIcons name="cancel" size={19} color={Colors.error} />
+          <CircleX size={19} color={Colors.error} strokeWidth={2} />
           <Text style={styles.rejectButtonText}>Solicitar corrección</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -123,7 +131,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, onDecided }) => {
             <ActivityIndicator color={Colors.textInverse} />
           ) : (
             <>
-              <MaterialIcons name="check-circle" size={19} color={Colors.textInverse} />
+              <CircleCheckBig size={19} color={Colors.textInverse} strokeWidth={2} />
               <Text style={styles.approveButtonText}>Aprobar</Text>
             </>
           )}
@@ -192,7 +200,7 @@ export const VerificationQueueScreen: React.FC = () => {
       >
         <View style={styles.header}>
           <View style={styles.headerIcon}>
-            <MaterialIcons name="admin-panel-settings" size={30} color={Colors.primary} />
+            <ShieldCheck size={30} color={Colors.primary} strokeWidth={1.8} />
           </View>
           <View style={styles.headerCopy}>
             <Text style={styles.overline}>Administración local</Text>
@@ -213,7 +221,7 @@ export const VerificationQueueScreen: React.FC = () => {
           <ActivityIndicator size="large" color={Colors.primary} />
         ) : items.length === 0 ? (
           <View style={styles.emptyCard}>
-            <MaterialIcons name="task-alt" size={40} color={Colors.success} />
+            <ListChecks size={40} color={Colors.success} strokeWidth={1.7} />
             <Text style={styles.emptyTitle}>Sin solicitudes pendientes</Text>
             <Text style={styles.subtitle}>La cola está al día.</Text>
           </View>
@@ -245,7 +253,7 @@ export const VerificationQueueScreen: React.FC = () => {
             <ActivityIndicator color={Colors.textInverse} />
           ) : (
             <>
-              <MaterialIcons name="logout" size={19} color={Colors.textInverse} />
+              <LogOut size={19} color={Colors.textInverse} strokeWidth={2} />
               <Text style={styles.approveButtonText}>Cerrar sesión</Text>
             </>
           )}
@@ -292,7 +300,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   sessionLabel: { ...Typography.label, color: Colors.textTertiary },
-  sessionName: { ...Typography.bodyLarge, color: Colors.textPrimary, fontWeight: '700' },
+  sessionName: { ...Typography.bodyLarge, color: Colors.textPrimary, fontFamily: FontFamily.bodyBold },
   sessionEmail: { ...Typography.bodySmall, color: Colors.textSecondary },
   queue: { width: '100%', maxWidth: 720, gap: Spacing.md },
   queueCount: { ...Typography.h4, color: Colors.textPrimary },
@@ -302,6 +310,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
+    ...Shadow.sm,
     gap: Spacing.md,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
@@ -325,7 +334,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.borderSubtle,
   },
   evidenceCopy: { flex: 1 },
-  evidenceLabel: { ...Typography.body, color: Colors.textPrimary, fontWeight: '600' },
+  evidenceLabel: { ...Typography.body, color: Colors.textPrimary, fontFamily: FontFamily.bodySemiBold },
   evidenceName: { ...Typography.bodySmall, color: Colors.textSecondary },
   dateText: { ...Typography.caption, color: Colors.textTertiary, marginTop: Spacing.xs },
   input: {
@@ -376,6 +385,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
     gap: Spacing.sm,
+    ...Shadow.sm,
   },
   emptyTitle: { ...Typography.h4, color: Colors.textPrimary },
   signOutButton: {
@@ -386,7 +396,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.primary,
   },
   disabledButton: { opacity: 0.6 },

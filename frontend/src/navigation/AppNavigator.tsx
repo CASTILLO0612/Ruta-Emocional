@@ -1,11 +1,24 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  createBottomTabNavigator,
+  type BottomTabNavigationOptions,
+} from '@react-navigation/bottom-tabs';
+import {
+  Bot,
+  CalendarDays,
+  CircleUserRound,
+  ClipboardList,
+  FolderHeart,
+  Home,
+  MessageCircle,
+} from 'lucide-react-native';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Colors } from '../theme/colors';
+import { IconStroke } from '../theme/icons';
+import { FontFamily, FontSize } from '../theme/typography';
 import { useAuthStore } from '../store/useAuthStore';
 
 import { LoginScreen, RegisterScreen } from '../screens/auth/AuthScreens';
@@ -32,26 +45,43 @@ const Stack = createNativeStackNavigator<AppStackParamList>();
 const PatientTab = createBottomTabNavigator<PatientTabParamList>();
 const PsychologistTab = createBottomTabNavigator<PsychologistTabParamList>();
 
+const tabScreenOptions = {
+  headerShown: false,
+  sceneStyle: { backgroundColor: Colors.background },
+  tabBarStyle: {
+    backgroundColor: Colors.surface,
+    borderTopColor: Colors.divider,
+    borderTopWidth: 1,
+    paddingBottom: 8,
+    paddingTop: 8,
+    height: 68,
+  },
+  tabBarActiveTintColor: Colors.primary,
+  tabBarInactiveTintColor: Colors.textTertiary,
+  tabBarLabelStyle: {
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 12,
+  },
+} satisfies BottomTabNavigationOptions;
+
+const professionalTabScreenOptions = {
+  ...tabScreenOptions,
+  tabBarLabelStyle: {
+    ...tabScreenOptions.tabBarLabelStyle,
+    fontSize: FontSize.navigation,
+  },
+} satisfies BottomTabNavigationOptions;
+
+const tabIconProps = (size: number, color: string) => ({
+  size,
+  color,
+  strokeWidth: IconStroke.regular,
+});
+
 function PatientTabs() {
   return (
     <PatientTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.divider,
-          borderTopWidth: 1,
-          paddingBottom: 6,
-          paddingTop: 6,
-          height: 62,
-        },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textDisabled,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-      }}
+      screenOptions={tabScreenOptions}
     >
       <PatientTab.Screen
         name="Home"
@@ -59,7 +89,7 @@ function PatientTabs() {
         options={{
           tabBarLabel: 'Inicio',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="home" size={size} color={color} />
+            <Home {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -69,7 +99,7 @@ function PatientTabs() {
         options={{
           tabBarLabel: 'MENTA',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="psychology" size={size} color={color} />
+            <Bot {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -79,7 +109,7 @@ function PatientTabs() {
         options={{
           tabBarLabel: 'Mensajes',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="chat" size={size} color={color} />
+            <MessageCircle {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -89,7 +119,7 @@ function PatientTabs() {
         options={{
           tabBarLabel: 'Agenda',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="event-note" size={size} color={color} />
+            <CalendarDays {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -99,7 +129,7 @@ function PatientTabs() {
         options={{
           tabBarLabel: 'Perfil',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="person" size={size} color={color} />
+            <CircleUserRound {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -110,20 +140,7 @@ function PatientTabs() {
 function PsychologistTabs() {
   return (
     <PsychologistTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.divider,
-          borderTopWidth: 1,
-          paddingBottom: 6,
-          paddingTop: 6,
-          height: 62,
-        },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textDisabled,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-      }}
+      screenOptions={professionalTabScreenOptions}
     >
       <PsychologistTab.Screen
         name="Dashboard"
@@ -131,7 +148,7 @@ function PsychologistTabs() {
         options={{
           tabBarLabel: 'Solicitudes',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="dashboard" size={size} color={color} />
+            <ClipboardList {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -141,7 +158,7 @@ function PsychologistTabs() {
         options={{
           tabBarLabel: 'Pacientes',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="folder-shared" size={size} color={color} />
+            <FolderHeart {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -151,7 +168,7 @@ function PsychologistTabs() {
         options={{
           tabBarLabel: 'MENTA',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="psychology" size={size} color={color} />
+            <Bot {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -161,7 +178,7 @@ function PsychologistTabs() {
         options={{
           tabBarLabel: 'Mensajes',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="chat" size={size} color={color} />
+            <MessageCircle {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -171,7 +188,7 @@ function PsychologistTabs() {
         options={{
           tabBarLabel: 'Agenda',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="event-note" size={size} color={color} />
+            <CalendarDays {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -181,7 +198,7 @@ function PsychologistTabs() {
         options={{
           tabBarLabel: 'Perfil',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="person" size={size} color={color} />
+            <CircleUserRound {...tabIconProps(size, color)} />
           ),
         }}
       />

@@ -1,12 +1,13 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../../theme/spacing';
+import { FontFamily, Typography } from '../../../theme/typography';
 
 export const callStyles = StyleSheet.create({
   // Incoming overlay
   incomingOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(10, 36, 99, 0.96)',
+    backgroundColor: Colors.callBackground,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
@@ -18,9 +19,8 @@ export const callStyles = StyleSheet.create({
     width: '100%',
   },
   incomingSubtitle: {
-    fontSize: 15,
+    ...Typography.button,
     color: Colors.accent,
-    fontWeight: '600',
     letterSpacing: 0.5,
   },
   incomingTypeRow: {
@@ -32,29 +32,28 @@ export const callStyles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: Colors.borderOnBrand,
   },
   incomingAvatar: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: Colors.callControl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   incomingName: {
-    fontSize: 24,
-    fontWeight: '800',
+    ...Typography.h2,
     color: Colors.textInverse,
     textAlign: 'center',
   },
   incomingRole: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    ...Typography.bodySmall,
+    color: Colors.textOnBrandMuted,
     textAlign: 'center',
   },
   incomingActions: {
@@ -66,7 +65,7 @@ export const callStyles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.error,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.lg,
@@ -75,7 +74,7 @@ export const callStyles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#22C55E',
+    backgroundColor: Colors.success,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.lg,
@@ -84,7 +83,7 @@ export const callStyles = StyleSheet.create({
   // Outgoing call
   outgoingRoot: {
     flex: 1,
-    backgroundColor: '#0A2463',
+    backgroundColor: Colors.callBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -96,41 +95,39 @@ export const callStyles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
   },
   outgoingName: {
-    fontSize: 24,
-    fontWeight: '800',
+    ...Typography.h2,
     color: Colors.textInverse,
   },
   outgoingStatus: {
-    fontSize: 15,
+    ...Typography.button,
     color: Colors.accent,
-    fontWeight: '600',
   },
   cancelCallBtn: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.error,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.xxxl,
     ...Shadow.lg,
   },
   cancelCallLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '600',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.textOnBrandMuted,
   },
 
   // Active call
   activeRoot: {
     flex: 1,
-    backgroundColor: '#0A2463',
+    backgroundColor: Colors.callBackground,
   },
   activeRemote: {
     flex: 1,
@@ -141,7 +138,7 @@ export const callStyles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 65,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -158,12 +155,11 @@ export const callStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   activeVideoLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
+    ...Typography.caption,
+    color: Colors.textOnBrandMuted,
   },
   activeName: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...Typography.h2,
     color: Colors.textInverse,
   },
   activeTimerRow: {
@@ -180,8 +176,7 @@ export const callStyles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   activeTimer: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.textInverse,
     letterSpacing: 2,
   },
@@ -192,7 +187,7 @@ export const callStyles = StyleSheet.create({
     width: 90,
     height: 120,
     borderRadius: BorderRadius.lg,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: Colors.callPreview,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -200,8 +195,8 @@ export const callStyles = StyleSheet.create({
     zIndex: 10,
   },
   activeSelfLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
+    ...Typography.caption,
+    color: Colors.textOnBrandMuted,
     marginTop: 4,
   },
   activeControls: {
@@ -222,25 +217,25 @@ export const callStyles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: Colors.callControl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeBtnOff: {
-    backgroundColor: 'rgba(239,68,68,0.25)',
+    backgroundColor: Colors.callControlDisabled,
   },
   activeEndBtn: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.error,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.lg,
   },
   activeBtnLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '600',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodySemiBold,
+    color: Colors.textOnBrandMuted,
   },
 });

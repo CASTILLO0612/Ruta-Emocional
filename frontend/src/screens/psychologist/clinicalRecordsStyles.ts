@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
 
 export const clinicalRecordsStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
@@ -27,7 +27,7 @@ export const clinicalRecordsStyles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.primaryTint,
   },
-  securityText: { ...Typography.caption, color: Colors.primary, fontWeight: '600' },
+  securityText: { ...Typography.caption, color: Colors.primary, fontFamily: FontFamily.bodySemiBold },
   content: { padding: Spacing.base, paddingBottom: Spacing.xxxl },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   supportingText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md },
@@ -78,7 +78,7 @@ export const clinicalRecordsStyles = StyleSheet.create({
     backgroundColor: Colors.primaryTint,
   },
   avatarSelected: { backgroundColor: Colors.primaryOverlay },
-  patientName: { ...Typography.body, color: Colors.textPrimary, fontWeight: '600' },
+  patientName: { ...Typography.body, color: Colors.textPrimary, fontFamily: FontFamily.bodySemiBold },
   patientNameSelected: { color: Colors.textInverse },
   patientMeta: { ...Typography.caption, color: Colors.textTertiary, marginTop: Spacing.xxs },
   patientMetaSelected: { color: Colors.primaryTintStrong },
@@ -142,7 +142,7 @@ export const clinicalRecordsStyles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
   },
-  reviewedText: { ...Typography.bodySmall, fontWeight: '600', color: Colors.success },
+  reviewedText: { ...Typography.bodySmall, fontFamily: FontFamily.bodySemiBold, color: Colors.success },
   secondaryIconButton: {
     width: 38,
     height: 38,
@@ -228,7 +228,7 @@ export const clinicalRecordsStyles = StyleSheet.create({
     borderColor: Colors.border,
   },
   cardTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  planSummary: { ...Typography.body, color: Colors.textPrimary, fontWeight: '600' },
+  planSummary: { ...Typography.body, color: Colors.textPrimary, fontFamily: FontFamily.bodySemiBold },
   cardDate: { ...Typography.caption, color: Colors.textTertiary, marginTop: Spacing.xs },
   statusPill: {
     paddingHorizontal: Spacing.sm,
@@ -236,7 +236,7 @@ export const clinicalRecordsStyles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.primaryTint,
   },
-  statusText: { ...Typography.caption, color: Colors.primary, fontWeight: '600' },
+  statusText: { ...Typography.caption, color: Colors.primary, fontFamily: FontFamily.bodySemiBold },
   goalRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -285,7 +285,7 @@ export const clinicalRecordsStyles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.divider,
   },
-  versionTitle: { ...Typography.bodySmall, color: Colors.primary, fontWeight: '600' },
+  versionTitle: { ...Typography.bodySmall, color: Colors.primary, fontFamily: FontFamily.bodySemiBold },
   versionDate: { ...Typography.caption, color: Colors.textTertiary },
   versionAuthor: { ...Typography.caption, color: Colors.textSecondary, marginTop: Spacing.xs },
   versionContent: { ...Typography.bodySmall, color: Colors.textPrimary, marginTop: Spacing.sm },

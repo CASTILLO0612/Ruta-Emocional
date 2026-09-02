@@ -5,10 +5,11 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Info, Pencil } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { Typography } from '../../theme/typography';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 import { formatMoney } from '../../utils/money';
 
 interface BudgetInputProps {
@@ -51,16 +52,15 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
           maxLength={String(Math.trunc(maximumAmount)).length + 3}
           accessibilityLabel="Budget amount input"
         />
-        <MaterialIcons
-          name="edit"
-          size={16}
+        <Pencil
+          size={IconSize.inline}
+          strokeWidth={IconStroke.regular}
           color={Colors.textTertiary}
-          style={styles.editIcon}
         />
       </View>
 
       <View style={styles.hintRow}>
-        <MaterialIcons name="info-outline" size={13} color={Colors.textTertiary} />
+        <Info size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
         <Text style={styles.hint}>
           Rango permitido: {formatMoney(minimumAmount, currencyCode)}–{formatMoney(maximumAmount, currencyCode)}
         </Text>
@@ -81,9 +81,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.xs + 2,
     gap: Spacing.md,
@@ -96,8 +96,8 @@ const styles = StyleSheet.create({
   },
   currencyText: {
     ...Typography.label,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.primary,
-    fontWeight: '800',
   },
   input: {
     flex: 1,
@@ -105,9 +105,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     color: Colors.textPrimary,
     padding: 0,
-  },
-  editIcon: {
-    opacity: 0.6,
   },
   hintRow: {
     flexDirection: 'row',

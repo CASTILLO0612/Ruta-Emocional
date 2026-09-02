@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   TextInput,
@@ -11,11 +10,22 @@ import {
   StatusBar,
   Modal,
 } from 'react-native';
-import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  BriefcaseMedical,
+  ChevronRight,
+  HeartHandshake,
+  LogOut,
+  UserRound,
+  X,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
+import { FontFamily, Typography } from '../../theme/typography';
+import { IconSize, IconStroke } from '../../theme/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomAlert } from '../../components/common/CustomAlert';
 import { getOwnProfessionalProfile, updateProfessionalBio } from '../../repositories/ProfessionalProfileRepository';
@@ -26,6 +36,7 @@ export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<AppNavigation>();
   const { userProfile, signOut } = useAuthStore();
   const isPsychologist = userProfile?.role === 'psychologist';
+  const isTabScreen = (navigation.getState() as { type?: string }).type === 'tab';
 
   const [logoutAlertVisible, setLogoutAlertVisible] = useState(false);
   const [saveSuccessAlertVisible, setSaveSuccessAlertVisible] = useState(false);
@@ -86,15 +97,19 @@ export const ProfileScreen: React.FC = () => {
       
       <SafeAreaView style={styles.appBarSafe}>
         <View style={styles.appBar}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-            accessibilityLabel="Back button"
-          >
-            <MaterialIcons name="arrow-back" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          {isTabScreen ? (
+            <View style={styles.appBarSpacer} />
+          ) : (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => navigation.goBack()}
+              accessibilityLabel="Volver"
+            >
+              <ArrowLeft size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          )}
           <Text style={styles.appBarTitle}>Mi perfil</Text>
-          <View style={{ width: 36 }} />
+          <View style={styles.appBarSpacer} />
         </View>
       </SafeAreaView>
 
@@ -105,11 +120,11 @@ export const ProfileScreen: React.FC = () => {
               <Image source={{ uri: photoURL }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <MaterialIcons
-                  name={isPsychologist ? 'psychology' : 'person'}
-                  size={42}
-                  color={Colors.primary}
-                />
+                {isPsychologist ? (
+                  <HeartHandshake size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                ) : (
+                  <UserRound size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                )}
               </View>
             )}
           </View>
@@ -133,16 +148,16 @@ export const ProfileScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <View style={styles.menuIconBg}>
-                <MaterialIcons name="medical-services" size={20} color={Colors.primary} />
+                <BriefcaseMedical size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
               </View>
               <Text style={styles.menuLabel}>Perfil profesional y Bio</Text>
-              <MaterialIcons name="chevron-right" size={20} color={Colors.textDisabled} />
+              <ChevronRight size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
             </TouchableOpacity>
           </View>
         )}
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <Feather name="log-out" size={18} color={Colors.error} />
+          <LogOut size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />
           <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -152,7 +167,7 @@ export const ProfileScreen: React.FC = () => {
           <SafeAreaView style={styles.panelRoot}>
             <View style={styles.panelHeader}>
               <TouchableOpacity onPress={() => setActivePanel(null)} style={styles.panelCloseBtn}>
-                <MaterialIcons name="close" size={22} color={Colors.textPrimary} />
+                <X size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textPrimary} />
               </TouchableOpacity>
               <Text style={styles.panelTitle}>Perfil profesional</Text>
               <View style={{ width: 44 }} />
@@ -219,16 +234,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  appBarSpacer: { width: 44, height: 44 },
   appBarTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+    ...Typography.h4,
+    fontFamily: FontFamily.brandBold,
     color: Colors.textPrimary,
   },
   scrollContent: {
@@ -263,12 +279,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
   name: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.textPrimary,
   },
   email: {
-    fontSize: 13,
+    ...Typography.bodySmall,
     color: Colors.textSecondary,
     marginTop: 2,
   },
@@ -280,8 +295,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   roleText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...Typography.caption,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.primary,
   },
   availabilityRow: {
@@ -299,7 +314,7 @@ const styles = StyleSheet.create({
   availabilityDot: { width: 8, height: 8, borderRadius: 4 },
   dotOnline: { backgroundColor: Colors.accent },
   dotOffline: { backgroundColor: Colors.textDisabled },
-  availabilityText: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
+  availabilityText: { ...Typography.caption, fontFamily: FontFamily.bodySemiBold, color: Colors.textPrimary },
 
   statsCard: {
     flexDirection: 'row',
@@ -317,12 +332,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statVal: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Typography.h3,
     color: Colors.textPrimary,
   },
   statLbl: {
-    fontSize: 11,
+    ...Typography.caption,
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -359,8 +373,8 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    ...Typography.body,
+    fontFamily: FontFamily.bodySemiBold,
     color: Colors.textPrimary,
   },
   logoutBtn: {
@@ -371,14 +385,14 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.base,
     marginTop: Spacing.xl,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-    backgroundColor: '#EF444408',
+    minHeight: 48,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.errorBorder,
+    backgroundColor: Colors.errorSurface,
   },
   logoutBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...Typography.button,
     color: Colors.error,
   },
 
@@ -407,8 +421,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   panelTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.h4,
+    fontFamily: FontFamily.brandBold,
     color: Colors.textPrimary,
   },
   panelBody: {
@@ -416,8 +430,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...Typography.label,
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -425,25 +438,25 @@ const styles = StyleSheet.create({
   },
   panelInput: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    fontSize: 15,
+    ...Typography.body,
     color: Colors.textPrimary,
   },
   saveBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
+    minHeight: 48,
+    borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.sm,
   },
   saveBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...Typography.button,
     color: Colors.textInverse,
   },
 });
