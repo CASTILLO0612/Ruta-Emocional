@@ -72,11 +72,30 @@ function formatFileSize(bytes: number | undefined): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
-function readEvidenceBlob(asset: DocumentPicker.DocumentPickerAsset): Blob {
+async function readEvidenceBlob(
+  asset: DocumentPicker.DocumentPickerAsset,
+  contentType: SelectedEvidence['contentType']
+): Promise<Blob> {
   if (asset.file) return asset.file;
+
   const file = new File(asset.uri);
-  if (!file.exists || file.size <= 0) throw new Error('No pudimos leer el archivo seleccionado.');
-  return file;
+  try {
+    const bytes = await file.arrayBuffer();
+    if (bytes.byteLength > 0) return new Blob([bytes], { type: contentType });
+  } catch {
+    // Algunos proveedores de documentos de Android requieren leer el URI
+    // copiado al caché mediante fetch aunque File no exponga sus metadatos.
+  }
+
+  try {
+    const response = await fetch(asset.uri);
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > 0) return new Blob([bytes], { type: contentType });
+  } catch {
+    // El mensaje público se mantiene estable y no expone detalles del URI local.
+  }
+
+  throw new Error('No pudimos leer el archivo seleccionado. Intenta elegirlo nuevamente desde Descargas.');
 }
 
 function normalizeClockTime(value: string): string | null {
@@ -230,7 +249,7 @@ export const VerificationScreen: React.FC = () => {
     if (!selectedEvidence || evidencePolicy.mode !== 'LOCAL_QA') return;
     setIsUploadingEvidence(true);
     try {
-      const blob = readEvidenceBlob(selectedEvidence.asset);
+      const blob = await readEvidenceBlob(selectedEvidence.asset, selectedEvidence.contentType);
       if (blob.size > evidencePolicy.maximumBytes) {
         throw new Error(`El tamaño máximo es ${formatFileSize(evidencePolicy.maximumBytes)}.`);
       }
