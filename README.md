@@ -1,165 +1,212 @@
 # Ruta Emocional
 
-Ruta Emocional es una plataforma móvil orientada a conectar de manera directa y en tiempo real a pacientes que requieren atención psicológica con profesionales de la salud mental verificados. La solución integra un sistema de subasta inversa (bidding), geolocalización en tiempo real, triaje asistido por inteligencia artificial y canales de consulta multimodal (chat, llamada de voz, videollamada y consulta presencial).
+Ruta Emocional es una aplicación móvil que conecta pacientes con profesionales de psicología verificados. El flujo demostrable permite registrar cuentas, verificar localmente a un profesional, publicar solicitudes de atención, presentar y aceptar ofertas, conversar, gestionar citas y documentar un expediente clínico básico.
 
----
+El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La evidencia de la categoría **Aficionado / Desarrollo** se encuentra en [`docs/Hackathon/desarrollo/`](docs/Hackathon/desarrollo/README.md).
 
-## Tabla de Contenidos
+## Capacidades demostrables
 
-- [Descripción General](#descripción-general)
-- [Características Principales](#características-principales)
-- [Arquitectura y Tecnologías](#arquitectura-y-tecnologías)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Requisitos Previos](#requisitos-previos)
-- [Instalación y Configuración](#instalación-y-configuración)
-- [Variables de Entorno](#variables-de-entorno)
-- [Ejecución](#ejecución)
-- [Licencia](#licencia)
+| Módulo | Estado actual |
+|---|---|
+| Identidad | registro de paciente o psicólogo, acceso, renovación y revocación de sesión en PostgreSQL |
+| Directorio profesional | perfil, especialidades, modalidades, disponibilidad y verificación controlada |
+| Solicitudes y ofertas | creación, búsqueda elegible, oferta, retiro, aceptación y cancelación transaccional |
+| Mensajería | conversaciones y mensajes persistidos, autorización por participante y entrega Socket.IO mediante outbox |
+| Agenda | disponibilidad, reserva, reprogramación y transiciones de cita con prevención de solapamientos |
+| Historia clínica | expedientes, encuentros, notas versionadas, firma, enmiendas y planes de tratamiento para el psicólogo autorizado |
+| MENTA | agente contextual por rol más orientación determinista separada, consentimiento, cifrado, recursos de crisis y revisión profesional |
+| Administración | cola local de verificación, decisión y auditoría sin acceso clínico implícito |
 
----
+Pagos y audio/video no forman parte del recorrido funcional. MENTA combina un
+triaje determinista con un agente contextual de sólo lectura para paciente y
+psicólogo. El proveedor del agente puede habilitarse en QA local desde el
+backend; la activación productiva requiere aprobación clínica, legal y de
+privacidad independiente.
 
-## Descripción General
+## Tecnologías y arquitectura
 
-El objetivo de Ruta Emocional es democratizar y agilizar el acceso a servicios de psicología clínica, eliminando barreras burocráticas y facilitando la negociación transparente de presupuestos entre el paciente y el especialista. Mediante un radar de geolocalización e inteligencia artificial para análisis preliminar de síntomas, la plataforma optimiza el tiempo de respuesta en situaciones de necesidad emocional inmediata o programada.
+### Aplicación móvil
 
----
+- React Native 0.86 y Expo SDK 57.
+- TypeScript, React Navigation y Zustand.
+- Socket.IO Client para notificaciones en tiempo real.
+- `expo-secure-store` para el refresh token en Android/iOS; el access token permanece en memoria.
+- Material Icons mediante Expo Vector Icons; la interfaz no depende de emojis como iconografía.
 
-## Características Principales
+### API y datos
 
-### Para Pacientes
-- **Triaje Emocional con IA (MENTA)**: Asistente conversacional fundamentado en modelos de lenguaje (Google Gemini API) que analiza el estado emocional del usuario y sugiere modalidades de atención e intervalos presupuestarios recomendados.
-- **Radar de Geolocalización en Tiempo Real**: Visualización interactiva de psicólogos disponibles cercanos sobre un mapa con marcadores personalizados.
-- **Sistema de Subasta Inversa (Bidding)**: Envío de solicitudes definiendo modalidad, horario (inmediato o fecha de calendario) y propuesta económica inicial, recibiendo contraofertas en tiempo real.
-- **Sala de Consulta Multimodal**: Espacio virtual seguro que permite alternar entre chat de texto, llamada de audio y videollamada con contador de duración e indicador de cifrado.
-- **Seguimiento de Ruta Presencial**: Mapa satelital interactivo con tiempo estimado de llegada (ETA) para consultas a domicilio.
-- **Perfil y Métodos de Pago**: Configuración de PIN de seguridad, administración de tarjetas de pago, historial terapéutico y soporte técnico.
+- Node.js, Express, TypeScript y Socket.IO.
+- PostgreSQL/PostGIS con 21 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
+- Prisma como adaptador de persistencia dentro de módulos separados por dominio.
+- Contratos REST versionados bajo `/api/v1` y respuestas mediante DTO explícitos.
+- Sesiones rotativas, contraseñas con scrypt y pepper, límites de peticiones, CORS por lista permitida y auditoría de acciones sensibles.
+- Cifrado AES-256-GCM de contenido clínico mediante claves externas al repositorio.
 
-### Para Psicólogos
-- **Panel de Solicitudes (Dashboard)**: Monitoreo en tiempo real de peticiones entrantes de pacientes dentro del radio de atención.
-- **Gestión de Tarifas**: Aceptación directa del presupuesto propuesto o emisión de contraofertas personalizadas.
-- **Métricas de Rendimiento**: Resumen de ganancias acumuladas, conteo de sesiones realizadas y calificación promedio.
+Los módulos canónicos siguen el flujo `presentación -> aplicación -> dominio/puertos -> infraestructura`. Los controladores no consultan Prisma directamente y los repositorios vuelven a aplicar propiedad o relación como defensa adicional.
 
----
-
-## Arquitectura y Tecnologías
-
-La aplicación está construida bajo una arquitectura modular desacoplada utilizando el patrón Repository y Zustand para la gestión de estado global.
-
-- **Framework Móvil**: React Native con Expo (v54)
-- **Lenguaje**: TypeScript
-- **Gestión de Estado**: Zustand
-- **Navegación**: React Navigation (Native Stack & Bottom Tabs)
-- **Componentes UI y Animaciones**:
-  - React Native Reanimated
-  - Gorhom Bottom Sheet
-  - Expo Vector Icons
-- **Servicios de Mapas**: React Native Maps (Google Maps Provider & Web iframe Fallback)
-- **Backend y Base de Datos**: Firebase (Authentication, Firestore / Realtime Database)
-- **Inteligencia Artificial**: Google Gemini API (`gemini-1.5-flash`)
-
----
-
-## Estructura del Proyecto
+## Estructura del repositorio
 
 ```text
 Ruta Emocional/
-├── assets/                  # Recursos gráficos (íconos, splash screens)
-├── src/
-│   ├── components/          # Componentes reutilizables
-│   │   ├── common/          # Botones, alertas, mapas, calificaciones
-│   │   ├── patient/         # Selectores de presupuesto, modalidad y tarjetas de oferta
-│   │   └── psychologist/    # Tarjetas de solicitudes entrantes
-│   ├── models/              # Interfaces y modelos de dominio (User, Offer, ActiveRequest, Psychologist)
-│   ├── navigation/          # Configuración de rutas y navegadores
-│   ├── repositories/        # Capa de acceso a datos y repositorios de Firebase
-│   ├── screens/             # Pantallas divididas por flujo
-│   │   ├── auth/            # Inicios de sesión y registro por rol
-│   │   ├── patient/         # Inicio (Home) y Radar de búsqueda
-│   │   ├── psychologist/    # Dashboard de solicitudes y recepción de ofertas
-│   │   └── shared/          # MENTA AI, Consulta, Historial, Mensajería y Perfil
-│   ├── scripts/             # Scripts utilitarios y sembrado de datos de prueba
-│   ├── services/            # Clientes de servicios externos (AuthService, GeminiService)
-│   ├── store/               # Tiendas de estado global (Zustand)
-│   ├── theme/               # Sistema de diseño (colores, tipografía, espaciados)
-│   └── utils/               # Funciones auxiliares y formateadores
-├── App.tsx                  # Punto de entrada de React Native
-├── app.json                 # Configuración de Expo
-├── babel.config.js          # Configuración de Babel
-├── firebase.config.ts       # Inicialización de servicios Firebase
-├── index.ts                 # Registro del componente principal
-└── package.json             # Manifest de dependencias y scripts
+├── frontend/                   # Aplicación React Native/Expo
+│   └── src/
+│       ├── screens/            # Flujos de paciente, psicólogo y administrador
+│       ├── repositories/       # Acceso tipado a la API
+│       ├── services/           # HTTP, sesión y Socket.IO
+│       └── store/              # Estado de aplicación con Zustand
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma       # Modelo relacional canónico
+│   │   └── migrations/         # Historial SQL inmutable
+│   ├── src/modules/            # Identidad, directorio, solicitudes, mensajería, agenda y clínica
+│   └── tests/                  # Pruebas unitarias e integración
+├── docs/                       # Arquitectura, seguridad, API, reglas y entregables
+├── output/pdf/                 # DER conceptual exportado
+├── compose.yaml                # PostgreSQL/PostGIS local
+└── package.json                # Scripts del monorepositorio
 ```
 
----
+## Requisitos
 
-## Requisitos Previos
+- Git.
+- Node.js 22.13 o posterior y npm, mínimo requerido por Expo SDK 57.
+- PostgreSQL con PostGIS, instalado localmente o mediante Docker Desktop.
+- Para Android/iOS: dispositivo o emulador compatible. La demostración también puede ejecutarse en web.
 
-Asegúrese de contar con los siguientes entornos en su sistema antes de continuar:
+## Instalación
 
-- **Node.js**: v18.0.0 o superior
-- **npm**: v9.0.0 o superior
-- **Expo CLI**: Incluido en la ejecución mediante `npx`
-- **Dispositivo Físico o Emulador**:
-  - Expo Go (Android / iOS)
-  - Android Studio (Emulador Android) o Xcode (Simulador iOS para macOS)
-
----
-
-## Instalación y Configuración
-
-1. **Clonar el repositorio:**
+1. Clonar el repositorio.
 
    ```bash
-   git clone https://github.com/tu-usuario/ruta-emocional.git
-   cd "ruta-emocional"
+   git clone https://github.com/CASTILLO0612/Ruta-Emocional.git
+   cd Ruta-Emocional
+   git switch postgresql-migration
    ```
 
-2. **Instalar dependencias:**
+2. Instalar las dependencias bloqueadas.
 
    ```bash
-   npm install
+   npm --prefix backend ci
+   npm --prefix frontend ci
    ```
 
----
+3. Crear los archivos locales de configuración, sin confirmarlos en Git.
 
-## Variables de Entorno
+   ```bash
+   cp .env.example .env
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env.local
+   ```
 
-Cree un archivo `.env` en la raíz del proyecto basado en el siguiente esquema:
+   En PowerShell, use `Copy-Item` en lugar de `cp` si lo prefiere. Cambie todos los valores de ejemplo, especialmente contraseñas, secretos JWT, pepper y clave de cifrado clínico.
+
+4. Iniciar PostgreSQL/PostGIS y aplicar las migraciones.
+
+   ```bash
+   docker compose up -d postgres
+   npm run db:migrate:deploy
+   npm run db:validate
+   ```
+
+Si utiliza PostgreSQL 16 ya instalado, cree una base vacía, habilite PostGIS, configure `DATABASE_URL` en `backend/.env` y ejecute los dos últimos comandos. No necesita levantar el contenedor.
+
+## Configuración mínima
+
+Las plantillas completas y comentadas están en [`.env.example`](.env.example), [`backend/.env.example`](backend/.env.example) y [`frontend/.env.example`](frontend/.env.example). Como mínimo, el backend requiere:
 
 ```env
-# Configuración de Firebase
-FIREBASE_API_KEY=tu_firebase_api_key
-FIREBASE_AUTH_DOMAIN=tu_proyecto.firebaseapp.com
-FIREBASE_PROJECT_ID=tu_proyecto_id
-FIREBASE_STORAGE_BUCKET=tu_proyecto.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=tu_messaging_sender_id
-FIREBASE_APP_ID=tu_app_id
-
-# Configuración de Google Gemini API
-GEMINI_API_KEY=tu_gemini_api_key
-
-# Configuración de Google Maps (Android / iOS)
-GOOGLE_MAPS_API_KEY=tu_google_maps_api_key
+DATABASE_URL=postgresql://usuario:password@localhost:5432/ruta_emocional?schema=public
+JWT_ACCESS_SECRET=<32_o_mas_caracteres_aleatorios>
+PASSWORD_PEPPER=<otro_valor_aleatorio_diferente>
+CLINICAL_CONTENT_ENCRYPTION_KEYS=1:<clave_base64_de_32_bytes>
+CLINICAL_ACTIVE_CONTENT_ENCRYPTION_KEY_VERSION=1
+TRIAGE_ENABLED=true
+TRIAGE_PROTOCOL_APPROVED=false
+TRIAGE_EXTERNAL_PROVIDER_ENABLED=false
+ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006
 ```
 
----
+El frontend necesita el origen del servidor, sin agregar `/api`:
 
-## Ejecución
+```env
+EXPO_PUBLIC_API_URL=http://localhost:5000
+EXPO_PUBLIC_TRIAGE_COUNTRY_CODE=NI
+```
 
-Para iniciar el servidor de desarrollo de Expo:
+En un teléfono físico, `localhost` apunta al propio teléfono; use la IP local del equipo que ejecuta el backend.
+
+## Ejecución local
+
+Abra dos terminales desde la raíz:
 
 ```bash
-npm start
+npm run start:backend
 ```
 
-### Opciones de ejecución:
+```bash
+npm run start:frontend
+```
 
-- **Android**: Ejecute `npm run android` o presione `a` en la consola de Expo.
-- **iOS**: Ejecute `npm run ios` o presione `i` en la consola de Expo (requiere macOS).
-- **Web**: Ejecute `npm run web` o presione `w` en la consola de Expo.
+El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://localhost:5000/api/v1/health/ready`. Expo mostrará las opciones para web, Android o iOS.
 
----
+### Recorrido recomendado
+
+1. Registrar un paciente y un psicólogo.
+2. Completar el perfil profesional y adjuntar una evidencia de prueba controlada.
+3. Conceder el rol administrador local siguiendo [`docs/runbooks/local-professional-verification.md`](docs/runbooks/local-professional-verification.md).
+4. Aprobar la verificación desde la cola administrativa e iniciar sesión nuevamente como psicólogo.
+5. Crear una solicitud como paciente, ofertar como psicólogo y aceptar la oferta.
+6. Probar conversación, agenda y expediente clínico desde la relación creada.
+7. Conversar con MENTA como paciente, consultar agenda/directorio y abrir por
+   separado la orientación estructurada de seguridad.
+8. Conversar con MENTA como psicólogo verificado para consultar agenda, pacientes
+   vinculados y preparar un borrador sujeto a revisión profesional.
+
+## Endpoints representativos
+
+| Método | Ruta | Propósito |
+|---|---|---|
+| `POST` | `/api/v1/auth/register/patient` | registrar paciente |
+| `POST` | `/api/v1/auth/register/psychologist` | solicitar cuenta profesional |
+| `POST` | `/api/v1/auth/login` | iniciar sesión |
+| `GET` | `/api/v1/psychologists` | consultar directorio público |
+| `POST` | `/api/v1/service-requests` | crear solicitud autenticada |
+| `POST` | `/api/v1/service-requests/:requestId/offers` | crear oferta elegible |
+| `GET` | `/api/v1/conversations` | listar conversaciones propias |
+| `POST` | `/api/v1/appointments` | reservar cita autorizada |
+| `POST` | `/api/v1/clinical/encounters` | registrar encuentro clínico autorizado |
+| `POST` | `/api/v1/triage/assessments` | crear orientación determinista propia |
+| `GET` | `/api/v1/menta/bootstrap` | cargar consentimiento y conversación contextual propia |
+| `POST` | `/api/v1/menta/conversations/:id/turns` | enviar un mensaje idempotente al agente |
+
+El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
+
+## Verificación de calidad
+
+```bash
+npm --prefix backend run build
+npm --prefix backend test
+npm --prefix frontend run typecheck
+```
+
+Con una base de pruebas configurada de forma separada:
+
+```bash
+TEST_DATABASE_URL=<url_postgresql_de_pruebas> npm --prefix backend run test:integration
+```
+
+La evidencia de tercera forma normal está en [`docs/database/normalization-3nf.md`](docs/database/normalization-3nf.md); las reglas de autorización están en [`docs/security/authorization-matrix.md`](docs/security/authorization-matrix.md).
+
+## Seguridad de la demostración
+
+- No confirme archivos `.env`, contraseñas, tokens, evidencias profesionales ni claves de cifrado.
+- Active `ENABLE_LOCAL_QA` solo en `development`; el servidor rechaza ese flujo en producción.
+- PostgreSQL es la única base conectada por el proceso de aplicación; el agente
+  externo de MENTA sólo se habilita en QA local y permanece bloqueado para
+  producción hasta cerrar sus gates; pagos continúan deshabilitados.
+- Use datos ficticios en la historia clínica y en la evidencia profesional del hackathon.
+- El administrador operativo no recibe acceso clínico por su rol.
 
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia MIT. Consulte el archivo [LICENSE](LICENSE) para obtener más información.
+Este proyecto se distribuye bajo la licencia MIT. Consulte [LICENSE](LICENSE).

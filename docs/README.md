@@ -1,0 +1,63 @@
+# Documentación técnica de Ruta Emocional
+
+Este directorio es la fuente de verdad para las decisiones funcionales y técnicas del MVP. Si el comportamiento del código contradice estos documentos, debe corregirse el código o registrarse una nueva decisión arquitectónica antes de cambiar la regla.
+
+## Orden de lectura
+
+1. [Definición del MVP](product/mvp-definition.md)
+2. [Reglas de negocio](domain/business-rules.md)
+3. [Máquinas de estado](domain/state-machines.md)
+4. [Matriz de autorización](security/authorization-matrix.md)
+5. [Arquitectura de seguridad y privacidad](security/security-and-privacy.md)
+6. [Modelo de amenazas](security/threat-model.md)
+7. [Convenciones de API](api/api-guidelines.md)
+8. [Requisitos no funcionales](operations/non-functional-requirements.md)
+9. [Plan de ejecución del MVP](roadmap/mvp-execution-plan.md)
+10. [Cierre de la Fase 3](roadmap/phase-3-professional-directory.md)
+11. [Cierre de la Fase 4](roadmap/phase-4-service-requests-and-offers.md)
+12. [Cierre de la Fase 5](roadmap/phase-5-secure-messaging.md)
+13. [Cierre de la Fase 6](roadmap/phase-6-secure-agenda.md)
+14. [Cierre de la Fase 7](roadmap/phase-7-secure-clinical-records.md)
+15. [Consolidación de la Fase 7.5](roadmap/phase-7-5-consolidation.md)
+16. [Cierre de la Fase 8](roadmap/phase-8-secure-menta.md)
+17. [Fase 8.1: agente contextual MENTA](roadmap/phase-8-1-contextual-menta-agent.md)
+18. [Alineación conceptual–lógica](database/conceptual-logical-alignment.md)
+19. [Gates de preparación productiva](operations/production-gates.md)
+20. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
+21. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
+22. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
+23. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
+24. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
+25. [Aprobación profesional de MENTA](governance/triage-clinical-approval.md)
+26. [Verificación de recursos por país](governance/triage-resource-verification.md)
+27. [Borrador de retención MENTA](governance/triage-retention-policy-draft.md)
+28. [Secretos y rotación PostgreSQL](operations/secrets-and-database-rotation.md)
+29. [Observabilidad y alertas](operations/observability-and-alerting.md)
+30. [Accesibilidad y seguridad nativa](security/native-accessibility-and-security.md)
+31. [ADR histórico: triaje sin proveedor externo](architecture/ADR-005-no-external-menta-provider-for-mvp.md)
+32. [ADR: agente contextual MENTA](architecture/ADR-006-contextual-menta-agent.md)
+
+## Decisiones vigentes
+
+- PostgreSQL y PostGIS son la fuente de verdad transaccional.
+- El esquema debe cumplir al menos tercera forma normal.
+- La aplicación se implementa como monolito modular con límites de dominio explícitos.
+- El backend es la única autoridad para identidad, permisos, precios, estados y acceso clínico.
+- El frontend actual se conserva y se integra por flujos verticales.
+- MongoDB no forma parte del runtime. Una reconciliación histórica solo puede
+  ejecutarse offline, de forma controlada e idempotente.
+- La información clínica y de triaje se considera altamente sensible.
+- MENTA orienta y deriva; no diagnostica, prescribe ni sustituye atención profesional o de emergencia.
+- El triaje de MENTA permanece determinista y su protocolo activo debe coincidir
+  criptográficamente con la aprobación profesional antes de producción.
+- El agente contextual es una capacidad separada, de sólo lectura en su primera
+  versión, con herramientas autorizadas, conversaciones cifradas y proveedor
+  exclusivo del backend.
+
+## Estado documental
+
+Los documentos distinguen entre:
+
+- **MVP obligatorio**: debe existir antes de una prueba con usuarios reales.
+- **Posterior al MVP**: se diseña ahora, pero no bloquea el primer lanzamiento.
+- **Puerta de salida**: decisión que debe resolverse antes de producción, como jurisdicción, proveedor de pagos o proveedor de llamadas.

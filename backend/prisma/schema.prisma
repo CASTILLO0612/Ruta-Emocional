@@ -1,0 +1,1160 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+
+  @@map("account_status")
+}
+
+enum UserRoleAssignmentStatus {
+  ACTIVE
+  ENDED
+
+  @@map("user_role_assignment_status")
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@map("verification_status")
+}
+
+enum VerificationDecision {
+  APPROVED
+  REJECTED
+
+  @@map("verification_decision")
+}
+
+enum Modality {
+  CHAT
+  CALL
+  IN_PERSON
+
+  @@map("modality")
+}
+
+enum RequestStatus {
+  PENDING
+  BIDDING
+  ACCEPTED
+  IN_SESSION
+  COMPLETED
+  CANCELLED
+  EXPIRED
+
+  @@map("request_status")
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+
+  @@map("offer_status")
+}
+
+enum CareRelationshipStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+
+  @@map("care_relationship_status")
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+
+  @@map("appointment_status")
+}
+
+enum AppointmentEventType {
+  CREATED
+  STATUS_CHANGED
+  RESCHEDULED
+
+  @@map("appointment_event_type")
+}
+
+enum AvailabilityExceptionType {
+  AVAILABLE
+  UNAVAILABLE
+
+  @@map("availability_exception_type")
+}
+
+enum ClinicalRecordStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+
+  @@map("clinical_record_status")
+}
+
+enum ClinicalNoteStatus {
+  DRAFT
+  SIGNED
+  AMENDED
+
+  @@map("clinical_note_status")
+}
+
+enum ClinicalNoteEventType {
+  CREATED
+  DRAFT_UPDATED
+  SIGNED
+  AMENDED
+
+  @@map("clinical_note_event_type")
+}
+
+enum DiagnosisStatus {
+  PROVISIONAL
+  CONFIRMED
+  RULED_OUT
+  RESOLVED
+
+  @@map("diagnosis_status")
+}
+
+enum TreatmentPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("treatment_plan_status")
+}
+
+enum TreatmentGoalStatus {
+  PENDING
+  IN_PROGRESS
+  ACHIEVED
+  CANCELLED
+
+  @@map("treatment_goal_status")
+}
+
+enum ConsentDecision {
+  GRANTED
+  REJECTED
+  WITHDRAWN
+
+  @@map("consent_decision")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  SYSTEM
+
+  @@map("message_type")
+}
+
+enum PaymentStatus {
+  PENDING
+  HELD
+  COMPLETED
+  REFUNDED
+  FAILED
+
+  @@map("payment_status")
+}
+
+enum TriageRiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+
+  @@map("triage_risk_level")
+}
+
+enum TriageProviderOutcome {
+  NOT_USED
+  SUCCEEDED
+  UNAVAILABLE
+  REJECTED_OUTPUT
+
+  @@map("triage_provider_outcome")
+}
+
+enum TriageErasureRequestStatus {
+  BLOCKED
+  UNDER_REVIEW
+  RESOLVED
+  DENIED
+
+  @@map("triage_erasure_request_status")
+}
+
+enum MentaConversationScope {
+  PATIENT
+  PSYCHOLOGIST
+
+  @@map("menta_conversation_scope")
+}
+
+enum MentaTurnStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("menta_turn_status")
+}
+
+enum MentaProviderOutcome {
+  NOT_USED
+  SUCCEEDED
+  UNAVAILABLE
+  REJECTED_OUTPUT
+
+  @@map("menta_provider_outcome")
+}
+
+enum MentaToolOutcome {
+  SUCCEEDED
+  DENIED
+  FAILED
+
+  @@map("menta_tool_outcome")
+}
+
+model User {
+  id                            String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legacyId                      String?                            @unique @map("legacy_id")
+  email                         String                             @unique @db.VarChar(320)
+  displayName                   String                             @map("display_name") @db.VarChar(160)
+  passwordHash                  String                             @map("password_hash") @db.VarChar(255)
+  photoUrl                      String?                            @map("photo_url") @db.Text
+  phone                         String?                            @db.VarChar(32)
+  status                        AccountStatus                      @default(ACTIVE)
+  createdAt                     DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                     DateTime                           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  patientProfile                PatientProfile?
+  psychologistProfile           PsychologistProfile?
+  roles                         UserRole[]
+  authSessions                  AuthSession[]
+  conversationMembers           ConversationParticipant[]
+  clinicalNoteVersions          ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
+  clinicalNoteEvents            ClinicalNoteEvent[]                @relation("ClinicalNoteEventActor")
+  auditEvents                   AuditEvent[]                       @relation("AuditActor")
+  verificationDecisions         ProfessionalVerificationDecision[] @relation("VerificationReviewer")
+  idempotencyRecords            IdempotencyRecord[]
+  appointmentEvents             AppointmentEvent[]                 @relation("AppointmentEventActor")
+  resolvedTriageErasureRequests TriageErasureRequest[]             @relation("TriageErasureResolver")
+  mentaConversations            MentaConversation[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String     @unique @db.VarChar(50)
+  name        String     @db.VarChar(100)
+  description String?    @db.VarChar(255)
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String                   @map("user_id") @db.Uuid
+  roleId     String                   @map("role_id") @db.Uuid
+  status     UserRoleAssignmentStatus @default(ACTIVE)
+  assignedAt DateTime                 @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  endedAt    DateTime?                @map("ended_at") @db.Timestamptz(3)
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role                     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([roleId, status])
+  @@map("user_roles")
+}
+
+model AuthSession {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(255)
+  deviceName       String?   @map("device_name") @db.VarChar(160)
+  ipAddress        String?   @map("ip_address") @db.Inet
+  userAgent        String?   @map("user_agent") @db.Text
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("auth_sessions")
+}
+
+model PatientProfile {
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String                    @unique @map("user_id") @db.Uuid
+  birthDate                DateTime?                 @map("birth_date") @db.Date
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  serviceRequests          ServiceRequest[]
+  careRelationships        CareRelationship[]
+  appointments             Appointment[]
+  clinicalRecord           ClinicalRecord?
+  consents                 PatientConsent[]
+  triageAssessments        TriageAssessment[]
+  triageConsentWithdrawals TriageConsentWithdrawal[]
+  triageErasureRequests    TriageErasureRequest[]
+
+  @@map("patient_profiles")
+}
+
+model PsychologistProfile {
+  id                     String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String                                 @unique @map("user_id") @db.Uuid
+  verificationStatus     VerificationStatus                     @default(PENDING) @map("verification_status")
+  bio                    String?                                @db.Text
+  location               Unsupported("geography(Point, 4326)")?
+  createdAt              DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                   User                                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  licenses               ProfessionalLicense[]
+  specialties            PsychologistSpecialty[]
+  modalities             PsychologistModality[]
+  offers                 Offer[]
+  careRelationships      CareRelationship[]
+  appointments           Appointment[]
+  availabilityRules      AvailabilityRule[]
+  availabilityExceptions AvailabilityException[]
+  clinicalEncounters     ClinicalEncounter[]
+  clinicalDiagnoses      ClinicalDiagnosis[]
+  treatmentPlans         TreatmentPlan[]
+  reviewedTriages        TriageAssessment[]                     @relation("TriageReviewer")
+
+  @@index([verificationStatus])
+  @@map("psychologist_profiles")
+}
+
+model ProfessionalLicense {
+  id                      String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  psychologistProfileId   String                               @map("psychologist_profile_id") @db.Uuid
+  authority               String                               @db.VarChar(120)
+  licenseNumber           String                               @map("license_number") @db.VarChar(80)
+  status                  VerificationStatus                   @default(PENDING)
+  documentUrl             String?                              @map("document_url") @db.Text
+  verifiedAt              DateTime?                            @map("verified_at") @db.Timestamptz(3)
+  createdAt               DateTime                             @default(now()) @map("created_at") @db.Timestamptz(3)
+  psychologistProfile     PsychologistProfile                  @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  verificationSubmissions ProfessionalVerificationSubmission[]
+
+  @@unique([authority, licenseNumber])
+  @@map("professional_licenses")
+}
+
+model Specialty {
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String                  @unique @db.VarChar(60)
+  name          String                  @unique @db.VarChar(120)
+  isActive      Boolean                 @default(true) @map("is_active")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  psychologists PsychologistSpecialty[]
+
+  @@index([isActive, name])
+  @@map("specialties")
+}
+
+model PsychologistSpecialty {
+  psychologistProfileId String              @map("psychologist_profile_id") @db.Uuid
+  specialtyId           String              @map("specialty_id") @db.Uuid
+  isPrimary             Boolean             @default(false) @map("is_primary")
+  psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Cascade)
+  specialty             Specialty           @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
+
+  @@id([psychologistProfileId, specialtyId])
+  @@map("psychologist_specialties")
+}
+
+model PsychologistModality {
+  psychologistProfileId String              @map("psychologist_profile_id") @db.Uuid
+  modality              Modality
+  pricePerHour          Decimal             @map("price_per_hour") @db.Decimal(12, 2)
+  currencyCode          String              @map("currency_code") @db.Char(3)
+  isEnabled             Boolean             @default(true) @map("is_enabled")
+  psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Cascade)
+  careModality          CareModality        @relation(fields: [modality], references: [code], onDelete: Restrict)
+
+  @@id([psychologistProfileId, modality])
+  @@map("psychologist_modalities")
+}
+
+model CareModality {
+  code                       Modality                   @id
+  name                       String                     @unique @db.VarChar(80)
+  description                String?                    @db.VarChar(240)
+  isActive                   Boolean                    @default(true) @map("is_active")
+  psychologistModalities     PsychologistModality[]
+  serviceRequests            ServiceRequest[]
+  appointments               Appointment[]
+  triageAnswerOptions        TriageAnswerOption[]
+  triageNeedModalities       TriageNeedModality[]
+  triageAssessmentModalities TriageAssessmentModality[]
+
+  @@map("care_modalities")
+}
+
+model ProfessionalVerificationSubmission {
+  id                    String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  professionalLicenseId String                            @map("professional_license_id") @db.Uuid
+  evidenceObjectKey     String                            @map("evidence_object_key") @db.VarChar(512)
+  submittedAt           DateTime                          @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  professionalLicense   ProfessionalLicense               @relation(fields: [professionalLicenseId], references: [id], onDelete: Restrict)
+  decision              ProfessionalVerificationDecision?
+
+  @@index([professionalLicenseId, submittedAt])
+  @@map("professional_verification_submissions")
+}
+
+model ProfessionalVerificationDecision {
+  id             String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId   String                             @unique @map("submission_id") @db.Uuid
+  reviewerUserId String                             @map("reviewer_user_id") @db.Uuid
+  decision       VerificationDecision
+  publicReason   String?                            @map("public_reason") @db.VarChar(500)
+  internalReason String?                            @map("internal_reason") @db.VarChar(1000)
+  decidedAt      DateTime                           @default(now()) @map("decided_at") @db.Timestamptz(3)
+  submission     ProfessionalVerificationSubmission @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  reviewer       User                               @relation("VerificationReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([reviewerUserId, decidedAt])
+  @@map("professional_verification_decisions")
+}
+
+model ServiceRequest {
+  id                String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legacyId          String?                                @unique @map("legacy_id")
+  patientProfileId  String                                 @map("patient_profile_id") @db.Uuid
+  modality          Modality
+  primaryNeed       String?                                @map("primary_need") @db.VarChar(240)
+  description       String?                                @db.Text
+  proposedBudget    Decimal                                @map("proposed_budget") @db.Decimal(12, 2)
+  currencyCode      String                                 @map("currency_code") @db.Char(3)
+  status            RequestStatus                          @default(PENDING)
+  scheduledFor      DateTime?                              @map("scheduled_for") @db.Timestamptz(3)
+  expiresAt         DateTime                               @map("expires_at") @db.Timestamptz(3)
+  location          Unsupported("geography(Point, 4326)")?
+  locationExpiresAt DateTime?                              @map("location_expires_at") @db.Timestamptz(3)
+  createdAt         DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  patientProfile    PatientProfile                         @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  careModality      CareModality                           @relation(fields: [modality], references: [code], onDelete: Restrict)
+  offers            Offer[]
+  triageLinks       RequestTriageAssessment[]
+
+  @@index([status, expiresAt, createdAt])
+  @@index([patientProfileId, createdAt])
+  @@index([scheduledFor, status])
+  @@map("service_requests")
+}
+
+model Offer {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legacyId               String?                 @unique @map("legacy_id")
+  requestId              String                  @map("request_id") @db.Uuid
+  psychologistProfileId  String                  @map("psychologist_profile_id") @db.Uuid
+  amount                 Decimal                 @db.Decimal(12, 2)
+  message                String?                 @db.VarChar(500)
+  status                 OfferStatus             @default(PENDING)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  request                ServiceRequest          @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  psychologistProfile    PsychologistProfile     @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  careRelationshipSource CareRelationshipSource?
+  payment                Payment?
+
+  @@unique([requestId, psychologistProfileId])
+  @@index([requestId, status])
+  @@map("offers")
+}
+
+model CareRelationship {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId      String                  @map("patient_profile_id") @db.Uuid
+  psychologistProfileId String                  @map("psychologist_profile_id") @db.Uuid
+  status                CareRelationshipStatus  @default(ACTIVE)
+  startedAt             DateTime                @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt               DateTime?               @map("ended_at") @db.Timestamptz(3)
+  patientProfile        PatientProfile          @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  psychologistProfile   PsychologistProfile     @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  source                CareRelationshipSource?
+  conversation          Conversation?
+  appointments          Appointment[]
+  clinicalEncounters    ClinicalEncounter[]
+  clinicalDiagnoses     ClinicalDiagnosis[]
+  treatmentPlans        TreatmentPlan[]
+  patientConsents       PatientConsent[]
+
+  @@index([patientProfileId, psychologistProfileId, status])
+  @@map("care_relationships")
+}
+
+model CareRelationshipSource {
+  careRelationshipId String            @id @map("care_relationship_id") @db.Uuid
+  acceptedOfferId    String            @unique @map("accepted_offer_id") @db.Uuid
+  triageAssessmentId String?           @unique @map("triage_assessment_id") @db.Uuid
+  careRelationship   CareRelationship  @relation(fields: [careRelationshipId], references: [id], onDelete: Cascade)
+  acceptedOffer      Offer             @relation(fields: [acceptedOfferId], references: [id], onDelete: Restrict)
+  triageAssessment   TriageAssessment? @relation(fields: [triageAssessmentId], references: [id], onDelete: Restrict)
+
+  @@map("care_relationship_sources")
+}
+
+model AvailabilityRule {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  psychologistProfileId String              @map("psychologist_profile_id") @db.Uuid
+  weekday               Int                 @db.SmallInt
+  startTime             DateTime            @map("start_time") @db.Time(0)
+  endTime               DateTime            @map("end_time") @db.Time(0)
+  timezone              String              @db.VarChar(80)
+  effectiveFrom         DateTime?           @map("effective_from") @db.Date
+  effectiveUntil        DateTime?           @map("effective_until") @db.Date
+  isActive              Boolean             @default(true) @map("is_active")
+  psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistProfileId, weekday, isActive])
+  @@map("availability_rules")
+}
+
+model AvailabilityException {
+  id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  psychologistProfileId String                    @map("psychologist_profile_id") @db.Uuid
+  startsAt              DateTime                  @map("starts_at") @db.Timestamptz(3)
+  endsAt                DateTime                  @map("ends_at") @db.Timestamptz(3)
+  type                  AvailabilityExceptionType
+  reason                String?                   @db.VarChar(240)
+  psychologistProfile   PsychologistProfile       @relation(fields: [psychologistProfileId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistProfileId, startsAt, endsAt])
+  @@map("availability_exceptions")
+}
+
+model Appointment {
+  id                    String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId      String                        @map("patient_profile_id") @db.Uuid
+  psychologistProfileId String                        @map("psychologist_profile_id") @db.Uuid
+  careRelationshipId    String                        @map("care_relationship_id") @db.Uuid
+  modality              Modality
+  startsAt              DateTime                      @map("starts_at") @db.Timestamptz(3)
+  endsAt                DateTime                      @map("ends_at") @db.Timestamptz(3)
+  timezone              String                        @db.VarChar(80)
+  status                AppointmentStatus             @default(SCHEDULED)
+  cancellationReason    String?                       @map("cancellation_reason") @db.VarChar(500)
+  createdAt             DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  patientProfile        PatientProfile                @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  psychologistProfile   PsychologistProfile           @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  careRelationship      CareRelationship              @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  careModality          CareModality                  @relation(fields: [modality], references: [code], onDelete: Restrict)
+  clinicalEncounterLink ClinicalEncounterAppointment?
+  review                Review?
+  events                AppointmentEvent[]
+
+  @@index([careRelationshipId, startsAt])
+  @@index([psychologistProfileId, startsAt])
+  @@index([patientProfileId, startsAt])
+  @@map("appointments")
+}
+
+model AppointmentEvent {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  appointmentId    String               @map("appointment_id") @db.Uuid
+  actorUserId      String               @map("actor_user_id") @db.Uuid
+  type             AppointmentEventType
+  fromStatus       AppointmentStatus?   @map("from_status")
+  toStatus         AppointmentStatus    @map("to_status")
+  previousStartsAt DateTime?            @map("previous_starts_at") @db.Timestamptz(3)
+  previousEndsAt   DateTime?            @map("previous_ends_at") @db.Timestamptz(3)
+  reason           String?              @db.VarChar(500)
+  occurredAt       DateTime             @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  appointment      Appointment          @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  actor            User                 @relation("AppointmentEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([appointmentId, occurredAt, id])
+  @@index([actorUserId, occurredAt])
+  @@map("appointment_events")
+}
+
+model ClinicalRecord {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId String               @unique @map("patient_profile_id") @db.Uuid
+  status           ClinicalRecordStatus @default(OPEN)
+  openedAt         DateTime             @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedAt         DateTime?            @map("closed_at") @db.Timestamptz(3)
+  patientProfile   PatientProfile       @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  encounters       ClinicalEncounter[]
+  diagnoses        ClinicalDiagnosis[]
+  treatmentPlans   TreatmentPlan[]
+
+  @@map("clinical_records")
+}
+
+model ClinicalEncounter {
+  id                    String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalRecordId      String                        @map("clinical_record_id") @db.Uuid
+  psychologistProfileId String                        @map("psychologist_profile_id") @db.Uuid
+  careRelationshipId    String                        @map("care_relationship_id") @db.Uuid
+  startedAt             DateTime                      @map("started_at") @db.Timestamptz(3)
+  endedAt               DateTime?                     @map("ended_at") @db.Timestamptz(3)
+  reason                String?                       @db.Text
+  createdAt             DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  clinicalRecord        ClinicalRecord                @relation(fields: [clinicalRecordId], references: [id], onDelete: Restrict)
+  psychologistProfile   PsychologistProfile           @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  careRelationship      CareRelationship              @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  appointmentLink       ClinicalEncounterAppointment?
+  notes                 ClinicalNote[]
+  diagnosisSources      ClinicalDiagnosisSource[]
+
+  @@index([clinicalRecordId, startedAt])
+  @@index([careRelationshipId, startedAt])
+  @@index([psychologistProfileId, startedAt])
+  @@map("clinical_encounters")
+}
+
+model ClinicalEncounterAppointment {
+  clinicalEncounterId String            @id @map("clinical_encounter_id") @db.Uuid
+  appointmentId       String            @unique @map("appointment_id") @db.Uuid
+  clinicalEncounter   ClinicalEncounter @relation(fields: [clinicalEncounterId], references: [id], onDelete: Cascade)
+  appointment         Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+
+  @@map("clinical_encounter_appointments")
+}
+
+model ClinicalNote {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalEncounterId String                @map("clinical_encounter_id") @db.Uuid
+  status              ClinicalNoteStatus    @default(DRAFT)
+  signedAt            DateTime?             @map("signed_at") @db.Timestamptz(3)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  clinicalEncounter   ClinicalEncounter     @relation(fields: [clinicalEncounterId], references: [id], onDelete: Restrict)
+  versions            ClinicalNoteVersion[]
+  events              ClinicalNoteEvent[]
+
+  @@index([clinicalEncounterId, createdAt])
+  @@map("clinical_notes")
+}
+
+model ClinicalNoteVersion {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalNoteId  String       @map("clinical_note_id") @db.Uuid
+  versionNumber   Int          @map("version_number")
+  authorUserId    String       @map("author_user_id") @db.Uuid
+  content         String       @db.Text
+  amendmentReason String?      @map("amendment_reason") @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  clinicalNote    ClinicalNote @relation(fields: [clinicalNoteId], references: [id], onDelete: Restrict)
+  author          User         @relation("ClinicalNoteVersionAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicalNoteId, versionNumber])
+  @@map("clinical_note_versions")
+}
+
+model ClinicalNoteEvent {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalNoteId String                @map("clinical_note_id") @db.Uuid
+  actorUserId    String                @map("actor_user_id") @db.Uuid
+  type           ClinicalNoteEventType
+  fromStatus     ClinicalNoteStatus?   @map("from_status")
+  toStatus       ClinicalNoteStatus    @map("to_status")
+  versionNumber  Int                   @map("version_number")
+  occurredAt     DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  clinicalNote   ClinicalNote          @relation(fields: [clinicalNoteId], references: [id], onDelete: Restrict)
+  actor          User                  @relation("ClinicalNoteEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([clinicalNoteId, occurredAt, id])
+  @@index([actorUserId, occurredAt])
+  @@map("clinical_note_events")
+}
+
+model DiagnosisCatalog {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codeSystem String              @map("code_system") @db.VarChar(40)
+  code       String              @db.VarChar(40)
+  name       String              @db.VarChar(240)
+  diagnoses  ClinicalDiagnosis[]
+
+  @@unique([codeSystem, code])
+  @@map("diagnosis_catalog")
+}
+
+model ClinicalDiagnosis {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalRecordId      String                   @map("clinical_record_id") @db.Uuid
+  diagnosisCatalogId    String                   @map("diagnosis_catalog_id") @db.Uuid
+  psychologistProfileId String                   @map("psychologist_profile_id") @db.Uuid
+  careRelationshipId    String?                  @map("care_relationship_id") @db.Uuid
+  status                DiagnosisStatus
+  notes                 String?                  @db.Text
+  diagnosedAt           DateTime                 @default(now()) @map("diagnosed_at") @db.Timestamptz(3)
+  clinicalRecord        ClinicalRecord           @relation(fields: [clinicalRecordId], references: [id], onDelete: Restrict)
+  diagnosisCatalog      DiagnosisCatalog         @relation(fields: [diagnosisCatalogId], references: [id], onDelete: Restrict)
+  psychologistProfile   PsychologistProfile      @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  careRelationship      CareRelationship?        @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  source                ClinicalDiagnosisSource?
+
+  @@index([clinicalRecordId, diagnosedAt])
+  @@map("clinical_diagnoses")
+}
+
+model ClinicalDiagnosisSource {
+  clinicalDiagnosisId String            @id @map("clinical_diagnosis_id") @db.Uuid
+  clinicalEncounterId String            @map("clinical_encounter_id") @db.Uuid
+  clinicalDiagnosis   ClinicalDiagnosis @relation(fields: [clinicalDiagnosisId], references: [id], onDelete: Cascade)
+  clinicalEncounter   ClinicalEncounter @relation(fields: [clinicalEncounterId], references: [id], onDelete: Restrict)
+
+  @@index([clinicalEncounterId])
+  @@map("clinical_diagnosis_sources")
+}
+
+model TreatmentPlan {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clinicalRecordId      String              @map("clinical_record_id") @db.Uuid
+  psychologistProfileId String              @map("psychologist_profile_id") @db.Uuid
+  careRelationshipId    String              @map("care_relationship_id") @db.Uuid
+  status                TreatmentPlanStatus @default(DRAFT)
+  summary               String?             @db.Text
+  startsAt              DateTime            @default(now()) @map("starts_at") @db.Timestamptz(3)
+  endsAt                DateTime?           @map("ends_at") @db.Timestamptz(3)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  clinicalRecord        ClinicalRecord      @relation(fields: [clinicalRecordId], references: [id], onDelete: Restrict)
+  psychologistProfile   PsychologistProfile @relation(fields: [psychologistProfileId], references: [id], onDelete: Restrict)
+  careRelationship      CareRelationship    @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  goals                 TreatmentGoal[]
+
+  @@index([careRelationshipId, status])
+  @@map("treatment_plans")
+}
+
+model TreatmentGoal {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  treatmentPlanId String              @map("treatment_plan_id") @db.Uuid
+  description     String              @db.Text
+  targetDate      DateTime?           @map("target_date") @db.Date
+  status          TreatmentGoalStatus @default(PENDING)
+  treatmentPlan   TreatmentPlan       @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+
+  @@index([treatmentPlanId, status])
+  @@map("treatment_goals")
+}
+
+model ConsentDocument {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String           @db.VarChar(80)
+  version     String           @db.VarChar(30)
+  title       String           @db.VarChar(200)
+  scope       String?          @db.VarChar(80)
+  content     String?          @db.Text
+  contentHash String           @map("content_hash") @db.VarChar(128)
+  isActive    Boolean          @default(true) @map("is_active")
+  publishedAt DateTime         @map("published_at") @db.Timestamptz(3)
+  consents    PatientConsent[]
+
+  @@unique([code, version])
+  @@map("consent_documents")
+}
+
+model PatientConsent {
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId        String                   @map("patient_profile_id") @db.Uuid
+  consentDocumentId       String                   @map("consent_document_id") @db.Uuid
+  careRelationshipId      String?                  @map("care_relationship_id") @db.Uuid
+  decision                ConsentDecision
+  occurredAt              DateTime                 @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  ipAddress               String?                  @map("ip_address") @db.Inet
+  patientProfile          PatientProfile           @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  consentDocument         ConsentDocument          @relation(fields: [consentDocumentId], references: [id], onDelete: Restrict)
+  careRelationship        CareRelationship?        @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  triageAssessments       TriageAssessment[]
+  triageConsentWithdrawal TriageConsentWithdrawal? @relation("TriageWithdrawalDecision")
+
+  @@index([patientProfileId, consentDocumentId, occurredAt])
+  @@map("patient_consents")
+}
+
+model Conversation {
+  id                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  careRelationshipId String                    @unique @map("care_relationship_id") @db.Uuid
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  careRelationship   CareRelationship          @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
+  participants       ConversationParticipant[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  joinedAt       DateTime     @default(now()) @map("joined_at") @db.Timestamptz(3)
+  leftAt         DateTime?    @map("left_at") @db.Timestamptz(3)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages       Message[]
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id                        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legacyId                  String?                 @unique @map("legacy_id")
+  conversationParticipantId String                  @map("conversation_participant_id") @db.Uuid
+  clientMessageId           String                  @map("client_message_id") @db.Uuid
+  type                      MessageType             @default(TEXT)
+  content                   String                  @db.Text
+  sentAt                    DateTime                @default(now()) @map("sent_at") @db.Timestamptz(3)
+  editedAt                  DateTime?               @map("edited_at") @db.Timestamptz(3)
+  participant               ConversationParticipant @relation(fields: [conversationParticipantId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationParticipantId, clientMessageId])
+  @@index([conversationParticipantId, sentAt, id])
+  @@map("messages")
+}
+
+model MentaConversation {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String                 @map("user_id") @db.Uuid
+  scope          MentaConversationScope
+  consentVersion String                 @map("consent_version") @db.VarChar(30)
+  consentedAt    DateTime               @default(now()) @map("consented_at") @db.Timestamptz(3)
+  closedAt       DateTime?              @map("closed_at") @db.Timestamptz(3)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  turns          MentaTurn[]
+
+  @@index([userId, scope, updatedAt])
+  @@map("menta_conversations")
+}
+
+model MentaTurn {
+  id                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId            String                @map("conversation_id") @db.Uuid
+  clientMessageId           String                @map("client_message_id") @db.Uuid
+  userContentEncrypted      String                @map("user_content_encrypted") @db.Text
+  assistantContentEncrypted String?               @map("assistant_content_encrypted") @db.Text
+  status                    MentaTurnStatus       @default(PROCESSING)
+  providerOutcome           MentaProviderOutcome  @default(NOT_USED) @map("provider_outcome")
+  modelName                 String?               @map("model_name") @db.VarChar(120)
+  createdAt                 DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt               DateTime?             @map("completed_at") @db.Timestamptz(3)
+  conversation              MentaConversation     @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  toolInvocations           MentaToolInvocation[]
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, createdAt, id])
+  @@map("menta_turns")
+}
+
+model MentaToolInvocation {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  turnId        String           @map("turn_id") @db.Uuid
+  toolCode      String           @map("tool_code") @db.VarChar(80)
+  outcome       MentaToolOutcome
+  resourceType  String?          @map("resource_type") @db.VarChar(80)
+  resourceCount Int?             @map("resource_count") @db.SmallInt
+  invokedAt     DateTime         @default(now()) @map("invoked_at") @db.Timestamptz(3)
+  turn          MentaTurn        @relation(fields: [turnId], references: [id], onDelete: Restrict)
+
+  @@index([turnId, invokedAt])
+  @@map("menta_tool_invocations")
+}
+
+model Payment {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  offerId        String         @unique @map("offer_id") @db.Uuid
+  amount         Decimal        @db.Decimal(12, 2)
+  currencyCode   String         @map("currency_code") @db.Char(3)
+  paymentMethod  String         @map("payment_method") @db.VarChar(50)
+  transactionRef String         @unique @map("transaction_ref") @db.VarChar(100)
+  status         PaymentStatus  @default(PENDING)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offer          Offer          @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  events         PaymentEvent[]
+
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId   String         @map("payment_id") @db.Uuid
+  fromStatus  PaymentStatus? @map("from_status")
+  toStatus    PaymentStatus  @map("to_status")
+  externalRef String?        @map("external_ref") @db.VarChar(160)
+  occurredAt  DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  payment     Payment        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId, occurredAt])
+  @@map("payment_events")
+}
+
+model TriageNeed {
+  code            String               @id @db.VarChar(50)
+  name            String               @unique @db.VarChar(120)
+  description     String               @db.VarChar(500)
+  fallbackSummary String               @map("fallback_summary") @db.Text
+  isActive        Boolean              @default(true) @map("is_active")
+  options         TriageAnswerOption[]
+  modalities      TriageNeedModality[]
+  assessments     TriageAssessment[]
+
+  @@map("triage_needs")
+}
+
+model TriageNeedModality {
+  needCode String       @map("need_code") @db.VarChar(50)
+  modality Modality
+  priority Int          @db.SmallInt
+  need     TriageNeed   @relation(fields: [needCode], references: [code], onDelete: Restrict)
+  catalog  CareModality @relation(fields: [modality], references: [code], onDelete: Restrict)
+
+  @@id([needCode, modality])
+  @@unique([needCode, priority])
+  @@map("triage_need_modalities")
+}
+
+model TriageQuestion {
+  code         String               @id @db.VarChar(50)
+  prompt       String               @db.VarChar(500)
+  helpText     String?              @map("help_text") @db.VarChar(500)
+  displayOrder Int                  @map("display_order") @db.SmallInt
+  isRequired   Boolean              @default(true) @map("is_required")
+  isActive     Boolean              @default(true) @map("is_active")
+  options      TriageAnswerOption[]
+
+  @@unique([displayOrder])
+  @@map("triage_questions")
+}
+
+model TriageAnswerOption {
+  code               String                       @id @db.VarChar(80)
+  questionCode       String                       @map("question_code") @db.VarChar(50)
+  needCode           String?                      @map("need_code") @db.VarChar(50)
+  modality           Modality?
+  label              String                       @db.VarChar(240)
+  helpText           String?                      @map("help_text") @db.VarChar(500)
+  displayOrder       Int                          @map("display_order") @db.SmallInt
+  isActive           Boolean                      @default(true) @map("is_active")
+  question           TriageQuestion               @relation(fields: [questionCode], references: [code], onDelete: Restrict)
+  need               TriageNeed?                  @relation(fields: [needCode], references: [code], onDelete: Restrict)
+  modalityCatalog    CareModality?                @relation(fields: [modality], references: [code], onDelete: Restrict)
+  triggerForRules    TriageRule[]                 @relation("TriageRuleTrigger")
+  evidenceForResults TriageAssessmentRuleResult[] @relation("TriageRuleEvidence")
+
+  @@unique([questionCode, displayOrder])
+  @@index([questionCode, isActive])
+  @@map("triage_answer_options")
+}
+
+model TriageRule {
+  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String                       @db.VarChar(80)
+  version           String                       @db.VarChar(30)
+  name              String                       @db.VarChar(160)
+  description       String                       @db.VarChar(500)
+  triggerOptionCode String                       @map("trigger_option_code") @db.VarChar(80)
+  riskLevel         TriageRiskLevel              @map("risk_level")
+  validFrom         DateTime                     @map("valid_from") @db.Timestamptz(3)
+  validUntil        DateTime?                    @map("valid_until") @db.Timestamptz(3)
+  isActive          Boolean                      @default(true) @map("is_active")
+  triggerOption     TriageAnswerOption           @relation("TriageRuleTrigger", fields: [triggerOptionCode], references: [code], onDelete: Restrict)
+  assessmentResults TriageAssessmentRuleResult[]
+
+  @@unique([code, version])
+  @@index([isActive, validFrom, validUntil])
+  @@map("triage_rules")
+}
+
+model TriageAssessment {
+  id                       String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId         String                       @map("patient_profile_id") @db.Uuid
+  consentDecisionId        String                       @map("consent_decision_id") @db.Uuid
+  primaryNeedCode          String                       @map("primary_need_code") @db.VarChar(50)
+  reviewedByPsychologistId String?                      @map("reviewed_by_psychologist_id") @db.Uuid
+  provider                 String                       @db.VarChar(80)
+  model                    String                       @db.VarChar(120)
+  evaluatorVersion         String                       @map("evaluator_version") @db.VarChar(40)
+  providerOutcome          TriageProviderOutcome        @default(NOT_USED) @map("provider_outcome")
+  countryCode              String                       @map("country_code") @db.Char(2)
+  orientationSummary       String                       @map("orientation_summary") @db.Text
+  riskLevel                TriageRiskLevel              @map("risk_level")
+  reviewedAt               DateTime?                    @map("reviewed_at") @db.Timestamptz(3)
+  createdAt                DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  patientProfile           PatientProfile               @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  consentDecision          PatientConsent               @relation(fields: [consentDecisionId], references: [id], onDelete: Restrict)
+  primaryNeed              TriageNeed                   @relation(fields: [primaryNeedCode], references: [code], onDelete: Restrict)
+  reviewedByPsychologist   PsychologistProfile?         @relation("TriageReviewer", fields: [reviewedByPsychologistId], references: [id], onDelete: Restrict)
+  recommendedModalities    TriageAssessmentModality[]
+  ruleResults              TriageAssessmentRuleResult[]
+  requestLink              RequestTriageAssessment?
+  relationshipSource       CareRelationshipSource?
+  consentWithdrawal        TriageConsentWithdrawal?
+  erasureRequest           TriageErasureRequest?
+
+  @@index([patientProfileId, createdAt])
+  @@index([consentDecisionId])
+  @@map("triage_assessments")
+}
+
+model TriageConsentWithdrawal {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  triageAssessmentId   String           @unique @map("triage_assessment_id") @db.Uuid
+  patientProfileId     String           @map("patient_profile_id") @db.Uuid
+  withdrawalDecisionId String           @unique @map("withdrawal_decision_id") @db.Uuid
+  withdrawnAt          DateTime         @default(now()) @map("withdrawn_at") @db.Timestamptz(3)
+  triageAssessment     TriageAssessment @relation(fields: [triageAssessmentId], references: [id], onDelete: Restrict)
+  patientProfile       PatientProfile   @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  withdrawalDecision   PatientConsent   @relation("TriageWithdrawalDecision", fields: [withdrawalDecisionId], references: [id], onDelete: Restrict)
+
+  @@index([patientProfileId, withdrawnAt])
+  @@map("triage_consent_withdrawals")
+}
+
+model TriageErasureRequest {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  triageAssessmentId String                     @unique @map("triage_assessment_id") @db.Uuid
+  patientProfileId   String                     @map("patient_profile_id") @db.Uuid
+  status             TriageErasureRequestStatus @default(BLOCKED)
+  policyVersion      String                     @map("policy_version") @db.VarChar(80)
+  requestedAt        DateTime                   @default(now()) @map("requested_at") @db.Timestamptz(3)
+  dueAt              DateTime                   @map("due_at") @db.Timestamptz(3)
+  resolvedAt         DateTime?                  @map("resolved_at") @db.Timestamptz(3)
+  resolvedByUserId   String?                    @map("resolved_by_user_id") @db.Uuid
+  resolutionCode     String?                    @map("resolution_code") @db.VarChar(80)
+  triageAssessment   TriageAssessment           @relation(fields: [triageAssessmentId], references: [id], onDelete: Restrict)
+  patientProfile     PatientProfile             @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  resolvedBy         User?                      @relation("TriageErasureResolver", fields: [resolvedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([patientProfileId, status, requestedAt])
+  @@index([status, dueAt])
+  @@map("triage_erasure_requests")
+}
+
+model TriageAssessmentModality {
+  triageAssessmentId String           @map("triage_assessment_id") @db.Uuid
+  modality           Modality
+  priority           Int              @db.SmallInt
+  triageAssessment   TriageAssessment @relation(fields: [triageAssessmentId], references: [id], onDelete: Cascade)
+  catalog            CareModality     @relation(fields: [modality], references: [code], onDelete: Restrict)
+
+  @@id([triageAssessmentId, modality])
+  @@unique([triageAssessmentId, priority])
+  @@map("triage_assessment_modalities")
+}
+
+model TriageAssessmentRuleResult {
+  triageAssessmentId String              @map("triage_assessment_id") @db.Uuid
+  triageRuleId       String              @map("triage_rule_id") @db.Uuid
+  matched            Boolean
+  evidenceOptionCode String?             @map("evidence_option_code") @db.VarChar(80)
+  triageAssessment   TriageAssessment    @relation(fields: [triageAssessmentId], references: [id], onDelete: Cascade)
+  triageRule         TriageRule          @relation(fields: [triageRuleId], references: [id], onDelete: Restrict)
+  evidenceOption     TriageAnswerOption? @relation("TriageRuleEvidence", fields: [evidenceOptionCode], references: [code], onDelete: Restrict)
+
+  @@id([triageAssessmentId, triageRuleId])
+  @@index([triageRuleId, matched])
+  @@map("triage_assessment_rule_results")
+}
+
+model RequestTriageAssessment {
+  triageAssessmentId String           @id @map("triage_assessment_id") @db.Uuid
+  serviceRequestId   String           @map("service_request_id") @db.Uuid
+  triageAssessment   TriageAssessment @relation(fields: [triageAssessmentId], references: [id], onDelete: Cascade)
+  serviceRequest     ServiceRequest   @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+
+  @@index([serviceRequestId])
+  @@map("request_triage_assessments")
+}
+
+model Review {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  appointmentId String      @unique @map("appointment_id") @db.Uuid
+  rating        Int         @db.SmallInt
+  comment       String?     @db.VarChar(1000)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+
+  @@map("reviews")
+}
+
+model AuditEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String   @map("resource_type") @db.VarChar(100)
+  resourceId   String   @map("resource_id") @db.Uuid
+  requestId    String?  @map("request_id") @db.VarChar(100)
+  ipAddress    String?  @map("ip_address") @db.Inet
+  metadata     Json?
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actor        User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@map("audit_events")
+}
+
+model OutboxEvent {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aggregateType  String    @map("aggregate_type") @db.VarChar(100)
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  eventType      String    @map("event_type") @db.VarChar(160)
+  payload        Json
+  occurredAt     DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)
+  availableAt    DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  claimedAt      DateTime? @map("claimed_at") @db.Timestamptz(3)
+  claimToken     String?   @map("claim_token") @db.Uuid
+  deadLetteredAt DateTime? @map("dead_lettered_at") @db.Timestamptz(3)
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error") @db.Text
+
+  @@index([eventType, publishedAt, deadLetteredAt, availableAt, occurredAt])
+  @@map("outbox_events")
+}
+
+model IdempotencyRecord {
+  actorUserId    String   @map("actor_user_id") @db.Uuid
+  operation      String   @db.VarChar(80)
+  idempotencyKey String   @map("idempotency_key") @db.Uuid
+  requestHash    String   @map("request_hash") @db.Char(64)
+  resourceId     String   @map("resource_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+  actor          User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@id([actorUserId, operation, idempotencyKey])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}

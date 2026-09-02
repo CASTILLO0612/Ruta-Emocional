@@ -1,0 +1,166 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - postgresql-migration
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend and PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5-alpine
+        env:
+          POSTGRES_DB: ruta_emocional_ci
+          POSTGRES_USER: ruta_emocional_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ruta_emocional_ci -d ruta_emocional_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ruta_emocional_ci:ci-only-password@localhost:5432/ruta_emocional_ci?schema=public
+      TEST_DATABASE_URL: postgresql://ruta_emocional_ci:ci-only-password@localhost:5432/ruta_emocional_ci?schema=public
+      ADMIN_DATABASE_URL: postgresql://ruta_emocional_ci:ci-only-password@localhost:5432/ruta_emocional_ci
+      RUNTIME_DATABASE_URL: postgresql://ruta_emocional_app_ci:ci-only-runtime-password@localhost:5432/ruta_emocional_ci
+      POSTGRES_ADMIN_PASSWORD: ci-only-password
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Reject legacy MongoDB runtime dependencies
+        shell: bash
+        run: |
+          if git grep -n -E 'mongoose|MONGO_URI|ENABLE_LEGACY_MONGO_ROUTES' -- backend/src backend/package.json backend/package-lock.json; then
+            echo 'Legacy MongoDB runtime code is not allowed.'
+            exit 1
+          fi
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npm run db:generate
+
+      - name: Apply all migrations from zero
+        working-directory: backend
+        run: npm run db:migrate:deploy
+
+      - name: Validate Prisma schema
+        working-directory: backend
+        run: npm run db:validate
+
+      - name: Verify least-privilege runtime grants
+        working-directory: backend
+        run: |
+          psql -X -v application_role=ruta_emocional_runtime_ci -f prisma/operations/ensure_runtime_role.sql "$ADMIN_DATABASE_URL"
+          psql -X -v application_role=ruta_emocional_runtime_ci -f prisma/operations/grant_runtime_role.sql "$ADMIN_DATABASE_URL"
+          psql -X -v application_role=ruta_emocional_runtime_ci -f prisma/operations/verify_runtime_role.sql "$ADMIN_DATABASE_URL"
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE ruta_emocional_app_ci LOGIN PASSWORD 'ci-only-runtime-password' IN ROLE ruta_emocional_runtime_ci" "$ADMIN_DATABASE_URL"
+          psql -X -v application_role=ruta_emocional_runtime_ci -f prisma/operations/verify_application_login.sql "$RUNTIME_DATABASE_URL"
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Run unit tests
+        working-directory: backend
+        run: npm test
+
+      - name: Run PostgreSQL integration tests
+        working-directory: backend
+        shell: bash
+        run: |
+          set -o pipefail
+          integration_log="$RUNNER_TEMP/ruta-emocional-integration-tests.log"
+
+          if npm run test:integration 2>&1 | tee "$integration_log"; then
+            exit 0
+          fi
+
+          {
+            echo '## PostgreSQL integration test failure'
+            echo
+            echo '```text'
+            tail -n 160 "$integration_log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          failure_excerpt="$(grep -v -E '^(# )?\{"timestamp":' "$integration_log" | tail -c 3500)"
+          failure_excerpt="${failure_excerpt//'%'/'%25'}"
+          failure_excerpt="${failure_excerpt//$'\r'/'%0D'}"
+          failure_excerpt="${failure_excerpt//$'\n'/'%0A'}"
+          echo "::error title=PostgreSQL integration tests failed::$failure_excerpt"
+          exit 1
+
+      - name: Verify PostgreSQL backup and restore
+        working-directory: backend
+        shell: pwsh
+        run: |
+          ./prisma/operations/Test-PostgreSqlBackupRestore.ps1 `
+            -SourceDatabase ruta_emocional_ci `
+            -VerificationDatabase ruta_emocional_restore_verify_ci_${{ github.run_id }} `
+            -PostgresBinPath '/usr/bin' `
+            -DatabaseHost localhost `
+            -DatabasePort 5432 `
+            -DatabaseUser ruta_emocional_ci `
+            -PasswordEnvironmentVariable POSTGRES_ADMIN_PASSWORD
+
+      - name: Audit production dependencies
+        working-directory: backend
+        run: npm audit --omit=dev --audit-level=high
+
+  frontend:
+    name: Frontend type safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Check TypeScript
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Validate native production configuration
+        working-directory: frontend
+        run: npm run validate:native-config
+
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high

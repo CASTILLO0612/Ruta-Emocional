@@ -1,7 +1,14 @@
 node_modules/
+__pycache__/
+*.py[cod]
+tmp/
+*.lnk
+docs/Hackathon/DOC_PROYECTO*
+docs/Hackathon/Identidad Visual/
 
 .expo/
 dist/
+**/dist
 web-build/
 expo-env.d.ts
 
@@ -22,10 +29,14 @@ yarn-error.*
 .DS_Store
 *.pem
 
-.env
-.env*.local
+**/.env
+**/.env*.local
 
 *.tsbuildinfo
+backend/src/generated/prisma/
+backend/.test-dist/
+backend/var/
+backend/.tmp/
 
 /ios
 /android
