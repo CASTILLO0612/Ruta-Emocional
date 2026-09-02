@@ -20,20 +20,22 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 14. [Cierre de la Fase 7](roadmap/phase-7-secure-clinical-records.md)
 15. [Consolidación de la Fase 7.5](roadmap/phase-7-5-consolidation.md)
 16. [Cierre de la Fase 8](roadmap/phase-8-secure-menta.md)
-17. [Alineación conceptual–lógica](database/conceptual-logical-alignment.md)
-18. [Gates de preparación productiva](operations/production-gates.md)
-19. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
-20. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
-21. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
-22. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
-23. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
-24. [Aprobación profesional de MENTA](governance/triage-clinical-approval.md)
-25. [Verificación de recursos por país](governance/triage-resource-verification.md)
-26. [Borrador de retención MENTA](governance/triage-retention-policy-draft.md)
-27. [Secretos y rotación PostgreSQL](operations/secrets-and-database-rotation.md)
-28. [Observabilidad y alertas](operations/observability-and-alerting.md)
-29. [Accesibilidad y seguridad nativa](security/native-accessibility-and-security.md)
-30. [ADR: sin proveedor externo MENTA en MVP](architecture/ADR-005-no-external-menta-provider-for-mvp.md)
+17. [Fase 8.1: agente contextual MENTA](roadmap/phase-8-1-contextual-menta-agent.md)
+18. [Alineación conceptual–lógica](database/conceptual-logical-alignment.md)
+19. [Gates de preparación productiva](operations/production-gates.md)
+20. [Backup y restauración PostgreSQL](operations/postgresql-backup-restore.md)
+21. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
+22. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
+23. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
+24. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
+25. [Aprobación profesional de MENTA](governance/triage-clinical-approval.md)
+26. [Verificación de recursos por país](governance/triage-resource-verification.md)
+27. [Borrador de retención MENTA](governance/triage-retention-policy-draft.md)
+28. [Secretos y rotación PostgreSQL](operations/secrets-and-database-rotation.md)
+29. [Observabilidad y alertas](operations/observability-and-alerting.md)
+30. [Accesibilidad y seguridad nativa](security/native-accessibility-and-security.md)
+31. [ADR histórico: triaje sin proveedor externo](architecture/ADR-005-no-external-menta-provider-for-mvp.md)
+32. [ADR: agente contextual MENTA](architecture/ADR-006-contextual-menta-agent.md)
 
 ## Decisiones vigentes
 
@@ -46,8 +48,11 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
   ejecutarse offline, de forma controlada e idempotente.
 - La información clínica y de triaje se considera altamente sensible.
 - MENTA orienta y deriva; no diagnostica, prescribe ni sustituye atención profesional o de emergencia.
-- MENTA no usa proveedor externo en el MVP; su protocolo activo debe coincidir
+- El triaje de MENTA permanece determinista y su protocolo activo debe coincidir
   criptográficamente con la aprobación profesional antes de producción.
+- El agente contextual es una capacidad separada, de sólo lectura en su primera
+  versión, con herramientas autorizadas, conversaciones cifradas y proveedor
+  exclusivo del backend.
 
 ## Estado documental
 

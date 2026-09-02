@@ -280,6 +280,12 @@ GET  /api/v1/triage/policy
 POST /api/v1/triage/assessments
 GET  /api/v1/triage/assessments/{assessmentId}
 POST /api/v1/triage/assessments/{assessmentId}/review
+POST /api/v1/triage/assessments/{assessmentId}/consent-withdrawal
+POST /api/v1/triage/assessments/{assessmentId}/erasure-request
+
+GET  /api/v1/menta/bootstrap?scope=PATIENT|PSYCHOLOGIST
+POST /api/v1/menta/conversations
+POST /api/v1/menta/conversations/{conversationId}/turns
 ```
 
 `GET /policy` entrega las preguntas y opciones cerradas junto con la versión
@@ -315,6 +321,20 @@ comerciales. `CRITICAL` impide aceptar una oferta vinculada. El paciente puede
 leer su resultado; el psicólogo verificado solo lo obtiene cuando la aceptación
 congeló esa evaluación en su relación asistencial. La revisión agrega revisor y
 fecha una sola vez y no cambia la salida original.
+
+El agente conversacional usa un contrato distinto al triaje. `bootstrap`
+devuelve disponibilidad, aviso, versión de consentimiento, sugerencias y la
+conversación abierta del actor. Abrir conversación acepta únicamente `scope` y
+`consentGranted: true`. Cada turno exige un `clientMessageId` UUID único dentro
+de la conversación y un mensaje acotado; identidad, rol, herramientas y
+recursos se determinan en el backend. Los turnos se devuelven como DTO y nunca
+incluyen contenido cifrado, argumentos crudos de herramientas o metadatos de
+auditoría.
+
+`PATIENT` dispone de agenda propia, solicitudes propias y directorio verificado.
+`PSYCHOLOGIST` dispone de agenda, lista de pacientes vinculados y contexto de un
+paciente autorizado. La segunda ruta exige además capacidad clínica vigente.
+Ninguna herramienta del primer incremento modifica el negocio o el expediente.
 
 ## 13. Idempotencia y concurrencia
 

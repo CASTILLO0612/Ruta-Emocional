@@ -22,6 +22,12 @@ import { TriageService } from './modules/triage/application/triageService';
 import { DeterministicTriageEngine } from './modules/triage/domain/deterministicTriageEngine';
 import { PrismaTriageRepository } from './modules/triage/infrastructure/persistence/prismaTriageRepository';
 import { UnavailableTriageOrientationProvider } from './modules/triage/infrastructure/providers/unavailableTriageOrientationProvider';
+import { MentaService } from './modules/menta/application/mentaService';
+import type { MentaAgentProvider } from './modules/menta/application/ports';
+import { PrismaMentaConversationRepository } from './modules/menta/infrastructure/persistence/prismaMentaConversationRepository';
+import { PrismaMentaContextGateway } from './modules/menta/infrastructure/persistence/prismaMentaContextGateway';
+import { GeminiInteractionsMentaProvider } from './modules/menta/infrastructure/providers/geminiInteractionsMentaProvider';
+import { UnavailableMentaAgentProvider } from './modules/menta/infrastructure/providers/unavailableMentaAgentProvider';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
@@ -31,6 +37,7 @@ export interface ApplicationServices {
   readonly appointments: AppointmentService;
   readonly clinicalRecords: ClinicalRecordService;
   readonly triage: TriageService;
+  readonly menta: MentaService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
@@ -55,6 +62,14 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
     config.clinical.contentEncryptionKeys,
     config.clinical.activeContentEncryptionKeyVersion
   );
+  const mentaProvider: MentaAgentProvider = config.menta.provider === 'GEMINI'
+    ? new GeminiInteractionsMentaProvider({
+        apiKey: config.menta.geminiApiKey!,
+        model: config.menta.model,
+        timeoutMs: config.menta.providerTimeoutMs,
+        maximumToolRounds: config.menta.maximumToolRounds,
+      })
+    : new UnavailableMentaAgentProvider();
 
   return {
     identity: new IdentityService(
@@ -105,6 +120,13 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       new DeterministicTriageEngine(),
       new UnavailableTriageOrientationProvider(),
       new SystemClock(),
+      config.triage
+    ),
+    menta: new MentaService(
+      new PrismaMentaConversationRepository(prisma, clinicalContentCipher),
+      new PrismaMentaContextGateway(prisma, clinicalContentCipher),
+      mentaProvider,
+      config.menta,
       config.triage
     ),
   };

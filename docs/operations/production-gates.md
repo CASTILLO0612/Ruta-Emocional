@@ -249,14 +249,23 @@ Siguen abiertos para producción:
 
 ## 9. Gate fail-closed de MENTA
 
-Producción sólo habilita MENTA si:
+Producción sólo habilita el triaje de MENTA si:
 
 - la aprobación profesional coincide en versión de evaluador y consentimiento;
 - su SHA-256 coincide con el artefacto canónico recalculado desde PostgreSQL;
 - la aprobación está vigente;
 - retención está marcada como aprobada y su SLA no supera cinco días hábiles;
 - todos los recursos tienen responsable y revisión vigente;
-- el proveedor externo permanece deshabilitado conforme a `ADR-005`.
+- el proveedor externo del triaje permanece deshabilitado conforme a `ADR-005`.
+
+El agente contextual definido en `ADR-006` tiene un gate independiente. Exige:
+
+- triaje determinista activo como frontera previa de seguridad;
+- proveedor y transferencia de datos aprobados explícitamente;
+- secreto inyectado por gestor externo, nunca desde el bundle móvil;
+- política legal aprobada y plazo positivo para conversaciones;
+- contrato, residencia y base jurídica compatibles con contexto clínico;
+- pruebas adversariales, observabilidad de latencia/costo y respuesta a incidentes.
 
 Los formatos de aprobación y calendario están en
 [`triage-clinical-approval.md`](../governance/triage-clinical-approval.md) y

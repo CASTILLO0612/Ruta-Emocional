@@ -52,6 +52,13 @@ interface ProductionReadinessConfig {
       readonly owner: string;
     }[]>>;
   };
+  readonly menta: {
+    readonly enabled: boolean;
+    readonly provider: 'DISABLED' | 'GEMINI';
+    readonly externalProviderApproved: boolean;
+    readonly retentionPolicyApproved: boolean;
+    readonly conversationRetentionDays: number;
+  };
 }
 
 const PRIVILEGED_DATABASE_USERS = new Set([
@@ -139,6 +146,28 @@ function validateTriage(config: ProductionReadinessConfig, nowMs: number): void 
   }
 }
 
+function validateMentaAgent(config: ProductionReadinessConfig): void {
+  if (!config.menta.enabled) return;
+  if (!config.triage.enabled) {
+    throw new ProductionReadinessError(
+      'The MENTA agent requires the deterministic safety protocol to remain enabled'
+    );
+  }
+  if (config.menta.provider === 'DISABLED') {
+    throw new ProductionReadinessError('The production MENTA agent requires an approved AI provider');
+  }
+  if (!config.menta.externalProviderApproved) {
+    throw new ProductionReadinessError(
+      'The external MENTA provider requires explicit privacy and clinical approval'
+    );
+  }
+  if (!config.menta.retentionPolicyApproved || config.menta.conversationRetentionDays < 1) {
+    throw new ProductionReadinessError(
+      'MENTA conversations require an approved positive retention policy'
+    );
+  }
+}
+
 export function assertProductionReadiness(
   config: ProductionReadinessConfig,
   now: Date = new Date()
@@ -177,4 +206,5 @@ export function assertProductionReadiness(
   }
 
   validateTriage(config, now.getTime());
+  validateMentaAgent(config);
 }

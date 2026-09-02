@@ -51,6 +51,9 @@ SELECT has_table_privilege(:'application_role', 'public.users', 'SELECT')
    AND has_table_privilege(:'application_role', 'public.patient_consents', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.triage_consent_withdrawals', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.triage_erasure_requests', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.menta_conversations', 'UPDATE')
+   AND has_table_privilege(:'application_role', 'public.menta_turns', 'UPDATE')
+   AND has_table_privilege(:'application_role', 'public.menta_tool_invocations', 'INSERT')
   AS check_passed \gset
 \if :check_passed
 \else
@@ -95,6 +98,10 @@ SELECT NOT has_table_privilege(:'application_role', 'public.audit_events', 'DELE
    AND NOT has_table_privilege(:'application_role', 'public.triage_consent_withdrawals', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.triage_erasure_requests', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.triage_erasure_requests', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.menta_conversations', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.menta_turns', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.menta_tool_invocations', 'UPDATE')
+   AND NOT has_table_privilege(:'application_role', 'public.menta_tool_invocations', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.users', 'TRIGGER')
   AS check_passed \gset
 \if :check_passed

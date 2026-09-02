@@ -273,6 +273,7 @@ export class IdentityService {
     const capabilities = new Set<string>(['profile:read:self', 'profile:update:self']);
 
     if (user.roles.includes('patient')) {
+      capabilities.add('menta:use:self');
       capabilities.add('psychologist_directory:read');
       capabilities.add('service_request:create');
       capabilities.add('service_request:manage:self');
@@ -287,6 +288,7 @@ export class IdentityService {
     }
 
     if (user.roles.includes('psychologist')) {
+      capabilities.add('menta:use:self');
       capabilities.add('psychologist_onboarding:update:self');
       if (user.psychologistVerificationStatus === 'VERIFIED') {
         capabilities.add('service_request:read:eligible');

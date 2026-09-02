@@ -18,6 +18,7 @@ tags:
   - name: Appointments
   - name: Clinical records
   - name: Triage
+  - name: MENTA agent
 paths:
   /health/live:
     get:
@@ -1248,6 +1249,66 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /menta/bootstrap:
+    get:
+      tags: [MENTA agent]
+      operationId: getMentaBootstrap
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/MentaScope' }
+      responses:
+        '200':
+          description: Política, sugerencias y conversación contextual abierta del actor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MentaBootstrapResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /menta/conversations:
+    post:
+      tags: [MENTA agent]
+      operationId: openMentaConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenMentaConversationRequest' }
+      responses:
+        '201':
+          description: Conversación propia abierta con consentimiento versionado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MentaConversationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /menta/conversations/{conversationId}/turns:
+    post:
+      tags: [MENTA agent]
+      operationId: sendMentaMessage
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMentaMessageRequest' }
+      responses:
+        '201':
+          description: Turno idempotente completado o reproducido sin duplicación.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MentaTurnResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 components:
@@ -2551,6 +2612,90 @@ components:
       required: [data, meta]
       properties:
         data: { $ref: '#/components/schemas/TriageAssessment' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    MentaScope:
+      type: string
+      enum: [PATIENT, PSYCHOLOGIST]
+    MentaToolCode:
+      type: string
+      enum: [get_my_agenda, get_my_requests, find_psychologists, list_my_patients, get_patient_context]
+    MentaTurn:
+      type: object
+      additionalProperties: false
+      required: [id, clientMessageId, userMessage, assistantMessage, providerOutcome, modelName, toolsUsed, createdAt, completedAt]
+      properties:
+        id: { type: string, format: uuid }
+        clientMessageId: { type: string, format: uuid }
+        userMessage: { type: string, minLength: 1, maxLength: 2000 }
+        assistantMessage: { type: string, minLength: 1, maxLength: 6000 }
+        providerOutcome: { type: string, enum: [NOT_USED, SUCCEEDED, UNAVAILABLE, REJECTED_OUTPUT] }
+        modelName: { type: [string, 'null'], maxLength: 120 }
+        toolsUsed:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/MentaToolCode' }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+    MentaConversation:
+      type: object
+      additionalProperties: false
+      required: [id, scope, consentVersion, consentedAt, turns]
+      properties:
+        id: { type: string, format: uuid }
+        scope: { $ref: '#/components/schemas/MentaScope' }
+        consentVersion: { type: string, minLength: 1, maxLength: 30 }
+        consentedAt: { type: string, format: date-time }
+        turns:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/MentaTurn' }
+    MentaBootstrap:
+      type: object
+      additionalProperties: false
+      required: [enabled, scope, consentVersion, disclosure, suggestedPrompts, conversation]
+      properties:
+        enabled: { type: boolean }
+        scope: { $ref: '#/components/schemas/MentaScope' }
+        consentVersion: { type: string, minLength: 1, maxLength: 30 }
+        disclosure: { type: string, minLength: 1 }
+        suggestedPrompts:
+          type: array
+          items: { type: string, minLength: 1 }
+        conversation:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/MentaConversation'
+    OpenMentaConversationRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, consentGranted]
+      properties:
+        scope: { $ref: '#/components/schemas/MentaScope' }
+        consentGranted: { type: boolean, const: true }
+    SendMentaMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [clientMessageId, message]
+      properties:
+        clientMessageId: { type: string, format: uuid }
+        message: { type: string, minLength: 1, maxLength: 2000 }
+    MentaBootstrapResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MentaBootstrap' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    MentaConversationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MentaConversation' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    MentaTurnResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MentaTurn' }
         meta: { $ref: '#/components/schemas/ResponseMeta' }
     HealthResponse:
       type: object

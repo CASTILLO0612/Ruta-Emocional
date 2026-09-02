@@ -167,6 +167,22 @@ export interface AppConfig {
       readonly erasureRequestSlaBusinessDays: number;
     };
   };
+  readonly menta: {
+    readonly enabled: boolean;
+    readonly provider: 'DISABLED' | 'GEMINI';
+    readonly externalProviderApproved: boolean;
+    readonly geminiApiKey: string | null;
+    readonly model: string;
+    readonly consentVersion: string;
+    readonly maximumMessageLength: number;
+    readonly maximumReplyLength: number;
+    readonly historyTurnLimit: number;
+    readonly maximumToolRounds: number;
+    readonly providerTimeoutMs: number;
+    readonly requestsPerMinute: number;
+    readonly retentionPolicyApproved: boolean;
+    readonly conversationRetentionDays: number;
+  };
 }
 
 export class ConfigurationError extends Error {
@@ -240,6 +256,14 @@ function readEnvironment(source: NodeJS.ProcessEnv): RuntimeEnvironment {
   const value = source.NODE_ENV?.trim() || 'development';
   if (value !== 'development' && value !== 'test' && value !== 'production') {
     throw new ConfigurationError('NODE_ENV must be development, test, or production');
+  }
+  return value;
+}
+
+function readMentaProvider(source: NodeJS.ProcessEnv): 'DISABLED' | 'GEMINI' {
+  const value = source.MENTA_AI_PROVIDER?.trim().toUpperCase() || 'DISABLED';
+  if (value !== 'DISABLED' && value !== 'GEMINI') {
+    throw new ConfigurationError('MENTA_AI_PROVIDER must be DISABLED or GEMINI');
   }
   return value;
 }
@@ -581,6 +605,11 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const triageDefaultCountryCode = readCountryCode(source, 'TRIAGE_DEFAULT_COUNTRY_CODE');
   const triageCrisisResources = readCrisisResources(source);
   const triageSafetyActions = readTriageSafetyActions(source);
+  const mentaProvider = readMentaProvider(source);
+  const geminiApiKey = source.GEMINI_API_KEY?.trim() || null;
+  if (mentaProvider === 'GEMINI' && !geminiApiKey) {
+    throw new ConfigurationError('GEMINI_API_KEY is required when MENTA_AI_PROVIDER is GEMINI');
+  }
   const minimumRequestAmount = readRequiredMoney(source, 'REQUEST_MINIMUM_AMOUNT');
   const maximumRequestAmount = readRequiredMoney(source, 'REQUEST_MAXIMUM_AMOUNT');
   if (Number(minimumRequestAmount) <= 0 || Number(maximumRequestAmount) <= Number(minimumRequestAmount)) {
@@ -968,6 +997,28 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
           30
         ),
       },
+    },
+    menta: {
+      enabled: readBoolean(source, 'MENTA_AGENT_ENABLED', false),
+      provider: mentaProvider,
+      externalProviderApproved: readBoolean(source, 'MENTA_EXTERNAL_PROVIDER_APPROVED', false),
+      geminiApiKey: geminiApiKey ? assertSecret('GEMINI_API_KEY', geminiApiKey) : null,
+      model: source.MENTA_GEMINI_MODEL?.trim() || 'gemini-3.6-flash',
+      consentVersion: source.MENTA_AGENT_CONSENT_VERSION?.trim() || '1.0.0',
+      maximumMessageLength: readInteger(source, 'MENTA_AGENT_MAXIMUM_MESSAGE_LENGTH', 2_000, 100, 8_000),
+      maximumReplyLength: readInteger(source, 'MENTA_AGENT_MAXIMUM_REPLY_LENGTH', 6_000, 500, 20_000),
+      historyTurnLimit: readInteger(source, 'MENTA_AGENT_HISTORY_TURN_LIMIT', 12, 1, 50),
+      maximumToolRounds: readInteger(source, 'MENTA_AGENT_MAXIMUM_TOOL_ROUNDS', 4, 1, 8),
+      providerTimeoutMs: readInteger(source, 'MENTA_AGENT_PROVIDER_TIMEOUT_MS', 45_000, 1_000, 60_000),
+      requestsPerMinute: readInteger(source, 'MENTA_AGENT_REQUESTS_PER_MINUTE', 20, 1, 120),
+      retentionPolicyApproved: readBoolean(source, 'MENTA_AGENT_RETENTION_POLICY_APPROVED', false),
+      conversationRetentionDays: readInteger(
+        source,
+        'MENTA_AGENT_CONVERSATION_RETENTION_DAYS',
+        30,
+        1,
+        1_825
+      ),
     },
   };
 

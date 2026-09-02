@@ -33,7 +33,9 @@ GRANT SELECT, INSERT, UPDATE ON TABLE
   clinical_encounters,
   clinical_notes,
   treatment_plans,
-  treatment_goals
+  treatment_goals,
+  menta_conversations,
+  menta_turns
 TO :"application_role";
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
@@ -64,6 +66,7 @@ GRANT SELECT, INSERT ON TABLE
   triage_assessment_modalities,
   triage_assessment_rule_results,
   request_triage_assessments,
+  menta_tool_invocations,
   audit_events,
   outbox_events
 TO :"application_role";

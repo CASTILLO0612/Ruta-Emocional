@@ -159,5 +159,21 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
         erasureRequestSlaBusinessDays: 5,
       },
     },
+    menta: {
+      enabled: false,
+      provider: 'DISABLED',
+      externalProviderApproved: false,
+      geminiApiKey: null,
+      model: 'gemini-test',
+      consentVersion: '1.0.0',
+      maximumMessageLength: 2_000,
+      maximumReplyLength: 6_000,
+      historyTurnLimit: 12,
+      maximumToolRounds: 4,
+      providerTimeoutMs: 20_000,
+      requestsPerMinute: 20,
+      retentionPolicyApproved: false,
+      conversationRetentionDays: 30,
+    },
   };
 }

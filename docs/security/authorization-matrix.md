@@ -198,12 +198,24 @@ El administrador de plataforma no hereda acceso clínico. La autorización clín
 | Solicitar eliminación | Sí propia | — | Flujo de privacidad separado | Por propósito autorizado | — | — |
 | Mutar riesgo, reglas o salida | — | — | — | — | — | — |
 | Vincular a relación | Mediante aceptación propia | Oferta del profesional | — | — | — | Riesgo crítico lo impide |
+| Abrir conversación de agente | Sí, alcance paciente | Sí, alcance profesional | — | — | Procesa sólo por backend | Detector previo |
+| Consultar agenda/solicitudes propias por agente | Sí | Agenda propia | — | — | Recibe resultado minimizado | — |
+| Consultar directorio por agente | Sí | — | — | — | Solo perfiles verificados | — |
+| Listar pacientes por agente | — | Sí, verificado y relacionado | — | — | Recibe proyección autorizada | — |
+| Obtener contexto clínico por agente | — | Sí, capacidad clínica y relación vigente | — | Por flujo distinto | Procesa contexto minimizado | — |
+| Guardar borrador o ejecutar acción por agente | — | — | — | — | — | — |
 
 El comando no admite texto libre, presupuesto o actor. Una evaluación ajena y
 una evaluación consultada por un psicólogo antes de constituir la relación
 responden `404`. El acceso y la revisión se auditan sin contenido clínico.
 Una revocación o solicitud bloqueada impide lectura/revisión profesional y
 aceptación de oferta nueva, pero el paciente conserva acceso a su estado.
+
+La conversación contextual exige `menta:use:self`. Un usuario no puede elegir
+un alcance distinto a su rol, y el modelo nunca decide autorizaciones. Los
+argumentos de herramienta se vuelven a validar; un identificador de paciente
+solo resuelve si existe una relación asistencial `ACTIVE` o `PAUSED` del
+psicólogo autenticado y éste conserva `clinical:read:authorized`.
 
 ## 10. Pagos
 

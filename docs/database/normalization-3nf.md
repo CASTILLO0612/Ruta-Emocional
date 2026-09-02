@@ -19,12 +19,13 @@ evitar modelar relaciones o atributos clínicos.
 ## Alcance de conformidad
 
 Las dependencias que siguen describen el esquema lógico vigente después de la
-Fase 8. La
+Fase 8.1. La
 [`matriz de alineación`](conceptual-logical-alignment.md) distingue las
 relaciones ya materializadas de las que pertenecen a fases funcionales aún
 deshabilitadas. La conformidad 3FN no se usa para afirmar que pagos, diagnósticos
-estén habilitados. MENTA determinista sí forma parte del modelo vigente; su
-proveedor externo continúa deshabilitado.
+estén habilitados. El triaje determinista y la persistencia del agente MENTA
+forman parte del modelo vigente; habilitar el proveedor por entorno no cambia
+las dependencias funcionales.
 
 ## Dependencias funcionales principales
 
@@ -71,6 +72,9 @@ proveedor externo continúa deshabilitado.
 | `conversations` | `id -> care_relationship_id, created_at` y `care_relationship_id -> id` |
 | `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
 | `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
+| `menta_conversations` | `id -> user_id, scope, consent_version, consented_at, fechas` y una conversación abierta por `(user_id, scope)` |
+| `menta_turns` | `id -> conversation_id, client_message_id, contenidos cifrados, status, provider_outcome, model_name, fechas` y `(conversation_id, client_message_id) -> id` |
+| `menta_tool_invocations` | `id -> turn_id, tool_code, outcome, resource_type, resource_count, invoked_at` |
 | `payments` | `id -> offer_id, amount, currency_code, status` |
 
 ## Duplicaciones eliminadas respecto a MongoDB
@@ -253,6 +257,23 @@ diferible, preservando integridad incluso fuera del caso de uso HTTP.
 La migración falla ante huérfanos o más de una conversación por relación. Esa
 conducta evita seleccionar datos arbitrariamente y preserva la integridad de la
 transformación.
+
+## Decisión de normalización de la Fase 8.1
+
+- una conversación de MENTA referencia al usuario y no copia correo, nombre,
+  roles, citas, solicitudes ni pacientes;
+- alcance y consentimiento dependen de la conversación, mientras que contenido,
+  estado y resultado de proveedor dependen de cada turno;
+- la invocación de herramienta conserva únicamente evidencia operacional. Los
+  datos consultados siguen perteneciendo a agenda, solicitudes, directorio,
+  mensajería o historia clínica y no se duplican en JSON;
+- `client_message_id` depende de su conversación y forma una clave candidata
+  compuesta, evitando duplicados de reintentos;
+- el cifrado produce valores atómicos y no introduce dependencias transitivas;
+- las herramientas son casos de uso y no tablas polimórficas de dominio.
+
+Estas relaciones satisfacen 1FN, 2FN y 3FN. Auditoría continúa fuera de la
+fuente canónica del diálogo y no almacena su contenido.
 
 ## Verificación en revisiones
 

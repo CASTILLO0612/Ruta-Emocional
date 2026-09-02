@@ -1,3 +1,4 @@
+import { fetch as expoFetch } from 'expo/fetch';
 import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -56,6 +57,10 @@ interface PreparedRequestBody {
   readonly contentType?: string;
   readonly headers?: Readonly<Record<string, string>>;
 }
+
+type FetchTransport = (input: string, init?: RequestInit) => Promise<Response>;
+
+const expoBinaryTransport: FetchTransport = (input, init) => expoFetch(input, init);
 
 let accessToken: string | null = null;
 let refreshAccessToken: RefreshAccessToken | null = null;
@@ -123,7 +128,8 @@ async function executeRequest<T>(
   endpoint: string,
   method: HttpMethod,
   body: PreparedRequestBody,
-  options: ApiRequestOptions
+  options: ApiRequestOptions,
+  transport: FetchTransport = globalThis.fetch
 ): Promise<T> {
   validateEndpoint(endpoint);
 
@@ -135,7 +141,7 @@ async function executeRequest<T>(
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}${endpoint}`, {
+    response = await transport(`${baseUrl}${endpoint}`, {
       method,
       headers,
       body: body.value,
@@ -161,7 +167,7 @@ async function executeRequest<T>(
       return executeRequest<T>(baseUrl, endpoint, method, body, {
         ...options,
         retryUnauthorized: false,
-      });
+      }, transport);
     }
   }
 
@@ -222,6 +228,7 @@ export function apiV1BinaryRequest<T>(
       contentType: options.contentType,
       headers: { 'X-Evidence-File-Name': encodeURIComponent(options.fileName) },
     },
-    options
+    options,
+    expoBinaryTransport
   );
 }

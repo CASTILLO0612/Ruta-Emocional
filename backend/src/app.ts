@@ -17,6 +17,7 @@ import { createMessagingRouter } from './modules/messaging/presentation/messagin
 import { createAppointmentRouter } from './modules/appointment/presentation/appointmentRoutes';
 import { createClinicalRecordRouter } from './modules/clinical-record/presentation/clinicalRecordRoutes';
 import { createTriageRouter } from './modules/triage/presentation/triageRoutes';
+import { createMentaRouter } from './modules/menta/presentation/mentaRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -168,6 +169,10 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(
     '/api/v1',
     createTriageRouter(services.identity, services.triage, config.triage)
+  );
+  app.use(
+    '/api/v1',
+    createMentaRouter(services.identity, services.menta, config.menta)
   );
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));

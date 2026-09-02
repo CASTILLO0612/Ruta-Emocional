@@ -207,6 +207,38 @@ enum TriageErasureRequestStatus {
   @@map("triage_erasure_request_status")
 }
 
+enum MentaConversationScope {
+  PATIENT
+  PSYCHOLOGIST
+
+  @@map("menta_conversation_scope")
+}
+
+enum MentaTurnStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("menta_turn_status")
+}
+
+enum MentaProviderOutcome {
+  NOT_USED
+  SUCCEEDED
+  UNAVAILABLE
+  REJECTED_OUTPUT
+
+  @@map("menta_provider_outcome")
+}
+
+enum MentaToolOutcome {
+  SUCCEEDED
+  DENIED
+  FAILED
+
+  @@map("menta_tool_outcome")
+}
+
 model User {
   id                            String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   legacyId                      String?                            @unique @map("legacy_id")
@@ -230,6 +262,7 @@ model User {
   idempotencyRecords            IdempotencyRecord[]
   appointmentEvents             AppointmentEvent[]                 @relation("AppointmentEventActor")
   resolvedTriageErasureRequests TriageErasureRequest[]             @relation("TriageErasureResolver")
+  mentaConversations            MentaConversation[]
 
   @@map("users")
 }
@@ -805,6 +838,55 @@ model Message {
   @@unique([conversationParticipantId, clientMessageId])
   @@index([conversationParticipantId, sentAt, id])
   @@map("messages")
+}
+
+model MentaConversation {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String                 @map("user_id") @db.Uuid
+  scope          MentaConversationScope
+  consentVersion String                 @map("consent_version") @db.VarChar(30)
+  consentedAt    DateTime               @default(now()) @map("consented_at") @db.Timestamptz(3)
+  closedAt       DateTime?              @map("closed_at") @db.Timestamptz(3)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  turns          MentaTurn[]
+
+  @@index([userId, scope, updatedAt])
+  @@map("menta_conversations")
+}
+
+model MentaTurn {
+  id                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId            String                @map("conversation_id") @db.Uuid
+  clientMessageId           String                @map("client_message_id") @db.Uuid
+  userContentEncrypted      String                @map("user_content_encrypted") @db.Text
+  assistantContentEncrypted String?               @map("assistant_content_encrypted") @db.Text
+  status                    MentaTurnStatus       @default(PROCESSING)
+  providerOutcome           MentaProviderOutcome  @default(NOT_USED) @map("provider_outcome")
+  modelName                 String?               @map("model_name") @db.VarChar(120)
+  createdAt                 DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt               DateTime?             @map("completed_at") @db.Timestamptz(3)
+  conversation              MentaConversation     @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  toolInvocations           MentaToolInvocation[]
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, createdAt, id])
+  @@map("menta_turns")
+}
+
+model MentaToolInvocation {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  turnId        String           @map("turn_id") @db.Uuid
+  toolCode      String           @map("tool_code") @db.VarChar(80)
+  outcome       MentaToolOutcome
+  resourceType  String?          @map("resource_type") @db.VarChar(80)
+  resourceCount Int?             @map("resource_count") @db.SmallInt
+  invokedAt     DateTime         @default(now()) @map("invoked_at") @db.Timestamptz(3)
+  turn          MentaTurn        @relation(fields: [turnId], references: [id], onDelete: Restrict)
+
+  @@index([turnId, invokedAt])
+  @@map("menta_tool_invocations")
 }
 
 model Payment {

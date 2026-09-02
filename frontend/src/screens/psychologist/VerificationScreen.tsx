@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -35,6 +36,7 @@ import {
 } from '../../repositories/ProfessionalProfileRepository';
 import { showAlert } from '../../utils/alert';
 import { subscribeToPsychologistVerificationUpdates } from '../../services/socketClient';
+import { ApiError } from '../../services/apiClient';
 
 const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as const;
 const PROFESSIONAL_BIO_MIN_LENGTH = 20;
@@ -70,11 +72,26 @@ function formatFileSize(bytes: number | undefined): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
-async function readEvidenceBlob(asset: DocumentPicker.DocumentPickerAsset): Promise<Blob> {
+function readEvidenceBlob(asset: DocumentPicker.DocumentPickerAsset): Blob {
   if (asset.file) return asset.file;
-  const response = await fetch(asset.uri);
-  if (!response.ok) throw new Error('No pudimos leer el archivo seleccionado.');
-  return response.blob();
+  const file = new File(asset.uri);
+  if (!file.exists || file.size <= 0) throw new Error('No pudimos leer el archivo seleccionado.');
+  return file;
+}
+
+function normalizeClockTime(value: string): string | null {
+  const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  if (hour > 23) return null;
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
+}
+
+function presentError(error: unknown): string {
+  if (error instanceof ApiError && error.fieldErrors.length > 0) {
+    return [...new Set(error.fieldErrors.map(({ message }) => message))].join('\n');
+  }
+  return error instanceof Error ? error.message : 'Inténtalo nuevamente.';
 }
 
 export const VerificationScreen: React.FC = () => {
@@ -135,7 +152,7 @@ export const VerificationScreen: React.FC = () => {
       })
       .catch((error) => {
         if (error instanceof Error && error.name === 'AbortError') return;
-        showAlert('No pudimos cargar tu expediente', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+        showAlert('No pudimos cargar tu expediente', presentError(error));
       })
       .finally(() => setIsLoading(false));
     return () => controller.abort();
@@ -157,15 +174,23 @@ export const VerificationScreen: React.FC = () => {
       setProfile(updated);
       showAlert('Cambios guardados', successMessage);
     } catch (error) {
-      showAlert('No pudimos guardar los cambios', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+      showAlert('No pudimos guardar los cambios', presentError(error));
     } finally {
       setIsSaving(false);
     }
   };
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const normalizedStartTime = normalizeClockTime(startTime);
+  const normalizedEndTime = normalizeClockTime(endTime);
+  const availabilityIsValid = normalizedStartTime !== null
+    && normalizedEndTime !== null
+    && normalizedStartTime < normalizedEndTime;
   const normalizedBioLength = bio.trim().length;
   const bioIsValid = normalizedBioLength >= PROFESSIONAL_BIO_MIN_LENGTH;
+  const hasPrimarySpecialty = profile?.specialties.some(({ isPrimary }) => isPrimary) ?? false;
+  const hasEnabledModality = profile?.modalities.some((item) => item.isEnabled) ?? false;
+  const hasSubmittedEvidence = profile?.licenses.some(({ evidenceSubmitted }) => evidenceSubmitted) ?? false;
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -205,7 +230,7 @@ export const VerificationScreen: React.FC = () => {
     if (!selectedEvidence || evidencePolicy.mode !== 'LOCAL_QA') return;
     setIsUploadingEvidence(true);
     try {
-      const blob = await readEvidenceBlob(selectedEvidence.asset);
+      const blob = readEvidenceBlob(selectedEvidence.asset);
       if (blob.size > evidencePolicy.maximumBytes) {
         throw new Error(`El tamaño máximo es ${formatFileSize(evidencePolicy.maximumBytes)}.`);
       }
@@ -221,7 +246,7 @@ export const VerificationScreen: React.FC = () => {
     } catch (error) {
       showAlert(
         'No pudimos enviar la evidencia',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+        presentError(error)
       );
     } finally {
       setIsUploadingEvidence(false);
@@ -267,6 +292,36 @@ export const VerificationScreen: React.FC = () => {
               {license.latestPublicDecisionReason ? (
                 <Text style={styles.decisionReason}>{license.latestPublicDecisionReason}</Text>
               ) : null}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.progressCard}>
+          <View style={styles.sectionHeadingRow}>
+            <View style={styles.sectionIcon}>
+              <MaterialIcons name="checklist" size={22} color={Colors.primary} />
+            </View>
+            <View style={styles.sectionHeadingCopy}>
+              <Text style={styles.formTitle}>Requisitos para habilitar el panel</Text>
+              <Text style={styles.helperText}>
+                El acceso profesional se activa automáticamente cuando un administrador aprueba la evidencia y el perfil cumple los requisitos.
+              </Text>
+            </View>
+          </View>
+          {[
+            { label: 'Presentación profesional', ready: bioIsValid, optional: true },
+            { label: 'Especialidad principal', ready: hasPrimarySpecialty, optional: false },
+            { label: 'Modalidad y tarifa activa', ready: hasEnabledModality, optional: false },
+            { label: 'Evidencia enviada a revisión', ready: hasSubmittedEvidence, optional: false },
+          ].map((step) => (
+            <View key={step.label} style={styles.progressRow}>
+              <MaterialIcons
+                name={step.ready ? 'check-circle' : 'radio-button-unchecked'}
+                size={20}
+                color={step.ready ? Colors.success : Colors.textTertiary}
+              />
+              <Text style={styles.progressText}>{step.label}</Text>
+              {step.optional ? <Text style={styles.optionalText}>Recomendado</Text> : null}
             </View>
           ))}
         </View>
@@ -350,7 +405,21 @@ export const VerificationScreen: React.FC = () => {
                   );
                 })}
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.formCard}>
+                <View style={styles.sectionHeadingRow}>
+                  <View style={styles.sectionIcon}>
+                    <MaterialIcons name="lock-outline" size={22} color={Colors.warning} />
+                  </View>
+                  <View style={styles.sectionHeadingCopy}>
+                    <Text style={styles.formTitle}>Carga de evidencia no habilitada</Text>
+                    <Text style={styles.helperText}>
+                      Este entorno no tiene configurado un proveedor privado de evidencias. No es un error de tu cuenta; la verificación no puede enviarse hasta que el entorno habilite ese flujo.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             <View style={styles.formCard}>
               <Text style={styles.formTitle}>Presentación profesional</Text>
@@ -475,16 +544,45 @@ export const VerificationScreen: React.FC = () => {
                 ))}
               </ScrollView>
               <View style={styles.rowInputs}>
-                <TextInput style={[styles.input, styles.flexInput]} value={startTime} onChangeText={setStartTime} placeholder="Inicio HH:mm" />
-                <TextInput style={[styles.input, styles.flexInput]} value={endTime} onChangeText={setEndTime} placeholder="Fin HH:mm" />
+                <TextInput
+                  style={[styles.input, styles.flexInput]}
+                  value={startTime}
+                  onChangeText={setStartTime}
+                  placeholder="Inicio 08:00"
+                  maxLength={5}
+                />
+                <TextInput
+                  style={[styles.input, styles.flexInput]}
+                  value={endTime}
+                  onChangeText={setEndTime}
+                  placeholder="Fin 17:00"
+                  maxLength={5}
+                />
               </View>
+              <Text style={startTime || endTime ? (availabilityIsValid ? styles.helperText : styles.validationText) : styles.helperText}>
+                {startTime || endTime
+                  ? availabilityIsValid
+                    ? 'Horario válido en formato de 24 horas.'
+                    : 'Escribe un rango válido, por ejemplo 08:00 a 17:00.'
+                  : 'Usa formato de 24 horas, por ejemplo 08:00 a 17:00.'}
+              </Text>
               <TouchableOpacity
-                style={styles.saveButton}
-                disabled={isSaving || !startTime || !endTime}
-                onPress={() => void saveSection(
-                  () => replaceProfessionalAvailability(timezone, [{ weekday, startTime, endTime, isActive: true }]),
-                  'Tu disponibilidad semanal fue actualizada.'
-                )}
+                style={[styles.saveButton, (isSaving || !availabilityIsValid) && styles.disabledButton]}
+                disabled={isSaving || !availabilityIsValid}
+                onPress={() => {
+                  if (!normalizedStartTime || !normalizedEndTime) return;
+                  setStartTime(normalizedStartTime);
+                  setEndTime(normalizedEndTime);
+                  void saveSection(
+                    () => replaceProfessionalAvailability(timezone, [{
+                      weekday,
+                      startTime: normalizedStartTime,
+                      endTime: normalizedEndTime,
+                      isActive: true,
+                    }]),
+                    'Tu disponibilidad semanal fue actualizada.'
+                  );
+                }}
               >
                 <Text style={styles.saveButtonText}>Guardar disponibilidad</Text>
               </TouchableOpacity>
@@ -606,6 +704,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     gap: Spacing.md,
+  },
+  progressCard: {
+    width: '100%',
+    maxWidth: 600,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.md,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  progressText: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  optionalText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
   formTitle: {
     ...Typography.h4,

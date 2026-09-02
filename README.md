@@ -14,13 +14,14 @@ El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La 
 | Mensajería | conversaciones y mensajes persistidos, autorización por participante y entrega Socket.IO mediante outbox |
 | Agenda | disponibilidad, reserva, reprogramación y transiciones de cita con prevención de solapamientos |
 | Historia clínica | expedientes, encuentros, notas versionadas, firma, enmiendas y planes de tratamiento para el psicólogo autorizado |
-| MENTA | orientación determinista con consentimiento revocable, solicitudes de eliminación, reglas versionadas, recursos de crisis y revisión profesional |
+| MENTA | agente contextual por rol más orientación determinista separada, consentimiento, cifrado, recursos de crisis y revisión profesional |
 | Administración | cola local de verificación, decisión y auditoría sin acceso clínico implícito |
 
-Pagos y audio/video no forman parte del recorrido funcional. MENTA se encuentra
-implementada con motor interno determinista; su proveedor externo permanece
-deshabilitado y la activación productiva requiere aprobación clínica del
-protocolo y los recursos de crisis.
+Pagos y audio/video no forman parte del recorrido funcional. MENTA combina un
+triaje determinista con un agente contextual de sólo lectura para paciente y
+psicólogo. El proveedor del agente puede habilitarse en QA local desde el
+backend; la activación productiva requiere aprobación clínica, legal y de
+privacidad independiente.
 
 ## Tecnologías y arquitectura
 
@@ -156,8 +157,10 @@ El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://l
 4. Aprobar la verificación desde la cola administrativa e iniciar sesión nuevamente como psicólogo.
 5. Crear una solicitud como paciente, ofertar como psicólogo y aceptar la oferta.
 6. Probar conversación, agenda y expediente clínico desde la relación creada.
-7. Completar MENTA como paciente y, si se vinculó antes de aceptar la oferta,
-   revisar el resultado congelado desde el expediente profesional.
+7. Conversar con MENTA como paciente, consultar agenda/directorio y abrir por
+   separado la orientación estructurada de seguridad.
+8. Conversar con MENTA como psicólogo verificado para consultar agenda, pacientes
+   vinculados y preparar un borrador sujeto a revisión profesional.
 
 ## Endpoints representativos
 
@@ -173,6 +176,8 @@ El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://l
 | `POST` | `/api/v1/appointments` | reservar cita autorizada |
 | `POST` | `/api/v1/clinical/encounters` | registrar encuentro clínico autorizado |
 | `POST` | `/api/v1/triage/assessments` | crear orientación determinista propia |
+| `GET` | `/api/v1/menta/bootstrap` | cargar consentimiento y conversación contextual propia |
+| `POST` | `/api/v1/menta/conversations/:id/turns` | enviar un mensaje idempotente al agente |
 
 El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
 
@@ -196,9 +201,9 @@ La evidencia de tercera forma normal está en [`docs/database/normalization-3nf.
 
 - No confirme archivos `.env`, contraseñas, tokens, evidencias profesionales ni claves de cifrado.
 - Active `ENABLE_LOCAL_QA` solo en `development`; el servidor rechaza ese flujo en producción.
-- PostgreSQL es la única base conectada por el proceso de aplicación; el
-  proveedor externo de MENTA y los pagos permanecen deshabilitados hasta cerrar
-  sus gates específicos.
+- PostgreSQL es la única base conectada por el proceso de aplicación; el agente
+  externo de MENTA sólo se habilita en QA local y permanece bloqueado para
+  producción hasta cerrar sus gates; pagos continúan deshabilitados.
 - Use datos ficticios en la historia clínica y en la evidencia profesional del hackathon.
 - El administrador operativo no recibe acceso clínico por su rol.
 

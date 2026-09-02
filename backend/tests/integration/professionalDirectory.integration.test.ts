@@ -105,6 +105,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
     appointments: createTestConfig(databaseUrl, 'directory-integration').appointments,
     clinical: createTestConfig(databaseUrl, 'directory-integration').clinical,
     triage: createTestConfig(databaseUrl, 'directory-integration').triage,
+    menta: createTestConfig(databaseUrl, 'directory-integration').menta,
   };
 
   const app = createApp({

@@ -206,7 +206,22 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
   resolución por un proceso de privacidad separado; el runtime no borra directo.
 - **MT-020**. El artefacto aprobado y el protocolo activo en PostgreSQL deben
   producir la misma huella SHA-256 o producción no arranca.
-- **MT-021**. El MVP no utiliza proveedor externo de MENTA.
+- **MT-021**. El triaje no utiliza proveedor externo: clasificación, riesgo,
+  modalidades y mensajes de crisis se resuelven con el protocolo determinista.
+- **MT-022**. El agente conversacional es una capacidad separada y solo puede
+  obtener datos mediante herramientas de servidor autorizadas para el actor.
+- **MT-023**. Cada conversación pertenece a un usuario y alcance de rol, exige
+  consentimiento versionado y persiste sus turnos cifrados.
+- **MT-024**. El contexto de un psicólogo se limita a relaciones asistenciales
+  vigentes y requiere la capacidad clínica; una cuenta pendiente no lo obtiene.
+- **MT-025**. El agente no firma, guarda ni incorpora un borrador clínico por sí
+  solo. Toda mutación futura requiere confirmación humana explícita.
+- **MT-026**. La detección determinista de crisis precede al proveedor; una señal
+  inmediata evita esa llamada y prioriza acciones/recursos configurados.
+- **MT-027**. La indisponibilidad o salida rechazada del agente se identifica
+  como contingencia y no se presenta como una respuesta generativa exitosa.
+- **MT-028**. Las conversaciones y resultados de herramientas no se incluyen en
+  logs ni metadatos de auditoría; las llamadas externas usan `store=false`.
 
 ## 12. Auditoría y datos
 
@@ -223,5 +238,5 @@ Las reglas se identifican para poder referenciarlas en casos de uso, pruebas, au
 
 - **CF-001**. Límites de precio, duraciones, expiraciones, ventanas de cancelación y recursos de crisis se configuran fuera del código de interfaz.
 - **CF-002**. Los secretos se inyectan desde un almacén de secretos o variables seguras; nunca usan fallback conocido.
-- **CF-003**. Pagos, RTC, MENTA externa y ubicación en vivo tienen feature flags independientes por entorno.
+- **CF-003**. Pagos, RTC, agente contextual MENTA, proveedor externo del triaje y ubicación en vivo tienen feature flags independientes por entorno.
 - **CF-004**. Desactivar una integración debe dejar una experiencia explícita y segura, no datos simulados presentados como reales.

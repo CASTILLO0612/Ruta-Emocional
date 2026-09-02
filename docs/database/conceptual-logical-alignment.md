@@ -7,7 +7,7 @@ lógico ejecutable. Cada diferencia tiene una decisión, una fase responsable y
 un criterio de cierre. Una diferencia explícitamente diferida no autoriza a
 inventar una relación alternativa en código.
 
-## Consolidado después de la Fase 8
+## Consolidado después de la Fase 8.1
 
 | Área conceptual | Estado lógico después de Fase 7.5 | Decisión |
 |---|---|---|
@@ -27,6 +27,8 @@ inventar una relación alternativa en código.
 | Diagnóstico con contexto | Preparado, flujo no habilitado | Existe FK opcional a relación para migración compatible. Se hará obligatoria al habilitar diagnósticos. |
 | Catálogo/reglas de triaje | Implementado | Preguntas, opciones, necesidades y reglas son catálogos normalizados; la N:N conserva resultado y evidencia minimizada para todas las reglas vigentes. |
 | Triaje–Solicitud–Relación | Implementado | Una solicitud conserva 0..N evaluaciones; la aceptación congela la más reciente anterior al vínculo en `care_relationship_sources.triage_assessment_id`. |
+| Usuario–Conversación MENTA–Turno | Implementado | El agente mantiene una conversación abierta por usuario/alcance y turnos cifrados idempotentes. No sustituye la conversación asistencial entre paciente y psicólogo. |
+| Turno MENTA–Herramienta | Implementado como evidencia técnica | Una invocación registra código, resultado y cantidad, pero no copia la cita, solicitud, paciente o expediente consultado. |
 | Plan–Diagnóstico N:N | Pendiente deliberado | La tabla asociativa se crea cuando diagnósticos sean aprobados y habilitados; no se agrega una relación sin caso de uso. |
 | Cita–Pago 1:N | Pendiente deliberado | El modelo financiero inicial sigue aislado y ningún endpoint de pago está montado. Fase 9 migrará datos compatibles o abortará ante ambigüedad. |
 | Mensajes/eventos de sistema | Parcial | Auditoría admite actor nulo. Mensajes visibles de sistema no se habilitan hasta definir origen, contenido permitido y autorización. |
@@ -47,6 +49,9 @@ inventar una relación alternativa en código.
    evaluación y conservar la regla/versiones aplicadas.
 9. La revocación y la eliminación se representan como hechos y solicitudes
    separadas, no como flags mutables en la evaluación.
+10. La conversación asistencial y la conversación con MENTA son conceptos
+    distintos: la primera pertenece a una relación entre personas; la segunda a
+    un usuario y un alcance de agente.
 
 ## Evidencia de cierre de Fase 8
 

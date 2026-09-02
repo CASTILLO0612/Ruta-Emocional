@@ -130,3 +130,39 @@ test('production readiness rejects expired resources, unapproved retention and e
     ProductionReadinessError
   );
 });
+
+test('production readiness fails closed when the contextual MENTA provider lacks governance', () => {
+  const ready = readyConfig();
+  assert.throws(
+    () => assertProductionReadiness({
+      ...ready,
+      menta: { ...ready.menta, enabled: true, provider: 'DISABLED' },
+    }, NOW),
+    ProductionReadinessError
+  );
+  assert.throws(
+    () => assertProductionReadiness({
+      ...ready,
+      menta: {
+        ...ready.menta,
+        enabled: true,
+        provider: 'GEMINI',
+        externalProviderApproved: false,
+      },
+    }, NOW),
+    ProductionReadinessError
+  );
+  assert.throws(
+    () => assertProductionReadiness({
+      ...ready,
+      menta: {
+        ...ready.menta,
+        enabled: true,
+        provider: 'GEMINI',
+        externalProviderApproved: true,
+        retentionPolicyApproved: false,
+      },
+    }, NOW),
+    ProductionReadinessError
+  );
+});

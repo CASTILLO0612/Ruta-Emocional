@@ -2,13 +2,18 @@
 
 ## Estado
 
-**Aceptado el 31 de agosto de 2026.**
+**Reemplazado parcialmente el 1 de septiembre de 2026 por ADR-006.**
+
+La decisión continúa vigente para el cuestionario de triaje: su clasificación,
+reglas y mensajes de crisis permanecen deterministas. La prohibición general de
+un agente contextual externo fue reemplazada después de aclarar el alcance de
+producto y establecer límites técnicos separados.
 
 ## Decisión
 
-MENTA usa exclusivamente el motor determinista, versionado y auditable durante
-el MVP. `TRIAGE_EXTERNAL_PROVIDER_ENABLED` debe permanecer en `false` en
-producción y el gate de arranque rechaza lo contrario.
+El triaje de MENTA usa exclusivamente el motor determinista, versionado y
+auditable durante el MVP. `TRIAGE_EXTERNAL_PROVIDER_ENABLED` debe permanecer en
+`false` en producción y el gate de arranque rechaza lo contrario.
 
 ## Motivo
 
@@ -22,7 +27,7 @@ El resumen determinista ya satisface el propósito de orientación sin diagnóst
 - no se envían respuestas ni categorías a terceros;
 - no existe costo, indisponibilidad o deriva de modelo externo;
 - las reglas y salidas pueden aprobarse como un artefacto exacto;
-- la interfaz no afirma usar IA generativa;
-- una futura propuesta requiere ADR nuevo, evidencia de beneficio clínico,
+- la interfaz de triaje no afirma usar IA generativa;
+- una propuesta de agente contextual requiere ADR nuevo, evidencia de valor,
   evaluación de privacidad, contrato, residencia, pruebas de seguridad y
   comparación contra el baseline determinista.

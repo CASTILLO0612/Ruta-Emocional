@@ -11,7 +11,8 @@ import { useAuthStore } from '../store/useAuthStore';
 import { LoginScreen, RegisterScreen } from '../screens/auth/AuthScreens';
 import { HomeScreen } from '../screens/patient/HomeScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
-import { MentaScreen } from '../screens/patient/MentaScreen';
+import { MentaScreen as MentaSafetyScreen } from '../screens/patient/MentaScreen';
+import { MentaAgentScreen } from '../screens/shared/MentaAgentScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
 import { VerificationQueueScreen } from '../screens/admin/VerificationQueueScreen';
@@ -64,11 +65,11 @@ function PatientTabs() {
       />
       <PatientTab.Screen
         name="Menta"
-        component={MentaScreen}
+        component={MentaAgentScreen}
         options={{
-          tabBarLabel: 'Orientación',
+          tabBarLabel: 'MENTA',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="health-and-safety" size={size} color={color} />
+            <MaterialIcons name="psychology" size={size} color={color} />
           ),
         }}
       />
@@ -141,6 +142,16 @@ function PsychologistTabs() {
           tabBarLabel: 'Pacientes',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="folder-shared" size={size} color={color} />
+          ),
+        }}
+      />
+      <PsychologistTab.Screen
+        name="Menta"
+        component={MentaAgentScreen}
+        options={{
+          tabBarLabel: 'MENTA',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="psychology" size={size} color={color} />
           ),
         }}
       />
@@ -221,6 +232,7 @@ export const AppNavigator: React.FC = () => {
           <>
             <Stack.Screen name="PatientMain" component={PatientTabs} />
             <Stack.Screen name="Radar" component={RadarScreen} />
+            <Stack.Screen name="MentaSafety" component={MentaSafetyScreen} />
             <Stack.Screen name="Consultation" component={ConversationScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />

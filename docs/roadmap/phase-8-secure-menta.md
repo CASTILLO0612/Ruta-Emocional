@@ -6,6 +6,11 @@ local y el pipeline remoto finalizaron correctamente.
 **Endurecimiento productivo:** implementado el 31 de agosto de 2026; las
 aprobaciones humanas y servicios externos continúan fail closed.
 
+Este documento conserva el cierre del **triaje determinista**. La conversación
+contextual añadida después se documenta por separado en
+[`phase-8-1-contextual-menta-agent.md`](phase-8-1-contextual-menta-agent.md) y
+`ADR-006`; no modifica riesgo, reglas ni recursos de este subsistema.
+
 ## 1. Resultado
 
 MENTA vuelve al producto como orientación automatizada estructurada, no como

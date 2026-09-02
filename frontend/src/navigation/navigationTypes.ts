@@ -17,6 +17,7 @@ export type PatientTabParamList = {
 export type PsychologistTabParamList = {
   Dashboard: undefined;
   Clinical: undefined;
+  Menta: undefined;
   Messages: undefined;
   History: undefined;
   Profile: undefined;
@@ -29,6 +30,7 @@ export type AppStackParamList = {
   PsychologistMain: NavigatorScreenParams<PsychologistTabParamList> | undefined;
   PsychologistVerification: undefined;
   AdminVerification: undefined;
+  MentaSafety: undefined;
   Radar: undefined;
   Consultation: { conversationId: string };
   Profile: undefined;
