@@ -89,7 +89,7 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
     },
     appointments: {
       durationMinutes: 50,
-      slotIntervalMinutes: 10,
+      slotIntervalMinutes: 60,
       minimumLeadMinutes: 0,
       maximumHorizonDays: 90,
       patientCancellationNoticeMinutes: 60,

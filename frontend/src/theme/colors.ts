@@ -57,7 +57,7 @@ export const Colors = {
   textPrimary: NeutralColors[950],
   textSecondary: NeutralColors[700],
   textTertiary: NeutralColors[500],
-  textDisabled: '#94A3B8',
+  textDisabled: NeutralColors[500],
   textInverse: NeutralColors.white,
   textOnBrandMuted: 'rgba(255, 255, 255, 0.76)',
   textAccent: BrandColors.navy,

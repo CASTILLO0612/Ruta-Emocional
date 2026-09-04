@@ -1047,11 +1047,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       'APPOINTMENT_DEFAULT_PAGE_SIZE cannot exceed APPOINTMENT_MAXIMUM_PAGE_SIZE'
     );
   }
-  if (config.appointments.slotIntervalMinutes > config.appointments.durationMinutes) {
-    throw new ConfigurationError(
-      'APPOINTMENT_SLOT_INTERVAL_MINUTES cannot exceed APPOINTMENT_DURATION_MINUTES'
-    );
-  }
   if (config.clinical.defaultPageSize > config.clinical.maximumPageSize) {
     throw new ConfigurationError(
       'CLINICAL_DEFAULT_PAGE_SIZE cannot exceed CLINICAL_MAXIMUM_PAGE_SIZE'

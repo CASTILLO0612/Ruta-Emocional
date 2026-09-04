@@ -8,7 +8,7 @@ Este directorio reúne la evidencia verificable de Ruta Emocional para la catego
 |---|---|---|
 | README técnico: descripción, tecnologías, instalación y ejecución | [`README.md` del proyecto](../../../README.md) | Completo |
 | Diagrama de base de datos: modelo ER básico y al menos 2FN | [DER conceptual completo](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf), [catálogo y criterio](modelo-entidad-relacion-conceptual.md), [decisiones revisadas](revision-decisiones-modelo-conceptual.md), [evidencia 3FN](../../database/normalization-3nf.md) | Completo; supera el mínimo de normalización |
-| Interfaces navegables y formularios funcionales | [Evidencia de interfaz y formularios](evidencia-interfaz-y-formularios.md) | Completo para el recorrido seleccionado |
+| Interfaces navegables y formularios funcionales | [Evidencia de interfaz y formularios](evidencia-interfaz-y-formularios.md), [evidencia final del refactor visual](evidencia-refactor-visual-final.md) | Completo para el recorrido seleccionado |
 | Uso básico de GitHub con commits legibles y operaciones Commit/Push/Pull | [Evidencia de control de versiones](evidencia-control-versiones.md) | Completo al sincronizar esta entrega |
 | Código limpio y definición de tres roles o permisos | [Roles y permisos](roles-y-permisos.md), [matriz completa](../../security/authorization-matrix.md) | Completo |
 | Ejecución local e instrucciones básicas | [Instalación y ejecución](../../../README.md#instalación) | Completo |

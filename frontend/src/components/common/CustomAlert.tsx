@@ -1,8 +1,11 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
+import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { AppAlertTone } from '../../utils/alert';
 
 interface CustomAlertProps {
   visible: boolean;
@@ -13,6 +16,8 @@ interface CustomAlertProps {
   onConfirm: () => void;
   onCancel?: () => void;
   showCancel?: boolean;
+  tone?: AppAlertTone;
+  confirmDestructive?: boolean;
 }
 
 export const CustomAlert: React.FC<CustomAlertProps> = ({
@@ -24,12 +29,28 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   onConfirm,
   onCancel,
   showCancel = false,
+  tone = 'info',
+  confirmDestructive = false,
 }) => {
+  const reduceMotion = useReducedMotionPreference();
+  const feedback = FEEDBACK_STYLES[tone];
+  const FeedbackIcon = feedback.icon;
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType={reduceMotion ? 'none' : 'fade'}
+      onRequestClose={onCancel ?? onConfirm}
+      statusBarTranslucent
+    >
       <View style={styles.overlay} accessibilityViewIsModal>
         <View style={styles.alertCard} accessibilityRole="alert">
-          <Text style={styles.title}>{title}</Text>
+          <View style={styles.headingRow}>
+            <View style={[styles.iconContainer, { backgroundColor: feedback.surface }]}>
+              <FeedbackIcon size={22} color={feedback.color} strokeWidth={2} />
+            </View>
+            <Text style={styles.title}>{title}</Text>
+          </View>
           <Text style={styles.message}>{message}</Text>
           
           <View style={styles.buttonRow}>
@@ -45,7 +66,11 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
               </TouchableOpacity>
             )}
             <TouchableOpacity 
-              style={[styles.confirmBtn, !showCancel && { flex: 1 }]} 
+              style={[
+                styles.confirmBtn,
+                confirmDestructive && styles.destructiveBtn,
+                !showCancel && { flex: 1 },
+              ]}
               onPress={onConfirm}
               activeOpacity={0.8}
               accessibilityRole="button"
@@ -60,6 +85,13 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   );
 };
 
+const FEEDBACK_STYLES = {
+  info: { icon: Info, color: Colors.info, surface: Colors.infoSurface },
+  success: { icon: CircleCheck, color: Colors.success, surface: Colors.successSurface },
+  warning: { icon: TriangleAlert, color: Colors.warning, surface: Colors.warningSurface },
+  error: { icon: CircleAlert, color: Colors.error, surface: Colors.errorSurface },
+} as const;
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -70,7 +102,7 @@ const styles = StyleSheet.create({
   },
   alertCard: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 400,
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
@@ -79,15 +111,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     ...Typography.h3,
     color: Colors.textPrimary,
-    textAlign: 'center',
+    flex: 1,
   },
   message: {
     ...Typography.body,
     color: Colors.textSecondary,
-    textAlign: 'center',
+    lineHeight: 22,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -106,6 +150,9 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     ...Typography.button,
     color: Colors.textInverse,
+  },
+  destructiveBtn: {
+    backgroundColor: Colors.error,
   },
   cancelBtn: {
     flex: 1,

@@ -11,8 +11,9 @@ import {
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
+import { Layout } from '../../theme/layout';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'dangerGhost';
 type Size = 'sm' | 'md' | 'lg';
 
 interface AppButtonProps {
@@ -64,9 +65,11 @@ export const AppButton: React.FC<AppButtonProps> = ({
     >
       {isLoading ? (
         <ActivityIndicator
-          color={['secondary', 'outline', 'ghost'].includes(variant)
-            ? Colors.primary
-            : Colors.textInverse}
+          color={variant === 'dangerGhost'
+            ? Colors.error
+            : ['secondary', 'outline', 'ghost'].includes(variant)
+              ? Colors.primary
+              : Colors.textInverse}
           size="small"
         />
       ) : (
@@ -112,7 +115,7 @@ const styles = StyleSheet.create({
   size_sm: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    minHeight: 44,
+    minHeight: Layout.minimumTouchTarget,
   },
   size_md: {
     paddingHorizontal: Spacing.xl,
@@ -145,6 +148,9 @@ const styles = StyleSheet.create({
   variant_danger: {
     backgroundColor: Colors.error,
   },
+  variant_dangerGhost: {
+    backgroundColor: 'transparent',
+  },
 
   label: {
     ...Typography.button,
@@ -155,6 +161,7 @@ const styles = StyleSheet.create({
   labelVariant_outline: { color: Colors.primary },
   labelVariant_ghost: { color: Colors.primary },
   labelVariant_danger: { color: Colors.textInverse },
+  labelVariant_dangerGhost: { color: Colors.error },
 
   labelSize_sm: { fontSize: 13 },
   labelSize_md: { fontSize: 15 },

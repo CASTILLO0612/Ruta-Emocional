@@ -20,6 +20,7 @@ import { Typography } from '../../theme/typography';
 import { Spacing, BorderRadius, Shadow } from '../../theme/spacing';
 import { IconSize, IconStroke } from '../../theme/icons';
 import { MotionDuration } from '../../theme/motion';
+import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
 
 export type ToastType = 'error' | 'success' | 'info' | 'warning';
 
@@ -61,33 +62,34 @@ export const Toast: React.FC<ToastProps> = ({
 }) => {
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotionPreference();
 
   const hide = useCallback(() => {
     Animated.parallel([
       Animated.timing(translateY, {
         toValue: 100,
-        duration: MotionDuration.fast,
+        duration: reduceMotion ? 0 : MotionDuration.fast,
         useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: MotionDuration.fast,
+        duration: reduceMotion ? 0 : MotionDuration.fast,
         useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start(() => onHide());
-  }, [translateY, opacity, onHide]);
+  }, [translateY, opacity, onHide, reduceMotion]);
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: 0,
-          duration: MotionDuration.normal,
+          duration: reduceMotion ? 0 : MotionDuration.normal,
           useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: MotionDuration.fast,
+          duration: reduceMotion ? 0 : MotionDuration.fast,
           useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]).start();
@@ -95,7 +97,7 @@ export const Toast: React.FC<ToastProps> = ({
       const timer = setTimeout(hide, duration);
       return () => clearTimeout(timer);
     }
-  }, [visible, duration, hide, translateY, opacity]);
+  }, [visible, duration, hide, reduceMotion, translateY, opacity]);
 
   if (!visible) return null;
 

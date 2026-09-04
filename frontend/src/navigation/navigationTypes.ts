@@ -5,22 +5,36 @@ import type {
 } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { Modality } from '../models/Psychologist';
 
 export type PatientTabParamList = {
   Home: undefined;
-  Menta: undefined;
-  Messages: undefined;
-  History: undefined;
+  Search: undefined;
+  Appointments: undefined;
   Profile: undefined;
 };
 
 export type PsychologistTabParamList = {
   Dashboard: undefined;
-  Clinical: undefined;
-  Menta: undefined;
-  Messages: undefined;
   History: undefined;
+  Clinical: undefined;
   Profile: undefined;
+};
+
+export type AcceptedOfferSummaryParams = {
+  readonly requestId: string;
+  readonly offerId: string;
+  readonly careRelationshipId: string;
+  readonly conversationId: string;
+  readonly psychologistId: string;
+  readonly psychologistName: string;
+  readonly psychologistPhotoURL?: string;
+  readonly psychologistSpecialty?: string;
+  readonly psychologistRating?: number;
+  readonly amountDecimal: string;
+  readonly currencyCode: string;
+  readonly modality: Modality;
+  readonly scheduledFor?: string;
 };
 
 export type AppStackParamList = {
@@ -32,10 +46,13 @@ export type AppStackParamList = {
   AdminVerification: undefined;
   MentaSafety: undefined;
   Radar: undefined;
-  Consultation: { conversationId: string };
+  AcceptedOffer: AcceptedOfferSummaryParams;
+  Consultation: { readonly conversationId: string };
+  MentaAgent: undefined;
+  Inbox: undefined;
   Profile: undefined;
   PsychologistProfile: {
-    psychologistId: string;
+    readonly psychologistId: string;
   };
 };
 
@@ -46,4 +63,17 @@ export type PatientHomeNavigation = CompositeNavigationProp<
   AppNavigation
 >;
 
-export type PsychologistProfileRoute = RouteProp<AppStackParamList, 'PsychologistProfile'>;
+export type PatientSearchNavigation = CompositeNavigationProp<
+  BottomTabNavigationProp<PatientTabParamList, 'Search'>,
+  AppNavigation
+>;
+
+export type PsychologistProfileRoute = RouteProp<
+  AppStackParamList,
+  'PsychologistProfile'
+>;
+
+export type AcceptedOfferRoute = RouteProp<
+  AppStackParamList,
+  'AcceptedOffer'
+>;

@@ -1,16 +1,64 @@
-import { Alert, Platform } from 'react-native';
+export type AppAlertButtonStyle = 'default' | 'cancel' | 'destructive';
 
-export function showAlert(title: string, message: string, buttons?: any[]) {
-  if (Platform.OS === 'web') {
-    console.warn(`[Alert] ${title}: ${message}`);
-    window.alert(`${title}\n\n${message}`);
-    if (buttons && buttons.length > 0) {
-      const positiveBtn = buttons.find(b => b.style !== 'cancel') || buttons[0];
-      if (positiveBtn && typeof positiveBtn.onPress === 'function') {
-        positiveBtn.onPress();
-      }
-    }
-  } else {
-    Alert.alert(title, message, buttons);
+export interface AppAlertButton {
+  readonly text?: string;
+  readonly style?: AppAlertButtonStyle;
+  readonly onPress?: () => void;
+}
+
+export type AppAlertTone = 'info' | 'success' | 'warning' | 'error';
+
+export interface AppAlertRequest {
+  readonly id: number;
+  readonly title: string;
+  readonly message: string;
+  readonly buttons: readonly AppAlertButton[];
+  readonly tone: AppAlertTone;
+}
+
+type AlertPresenter = (request: AppAlertRequest) => void;
+
+let presenter: AlertPresenter | null = null;
+let pendingRequests: AppAlertRequest[] = [];
+let nextRequestId = 1;
+
+function inferTone(title: string): AppAlertTone {
+  const normalized = title.trim().toLocaleLowerCase('es');
+  if (/aprob|guardad|enviad|actualizad|completad|confirmad/.test(normalized)) return 'success';
+  if (/no pudimos|error|fall|no permitido|no disponible/.test(normalized)) return 'error';
+  if (/requerid|demasiado|atención|advertencia|firmar|cancelar/.test(normalized)) return 'warning';
+  return 'info';
+}
+
+export function showAlert(
+  title: string,
+  message: string,
+  buttons: readonly AppAlertButton[] = [],
+  tone: AppAlertTone = inferTone(title)
+): void {
+  const request: AppAlertRequest = {
+    id: nextRequestId,
+    title,
+    message,
+    buttons,
+    tone,
+  };
+  nextRequestId += 1;
+
+  if (presenter) {
+    presenter(request);
+    return;
   }
+  pendingRequests.push(request);
+}
+
+export function registerAlertPresenter(nextPresenter: AlertPresenter): () => void {
+  presenter = nextPresenter;
+  const waiting = pendingRequests;
+  pendingRequests = [];
+  waiting.forEach(nextPresenter);
+
+  return () => {
+    if (presenter === nextPresenter) presenter = null;
+  };
 }

@@ -1,207 +1,219 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
+  ActivityIndicator,
   Image,
-  StatusBar,
-  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import {
-  ArrowLeft,
   BriefcaseMedical,
   ChevronRight,
   HeartHandshake,
   LogOut,
+  RefreshCw,
   UserRound,
-  X,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
 
-import { Colors } from '../../theme/colors';
-import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
-import { FontFamily, Typography } from '../../theme/typography';
-import { IconSize, IconStroke } from '../../theme/icons';
-import { useAuthStore } from '../../store/useAuthStore';
+import { AppButton } from '../../components/common/AppButton';
 import { CustomAlert } from '../../components/common/CustomAlert';
-import { getOwnProfessionalProfile, updateProfessionalBio } from '../../repositories/ProfessionalProfileRepository';
-import { showAlert } from '../../utils/alert';
+import { ProfessionalProfileSheet } from '../../components/profile/ProfessionalProfileSheet';
+import { AppHeader } from '../../components/shared/AppHeader';
 import type { AppNavigation } from '../../navigation/navigationTypes';
+import {
+  getOwnProfessionalProfile,
+  updateProfessionalBio,
+} from '../../repositories/ProfessionalProfileRepository';
+import { useAuthStore } from '../../store/useAuthStore';
+import { Colors } from '../../theme/colors';
+import { IconSize, IconStroke } from '../../theme/icons';
+import { BorderRadius, Spacing } from '../../theme/spacing';
+import { FontFamily, Typography } from '../../theme/typography';
+import { showAlert } from '../../utils/alert';
+import { presentUserError } from '../../utils/userFacingError';
+import { getProfileRoleLabel } from '../../utils/profilePresentation';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<AppNavigation>();
-  const { userProfile, signOut } = useAuthStore();
+  const userProfile = useAuthStore((state) => state.userProfile);
+  const signOut = useAuthStore((state) => state.signOut);
   const isPsychologist = userProfile?.role === 'psychologist';
   const isTabScreen = (navigation.getState() as { type?: string }).type === 'tab';
 
   const [logoutAlertVisible, setLogoutAlertVisible] = useState(false);
   const [saveSuccessAlertVisible, setSaveSuccessAlertVisible] = useState(false);
-  const [activePanel, setActivePanel] = useState<'profesional' | null>(null);
-
-  const name = userProfile?.displayName ?? '';
-  const email = userProfile?.email ?? '';
-  const photoURL = userProfile?.photoURL ?? '';
-
-  // Campos profesionales para psicólogo
+  const [editorVisible, setEditorVisible] = useState(false);
   const [specialty, setSpecialty] = useState(userProfile?.specialty ?? '');
   const [bio, setBio] = useState(userProfile?.bio ?? '');
+  const [isLoadingProfessional, setIsLoadingProfessional] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [professionalLoadFailed, setProfessionalLoadFailed] = useState(false);
 
-  useEffect(() => {
+  const loadProfessionalProfile = useCallback(async (signal?: AbortSignal) => {
     if (!isPsychologist) return;
-    const controller = new AbortController();
-    void getOwnProfessionalProfile(controller.signal)
-      .then((profile) => {
-        setSpecialty(profile.specialties.find(({ isPrimary }) => isPrimary)?.name ?? '');
-        setBio(profile.bio ?? '');
-      })
-      .catch((error) => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        showAlert('Perfil profesional', 'No pudimos cargar la información profesional actual.');
-      });
-    return () => controller.abort();
+    setIsLoadingProfessional(true);
+    setProfessionalLoadFailed(false);
+    try {
+      const profile = await getOwnProfessionalProfile(signal);
+      setSpecialty(profile.specialties.find(({ isPrimary }) => isPrimary)?.name ?? '');
+      setBio(profile.bio ?? '');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      setProfessionalLoadFailed(true);
+    } finally {
+      if (!signal?.aborted) setIsLoadingProfessional(false);
+    }
   }, [isPsychologist]);
 
-  const handleSignOut = () => {
-    setLogoutAlertVisible(true);
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadProfessionalProfile(controller.signal);
+    return () => controller.abort();
+  }, [loadProfessionalProfile]);
 
   const handleConfirmSignOut = async () => {
     setLogoutAlertVisible(false);
     try {
       await signOut();
     } catch {
-      console.warn('[Profile] No se pudo revocar la sesión remota; la sesión local fue eliminada.');
-    }
-  };
-
-  const handleSaveProfessional = async () => {
-    try {
-      await updateProfessionalBio(bio.trim() || null);
-      setActivePanel(null);
-      setSaveSuccessAlertVisible(true);
-    } catch (error) {
       showAlert(
-        'No pudimos actualizar el perfil',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+        'Sesión cerrada localmente',
+        'No fue posible confirmar la revocación remota. Vuelve a iniciar sesión solo en un dispositivo seguro.'
       );
     }
   };
 
+  const handleSaveProfessional = async () => {
+    setIsSaving(true);
+    try {
+      const updated = await updateProfessionalBio(bio.trim() || null);
+      setBio(updated.bio ?? '');
+      setEditorVisible(false);
+      setSaveSuccessAlertVisible(true);
+    } catch (error) {
+      showAlert(
+        'No pudimos actualizar el perfil',
+        presentUserError(error, 'Tus cambios no se guardaron. Inténtalo nuevamente.')
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const name = userProfile?.displayName ?? 'Usuario';
+  const email = userProfile?.email ?? '';
+  const photoURL = userProfile?.photoURL ?? '';
+  const roleLabel = getProfileRoleLabel(
+    isPsychologist,
+    userProfile?.psychologistVerificationStatus
+  );
+
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
-      
-      <SafeAreaView style={styles.appBarSafe}>
-        <View style={styles.appBar}>
-          {isTabScreen ? (
-            <View style={styles.appBarSpacer} />
-          ) : (
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => navigation.goBack()}
-              accessibilityLabel="Volver"
-            >
-              <ArrowLeft size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.appBarTitle}>Mi perfil</Text>
-          <View style={styles.appBarSpacer} />
-        </View>
-      </SafeAreaView>
+      <AppHeader title="Mi perfil" showBack={!isTabScreen} showBrandMark={isTabScreen} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarWrapper}>
+        <View style={styles.contentColumn}>
+          <View style={styles.identityCard}>
             {photoURL ? (
-              <Image source={{ uri: photoURL }} style={styles.avatar} />
+              <Image source={{ uri: photoURL }} style={styles.avatar} accessibilityLabel={`Foto de ${name}`} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 {isPsychologist ? (
-                  <HeartHandshake size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                  <HeartHandshake size={36} strokeWidth={IconStroke.regular} color={Colors.primary} />
                 ) : (
-                  <UserRound size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                  <UserRound size={36} strokeWidth={IconStroke.regular} color={Colors.primary} />
                 )}
               </View>
             )}
-          </View>
-          <Text style={styles.name}>{name}</Text>
-          <Text style={styles.email}>{email}</Text>
-          
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>
-              {isPsychologist
-                ? `Psicólogo ${userProfile?.psychologistVerificationStatus?.toLowerCase() ?? 'pendiente'}`
-                : 'Paciente'}
-            </Text>
-          </View>
-        </View>
-
-        {isPsychologist && (
-          <View style={styles.menuList}>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => setActivePanel('profesional')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuIconBg}>
-                <BriefcaseMedical size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
+            <View style={styles.identityCopy}>
+              <Text style={styles.name}>{name}</Text>
+              <Text style={styles.email}>{email}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>{roleLabel}</Text>
               </View>
-              <Text style={styles.menuLabel}>Perfil profesional y Bio</Text>
-              <ChevronRight size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
-            </TouchableOpacity>
+            </View>
           </View>
-        )}
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <LogOut size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />
-          <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
-        </TouchableOpacity>
+          {isPsychologist ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Cuenta profesional</Text>
+              {isLoadingProfessional ? (
+                <View style={styles.feedbackRow} accessibilityRole="progressbar">
+                  <ActivityIndicator color={Colors.primary} />
+                  <Text style={styles.feedbackText}>Cargando información profesional…</Text>
+                </View>
+              ) : professionalLoadFailed ? (
+                <View style={styles.feedbackRow} accessibilityRole="alert">
+                  <Text style={styles.feedbackText}>No pudimos cargar la información profesional.</Text>
+                  <TouchableOpacity
+                    onPress={() => void loadProfessionalProfile()}
+                    style={styles.retryButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Reintentar carga del perfil profesional"
+                  >
+                    <RefreshCw size={IconSize.inline} color={Colors.primary} strokeWidth={IconStroke.regular} />
+                    <Text style={styles.retryText}>Reintentar</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.menuRow}
+                  onPress={() => setEditorVisible(true)}
+                  activeOpacity={0.76}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar presentación profesional"
+                  accessibilityHint={specialty ? `Especialidad principal: ${specialty}` : 'Especialidad aún no configurada'}
+                >
+                  <View style={styles.menuIcon}>
+                    <BriefcaseMedical size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                  </View>
+                  <View style={styles.menuCopy}>
+                    <Text style={styles.menuLabel}>Presentación profesional</Text>
+                    <Text style={styles.menuDetail} numberOfLines={1}>
+                      {specialty || 'Completa tu especialidad principal'}
+                    </Text>
+                  </View>
+                  <ChevronRight size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+
+          <AppButton
+            label="Cerrar sesión"
+            onPress={() => setLogoutAlertVisible(true)}
+            variant="dangerGhost"
+            fullWidth
+            icon={<LogOut size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />}
+          />
+        </View>
       </ScrollView>
 
-      {isPsychologist && (
-        <Modal visible={activePanel === 'profesional'} animationType="slide">
-          <SafeAreaView style={styles.panelRoot}>
-            <View style={styles.panelHeader}>
-              <TouchableOpacity onPress={() => setActivePanel(null)} style={styles.panelCloseBtn}>
-                <X size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textPrimary} />
-              </TouchableOpacity>
-              <Text style={styles.panelTitle}>Perfil profesional</Text>
-              <View style={{ width: 44 }} />
-            </View>
-            <ScrollView contentContainerStyle={styles.panelBody}>
-              <Text style={styles.inputLabel}>Especialidades</Text>
-              <TextInput style={styles.panelInput} value={specialty} editable={false} />
-
-              <Text style={styles.inputLabel}>Resumen Profesional / Bio</Text>
-              <TextInput
-                style={[styles.panelInput, { minHeight: 100, textAlignVertical: 'top' }]}
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                numberOfLines={4}
-              />
-
-              <View style={{ height: Spacing.xl }} />
-              <TouchableOpacity style={styles.saveBtn} onPress={() => void handleSaveProfessional()}>
-                <Text style={styles.saveBtnText}>Actualizar perfil profesional</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
-      )}
+      {isPsychologist ? (
+        <ProfessionalProfileSheet
+          visible={editorVisible}
+          specialty={specialty}
+          bio={bio}
+          isSaving={isSaving}
+          onBioChange={setBio}
+          onSave={() => void handleSaveProfessional()}
+          onClose={() => setEditorVisible(false)}
+        />
+      ) : null}
 
       <CustomAlert
         visible={logoutAlertVisible}
         title="Cerrar sesión"
-        message="¿Estás seguro de que deseas cerrar sesión de tu cuenta?"
+        message="¿Deseas cerrar la sesión en este dispositivo?"
         confirmText="Cerrar sesión"
         cancelText="Cancelar"
+        tone="warning"
         showCancel
-        onConfirm={handleConfirmSignOut}
+        onConfirm={() => void handleConfirmSignOut()}
         onCancel={() => setLogoutAlertVisible(false)}
       />
 
@@ -210,6 +222,7 @@ export const ProfileScreen: React.FC = () => {
         title="Perfil actualizado"
         message="La presentación profesional fue actualizada correctamente."
         confirmText="Aceptar"
+        tone="success"
         onConfirm={() => setSaveSuccessAlertVisible(false)}
       />
     </View>
@@ -217,246 +230,46 @@ export const ProfileScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: Colors.background,
+  root: { flex: 1, backgroundColor: Colors.background },
+  scrollContent: { flexGrow: 1, alignItems: 'center', padding: Spacing.base, paddingBottom: Spacing.xxxl },
+  contentColumn: { width: '100%', maxWidth: 680, gap: Spacing.xl },
+  identityCard: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.base, padding: Spacing.lg,
+    borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
   },
-  appBarSafe: {
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  appBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm + 2,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appBarSpacer: { width: 44, height: 44 },
-  appBarTitle: {
-    ...Typography.h4,
-    fontFamily: FontFamily.brandBold,
-    color: Colors.textPrimary,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xxxl,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xl,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginBottom: Spacing.sm,
-  },
-  avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: BorderRadius.full,
-    borderWidth: 3,
-    borderColor: Colors.accent,
-  },
+  avatar: { width: 72, height: 72, borderRadius: BorderRadius.full },
   avatarPlaceholder: {
-    width: 84,
-    height: 84,
-    borderRadius: BorderRadius.full,
+    width: 72, height: 72, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: Colors.accent,
   },
-  name: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  email: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
+  identityCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
+  name: { ...Typography.h3, color: Colors.textPrimary },
+  email: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xxs },
   roleBadge: {
-    backgroundColor: Colors.primaryFaded,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    marginTop: Spacing.xs,
+    marginTop: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full, backgroundColor: Colors.primaryFaded,
   },
-  roleText: {
-    ...Typography.caption,
-    fontFamily: FontFamily.bodyBold,
-    color: Colors.primary,
-  },
-  availabilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.md,
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  availabilityDot: { width: 8, height: 8, borderRadius: 4 },
-  dotOnline: { backgroundColor: Colors.accent },
-  dotOffline: { backgroundColor: Colors.textDisabled },
-  availabilityText: { ...Typography.caption, fontFamily: FontFamily.bodySemiBold, color: Colors.textPrimary },
-
-  statsCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    margin: Spacing.base,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    ...Shadow.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  statCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  statVal: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  statLbl: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 4,
-  },
-  menuList: {
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: Colors.divider,
-  },
+  roleText: { ...Typography.caption, fontFamily: FontFamily.bodySemiBold, color: Colors.primary },
+  section: { gap: Spacing.sm },
+  sectionTitle: { ...Typography.label, color: Colors.textSecondary },
   menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base,
+    borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
   },
-  menuIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  menuIcon: {
+    width: 40, height: 40, alignItems: 'center', justifyContent: 'center',
+    borderRadius: BorderRadius.full, backgroundColor: Colors.primaryTint,
   },
-  menuLabel: {
-    flex: 1,
-    ...Typography.body,
-    fontFamily: FontFamily.bodySemiBold,
-    color: Colors.textPrimary,
+  menuCopy: { flex: 1, minWidth: 0 },
+  menuLabel: { ...Typography.body, fontFamily: FontFamily.bodySemiBold, color: Colors.textPrimary },
+  menuDetail: { ...Typography.caption, color: Colors.textSecondary, marginTop: Spacing.xxs },
+  feedbackRow: {
+    minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base,
+    borderRadius: BorderRadius.lg, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
   },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    marginHorizontal: Spacing.base,
-    marginTop: Spacing.xl,
-    paddingVertical: Spacing.md,
-    minHeight: 48,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.errorBorder,
-    backgroundColor: Colors.errorSurface,
+  feedbackText: { ...Typography.bodySmall, color: Colors.textSecondary, flex: 1 },
+  retryButton: {
+    minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.sm,
   },
-  logoutBtnText: {
-    ...Typography.button,
-    color: Colors.error,
-  },
-
-  panelRoot: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  panelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  panelCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  panelTitle: {
-    ...Typography.h4,
-    fontFamily: FontFamily.brandBold,
-    color: Colors.textPrimary,
-  },
-  panelBody: {
-    padding: Spacing.xl,
-    gap: Spacing.md,
-  },
-  inputLabel: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: -4,
-  },
-  panelInput: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    ...Typography.body,
-    color: Colors.textPrimary,
-  },
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    minHeight: 48,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadow.sm,
-  },
-  saveBtnText: {
-    ...Typography.button,
-    color: Colors.textInverse,
-  },
+  retryText: { ...Typography.label, color: Colors.primary },
 });

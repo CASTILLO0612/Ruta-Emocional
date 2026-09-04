@@ -1,5 +1,6 @@
 import {
   AccountStatus,
+  CareRelationshipStatus,
   Modality,
   OfferStatus,
   Prisma,
@@ -709,30 +710,16 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
         where: { id: requestId },
         data: { status: RequestStatus.ACCEPTED },
       });
-      const relationship = await transaction.careRelationship.create({
-        data: {
-          patientProfileId: request.patientProfileId,
-          psychologistProfileId: offer.psychologistProfileId,
-          source: {
-            create: {
-              acceptedOfferId: offerId,
-              triageAssessmentId: currentTriage?.triageAssessmentId,
-            },
-          },
-        },
-        select: { id: true },
+      const relationship = await this.findOrCreateActiveRelationship(transaction, {
+        patientProfileId: request.patientProfileId,
+        psychologistProfileId: offer.psychologistProfileId,
+        acceptedOfferId: offerId,
+        triageAssessmentId: currentTriage?.triageAssessmentId,
       });
-      const conversation = await transaction.conversation.create({
-        data: {
-          careRelationshipId: relationship.id,
-          participants: {
-            create: [
-              { userId },
-              { userId: offer.psychologistProfile.userId },
-            ],
-          },
-        },
-        select: { id: true },
+      const conversation = await this.findOrCreateRelationshipConversation(transaction, {
+        careRelationshipId: relationship.id,
+        patientUserId: userId,
+        psychologistUserId: offer.psychologistProfile.userId,
       });
       await transaction.idempotencyRecord.create({
         data: {
@@ -748,6 +735,7 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
         requestId,
         careRelationshipId: relationship.id,
         conversationId: conversation.id,
+        relationshipReused: relationship.reused,
       });
       await transaction.outboxEvent.create({
         data: {
@@ -760,6 +748,7 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
             psychologistProfileId: offer.psychologistProfileId,
             careRelationshipId: relationship.id,
             conversationId: conversation.id,
+            relationshipReused: relationship.reused,
           },
         },
       });
@@ -871,26 +860,114 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       where: { id: offer.requestId },
       include: requestWithAcceptance,
     });
+    if (!request) {
+      throw AppError.conflict('ACCEPTANCE_RESULT_INCOMPLETE', 'La aceptación no está completa.');
+    }
     const source = await transaction.careRelationshipSource.findUnique({
       where: { acceptedOfferId: offer.id },
       select: { careRelationshipId: true },
     });
-    const conversation = source
+    const recoveredRelationship = source
+      ? null
+      : await transaction.careRelationship.findFirst({
+          where: {
+            patientProfileId: request.patientProfileId,
+            psychologistProfileId: offer.psychologistProfileId,
+            status: CareRelationshipStatus.ACTIVE,
+          },
+          orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+          select: { id: true },
+        });
+    const careRelationshipId = source?.careRelationshipId ?? recoveredRelationship?.id;
+    const conversation = careRelationshipId
       ? await transaction.conversation.findUnique({
-          where: { careRelationshipId: source.careRelationshipId },
+          where: { careRelationshipId },
           select: { id: true },
         })
       : null;
-    if (!request || !source || !conversation) {
+    if (!careRelationshipId || !conversation) {
       throw AppError.conflict('ACCEPTANCE_RESULT_INCOMPLETE', 'La aceptación no está completa.');
     }
     return {
       request: requestView(request),
       acceptedOffer: (await this.offerViews(transaction, [offer]))[0],
-      careRelationshipId: source.careRelationshipId,
+      careRelationshipId,
       conversationId: conversation.id,
       replayed,
     };
+  }
+
+  private async findOrCreateActiveRelationship(
+    transaction: Prisma.TransactionClient,
+    input: {
+      readonly patientProfileId: string;
+      readonly psychologistProfileId: string;
+      readonly acceptedOfferId: string;
+      readonly triageAssessmentId?: string;
+    }
+  ): Promise<{ readonly id: string; readonly reused: boolean }> {
+    await transaction.$executeRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(
+          ${`care-relationship:${input.patientProfileId}:${input.psychologistProfileId}`},
+          0
+        )
+      )
+    `);
+
+    const active = await transaction.careRelationship.findFirst({
+      where: {
+        patientProfileId: input.patientProfileId,
+        psychologistProfileId: input.psychologistProfileId,
+        status: CareRelationshipStatus.ACTIVE,
+      },
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      select: { id: true },
+    });
+    if (active) return { id: active.id, reused: true };
+
+    const created = await transaction.careRelationship.create({
+      data: {
+        patientProfileId: input.patientProfileId,
+        psychologistProfileId: input.psychologistProfileId,
+        source: {
+          create: {
+            acceptedOfferId: input.acceptedOfferId,
+            triageAssessmentId: input.triageAssessmentId,
+          },
+        },
+      },
+      select: { id: true },
+    });
+    return { id: created.id, reused: false };
+  }
+
+  private async findOrCreateRelationshipConversation(
+    transaction: Prisma.TransactionClient,
+    input: {
+      readonly careRelationshipId: string;
+      readonly patientUserId: string;
+      readonly psychologistUserId: string;
+    }
+  ): Promise<{ readonly id: string }> {
+    const existing = await transaction.conversation.findUnique({
+      where: { careRelationshipId: input.careRelationshipId },
+      select: { id: true },
+    });
+    if (existing) return existing;
+
+    return transaction.conversation.create({
+      data: {
+        careRelationshipId: input.careRelationshipId,
+        participants: {
+          create: [
+            { userId: input.patientUserId },
+            { userId: input.psychologistUserId },
+          ],
+        },
+      },
+      select: { id: true },
+    });
   }
 
   private async lockRequest(transaction: Prisma.TransactionClient, requestId: string): Promise<void> {

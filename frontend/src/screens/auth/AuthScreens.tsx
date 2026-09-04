@@ -24,7 +24,9 @@ import {
 import { Eye, EyeOff } from 'lucide';
 import { useNavigation } from '@react-navigation/native';
 
+import { AppButton } from '../../components/common/AppButton';
 import { AppMorphIcon } from '../../components/common/AppMorphIcon';
+import { BrandLogo } from '../../components/common/BrandLogo';
 import { Colors } from '../../theme/colors';
 import { FontFamily, Typography } from '../../theme/typography';
 import { BorderRadius, Spacing } from '../../theme/spacing';
@@ -33,10 +35,16 @@ import { MotionDuration } from '../../theme/motion';
 import { PSYCHOLOGIST_LICENSE_AUTHORITY } from '../../services/AuthService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Toast, useToast } from '../../components/common/Toast';
-
-const MINIMUM_PASSWORD_LENGTH = 12;
-const MINIMUM_LICENSE_NUMBER_LENGTH = 4;
-const MAXIMUM_LICENSE_NUMBER_LENGTH = 80;
+import type { AppNavigation } from '../../navigation/navigationTypes';
+import {
+  AuthValidationErrors,
+  hasAuthValidationErrors,
+  MINIMUM_PASSWORD_LENGTH,
+  validateLoginInput,
+  validateRegistrationInput,
+} from '../../utils/authValidation';
+import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { presentUserError } from '../../utils/userFacingError';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared sub-components
@@ -53,7 +61,7 @@ interface FieldProps {
   autoCapitalize?: 'none' | 'words';
   autoComplete?: 'email' | 'password' | 'name' | 'off';
   accessibilityLabel?: string;
-  hasError?: boolean;
+  errorMessage?: string;
   rightElement?: React.ReactNode;
 }
 
@@ -68,7 +76,7 @@ const Field: React.FC<FieldProps> = ({
   autoCapitalize = 'none',
   autoComplete = 'off',
   accessibilityLabel,
-  hasError,
+  errorMessage,
   rightElement,
 }) => {
   const [focused, setFocused] = useState(false);
@@ -81,7 +89,7 @@ const Field: React.FC<FieldProps> = ({
         style={[
           fieldStyles.inputShell,
           focused && fieldStyles.inputShellFocused,
-          hasError && fieldStyles.inputShellError,
+          errorMessage && fieldStyles.inputShellError,
         ]}
       >
         <FieldIcon
@@ -99,12 +107,19 @@ const Field: React.FC<FieldProps> = ({
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
+          autoCorrect={false}
           accessibilityLabel={accessibilityLabel}
+          accessibilityHint={errorMessage}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
         {rightElement && <View style={fieldStyles.right}>{rightElement}</View>}
       </View>
+      {errorMessage ? (
+        <Text style={fieldStyles.errorText} accessibilityRole="alert">
+          {errorMessage}
+        </Text>
+      ) : null}
     </View>
   );
 };
@@ -134,6 +149,10 @@ const fieldStyles = StyleSheet.create({
     backgroundColor: Colors.primarySubtle,
   },
   inputShellError: { borderColor: Colors.error },
+  errorText: {
+    ...Typography.caption,
+    color: Colors.error,
+  },
   input: {
     ...Typography.bodyLarge,
     flex: 1,
@@ -144,21 +163,25 @@ const fieldStyles = StyleSheet.create({
   right: { marginLeft: Spacing.xs },
 });
 
+function presentAuthError(error: unknown, fallback: string): string {
+  return presentUserError(error, fallback);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LoginScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const LoginScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigation>();
   const authenticate = useAuthStore((state) => state.authenticate);
   const { toastConfig, showToast, hideToast } = useToast();
+  const reduceMotion = useReducedMotionPreference();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState(false);
-  const [passError, setPassError] = useState(false);
+  const [errors, setErrors] = useState<AuthValidationErrors>({});
 
   const slideAnim = useRef(new Animated.Value(40)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -167,33 +190,32 @@ export const LoginScreen: React.FC = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: MotionDuration.normal,
+        duration: reduceMotion ? 0 : MotionDuration.normal,
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: MotionDuration.slow,
+        duration: reduceMotion ? 0 : MotionDuration.slow,
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, [fadeAnim, reduceMotion, slideAnim]);
 
   const handleLogin = async () => {
-    let valid = true;
-    if (!email.trim()) { setEmailError(true); valid = false; }
-    if (!password) { setPassError(true); valid = false; }
-    if (!valid) {
-      showToast('Completa todos los campos para continuar.', 'warning');
+    const validationErrors = validateLoginInput(email, password);
+    setErrors(validationErrors);
+    if (hasAuthValidationErrors(validationErrors)) {
+      showToast('Revisa los campos indicados para continuar.', 'warning');
       return;
     }
-    setEmailError(false);
-    setPassError(false);
     setIsLoading(true);
     try {
       await authenticate(email.trim(), password);
-    } catch (error: any) {
-      const msg = error?.message || 'No pudimos iniciar sesión. Verifica tus credenciales.';
-      showToast(msg, 'error');
+    } catch (error: unknown) {
+      showToast(
+        presentAuthError(error, 'No pudimos iniciar sesión. Verifica tus credenciales.'),
+        'error'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -207,14 +229,7 @@ export const LoginScreen: React.FC = () => {
       <View style={styles.hero}>
         <SafeAreaView>
           <View style={styles.heroContent}>
-            <View style={styles.logoMark}>
-              <HeartHandshake
-                size={28}
-                strokeWidth={IconStroke.emphasized}
-                color={Colors.accent}
-              />
-            </View>
-            <Text style={styles.appName}>Ruta Emocional</Text>
+            <BrandLogo size="hero" variant="negative" />
             <Text style={styles.tagline}>Apoyo profesional, cuando lo necesitas</Text>
           </View>
         </SafeAreaView>
@@ -245,25 +260,26 @@ export const LoginScreen: React.FC = () => {
                 label="Correo electrónico"
                 placeholder="nombre@correo.com"
                 value={email}
-                onChangeText={(v) => { setEmail(v); setEmailError(false); }}
+                onChangeText={(v) => { setEmail(v); setErrors((current) => ({ ...current, email: undefined })); }}
                 keyboardType="email-address"
                 autoComplete="email"
                 accessibilityLabel="Correo electrónico"
-                hasError={emailError}
+                errorMessage={errors.email}
               />
               <Field
                 icon={LockKeyhole}
                 label="Contraseña"
                 placeholder="Ingresa tu contraseña"
                 value={password}
-                onChangeText={(v) => { setPassword(v); setPassError(false); }}
+                onChangeText={(v) => { setPassword(v); setErrors((current) => ({ ...current, password: undefined })); }}
                 secureTextEntry={!showPass}
                 accessibilityLabel="Contraseña"
-                hasError={passError}
+                errorMessage={errors.password}
                 rightElement={
                   <TouchableOpacity
                     onPress={() => setShowPass((v) => !v)}
                     style={styles.fieldAction}
+                    accessibilityRole="button"
                     accessibilityLabel={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
                     <AppMorphIcon
@@ -277,27 +293,15 @@ export const LoginScreen: React.FC = () => {
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
-              onPress={handleLogin}
-              disabled={isLoading}
-              activeOpacity={0.85}
+            <AppButton
+              label="Ingresar"
+              onPress={() => void handleLogin()}
+              isLoading={isLoading}
+              fullWidth
+              size="lg"
               accessibilityLabel="Iniciar sesión"
-              accessibilityRole="button"
-            >
-              {isLoading ? (
-                <Text style={styles.primaryBtnText}>Verificando...</Text>
-              ) : (
-                <>
-                  <Text style={styles.primaryBtnText}>Ingresar</Text>
-                  <ArrowRight
-                    size={IconSize.action}
-                    strokeWidth={IconStroke.emphasized}
-                    color={Colors.textInverse}
-                  />
-                </>
-              )}
-            </TouchableOpacity>
+              icon={<ArrowRight size={IconSize.action} strokeWidth={IconStroke.emphasized} color={Colors.textInverse} />}
+            />
 
             <TouchableOpacity
               style={styles.switchLink}
@@ -323,20 +327,19 @@ export const LoginScreen: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const RegisterScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigation>();
   const registerAccount = useAuthStore((state) => state.registerAccount);
   const { toastConfig, showToast, hideToast } = useToast();
+  const reduceMotion = useReducedMotionPreference();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [role, setRole] = useState<'patient' | 'psychologist'>('patient');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [nameError, setNameError] = useState(false);
-  const [emailError, setEmailError] = useState(false);
-  const [passError, setPassError] = useState(false);
-  const [licenseError, setLicenseError] = useState(false);
+  const [errors, setErrors] = useState<AuthValidationErrors>({});
 
   const slideAnim = useRef(new Animated.Value(40)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -345,37 +348,29 @@ export const RegisterScreen: React.FC = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: MotionDuration.normal,
+        duration: reduceMotion ? 0 : MotionDuration.normal,
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: MotionDuration.slow,
+        duration: reduceMotion ? 0 : MotionDuration.slow,
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, [fadeAnim, reduceMotion, slideAnim]);
 
   const handleRegister = async () => {
-    let valid = true;
     const normalizedLicenseNumber = licenseNumber.trim();
-    const licenseIsInvalid = role === 'psychologist' && (
-      normalizedLicenseNumber.length < MINIMUM_LICENSE_NUMBER_LENGTH
-      || normalizedLicenseNumber.length > MAXIMUM_LICENSE_NUMBER_LENGTH
-    );
-
-    if (!name.trim()) { setNameError(true); valid = false; }
-    if (!email.trim()) { setEmailError(true); valid = false; }
-    if (password.length < MINIMUM_PASSWORD_LENGTH) { setPassError(true); valid = false; }
-    if (licenseIsInvalid) {
-      setLicenseError(true);
-      valid = false;
-    }
-    if (!valid) {
-      const msg = licenseIsInvalid
-        ? 'La colegiatura debe contener entre 4 y 80 caracteres.'
-        : `Completa todos los campos. La contraseña debe tener al menos ${MINIMUM_PASSWORD_LENGTH} caracteres.`;
-      showToast(msg, 'warning');
+    const validationErrors = validateRegistrationInput({
+      name,
+      email,
+      password,
+      role,
+      licenseNumber,
+    });
+    setErrors(validationErrors);
+    if (hasAuthValidationErrors(validationErrors)) {
+      showToast('Revisa los campos indicados para crear tu cuenta.', 'warning');
       return;
     }
     setIsLoading(true);
@@ -394,9 +389,11 @@ export const RegisterScreen: React.FC = () => {
             }
           : {}),
       });
-    } catch (error: any) {
-      const msg = error?.message || 'No pudimos crear tu cuenta. Intenta nuevamente.';
-      showToast(msg, 'error');
+    } catch (error: unknown) {
+      showToast(
+        presentAuthError(error, 'No pudimos crear tu cuenta. Intenta nuevamente.'),
+        'error'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -409,14 +406,7 @@ export const RegisterScreen: React.FC = () => {
       <View style={styles.hero}>
         <SafeAreaView>
           <View style={styles.heroContent}>
-            <View style={styles.logoMark}>
-              <HeartHandshake
-                size={28}
-                strokeWidth={IconStroke.emphasized}
-                color={Colors.accent}
-              />
-            </View>
-            <Text style={styles.appName}>Ruta Emocional</Text>
+            <BrandLogo size="hero" variant="negative" />
             <Text style={styles.tagline}>Crea tu cuenta en segundos</Text>
           </View>
         </SafeAreaView>
@@ -446,9 +436,14 @@ export const RegisterScreen: React.FC = () => {
                 <TouchableOpacity
                   key={r}
                   style={[styles.roleChip, role === r && styles.roleChipActive]}
-                  onPress={() => setRole(r)}
+                  onPress={() => {
+                    setRole(r);
+                    setErrors((current) => ({ ...current, licenseNumber: undefined }));
+                  }}
+                  accessibilityRole="radio"
                   accessibilityLabel={r === 'patient' ? 'Soy paciente' : 'Soy psicólogo'}
-                  accessibilityState={{ selected: role === r }}
+                  accessibilityState={{ checked: role === r }}
+                  aria-checked={role === r}
                 >
                   {r === 'patient' ? (
                     <UserRound
@@ -476,32 +471,47 @@ export const RegisterScreen: React.FC = () => {
                 label="Nombre completo"
                 placeholder="Escribe tu nombre"
                 value={name}
-                onChangeText={(v) => { setName(v); setNameError(false); }}
+                onChangeText={(v) => { setName(v); setErrors((current) => ({ ...current, name: undefined })); }}
                 autoCapitalize="words"
                 autoComplete="name"
                 accessibilityLabel="Nombre completo"
-                hasError={nameError}
+                errorMessage={errors.name}
               />
               <Field
                 icon={Mail}
                 label="Correo electrónico"
                 placeholder="nombre@correo.com"
                 value={email}
-                onChangeText={(v) => { setEmail(v); setEmailError(false); }}
+                onChangeText={(v) => { setEmail(v); setErrors((current) => ({ ...current, email: undefined })); }}
                 keyboardType="email-address"
                 autoComplete="email"
                 accessibilityLabel="Correo electrónico"
-                hasError={emailError}
+                errorMessage={errors.email}
               />
               <Field
                 icon={LockKeyhole}
                 label="Contraseña"
                 placeholder={`Mínimo ${MINIMUM_PASSWORD_LENGTH} caracteres`}
                 value={password}
-                onChangeText={(v) => { setPassword(v); setPassError(false); }}
-                secureTextEntry
+                onChangeText={(v) => { setPassword(v); setErrors((current) => ({ ...current, password: undefined })); }}
+                secureTextEntry={!showPass}
                 accessibilityLabel="Contraseña"
-                hasError={passError}
+                errorMessage={errors.password}
+                rightElement={
+                  <TouchableOpacity
+                    onPress={() => setShowPass((value) => !value)}
+                    style={styles.fieldAction}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    <AppMorphIcon
+                      icon={showPass ? EyeOff : Eye}
+                      size={IconSize.action}
+                      strokeWidth={IconStroke.regular}
+                      color={Colors.textTertiary}
+                    />
+                  </TouchableOpacity>
+                }
               />
             </View>
 
@@ -513,34 +523,21 @@ export const RegisterScreen: React.FC = () => {
                   label="Colegiatura MINSA"
                   placeholder="Ejemplo: MINSA-1234"
                   value={licenseNumber}
-                  onChangeText={(v) => { setLicenseNumber(v); setLicenseError(false); }}
+                  onChangeText={(v) => { setLicenseNumber(v); setErrors((current) => ({ ...current, licenseNumber: undefined })); }}
                   accessibilityLabel="Número de colegiatura MINSA"
-                  hasError={licenseError}
+                  errorMessage={errors.licenseNumber}
                 />
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
-              onPress={handleRegister}
-              disabled={isLoading}
-              activeOpacity={0.85}
-              accessibilityLabel="Crear cuenta"
-              accessibilityRole="button"
-            >
-              {isLoading ? (
-                <Text style={styles.primaryBtnText}>Creando cuenta...</Text>
-              ) : (
-                <>
-                  <Text style={styles.primaryBtnText}>Crear cuenta</Text>
-                  <ArrowRight
-                    size={IconSize.action}
-                    strokeWidth={IconStroke.emphasized}
-                    color={Colors.textInverse}
-                  />
-                </>
-              )}
-            </TouchableOpacity>
+            <AppButton
+              label="Crear cuenta"
+              onPress={() => void handleRegister()}
+              isLoading={isLoading}
+              fullWidth
+              size="lg"
+              icon={<ArrowRight size={IconSize.action} strokeWidth={IconStroke.emphasized} color={Colors.textInverse} />}
+            />
 
             <TouchableOpacity
               style={styles.switchLink}
@@ -577,22 +574,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
     paddingHorizontal: Spacing.xl,
     gap: Spacing.sm,
-  },
-  logoMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: Colors.surfaceOnBrand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderOnBrand,
-    marginBottom: Spacing.xs,
-  },
-  appName: {
-    ...Typography.h1,
-    color: Colors.textInverse,
-    textAlign: 'center',
   },
   tagline: {
     ...Typography.body,
@@ -658,24 +639,6 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
   },
   roleChipTextActive: { color: Colors.primary },
-
-  primaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.primary,
-    minHeight: 52,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.sm,
-  },
-  primaryBtnDisabled: { opacity: 0.6 },
-  primaryBtnText: {
-    ...Typography.button,
-    color: Colors.textInverse,
-    fontSize: 15,
-  },
 
   fieldAction: {
     width: 44,

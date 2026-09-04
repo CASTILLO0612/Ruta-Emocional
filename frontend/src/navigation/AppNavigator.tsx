@@ -6,24 +6,28 @@ import {
   type BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
 import {
-  Bot,
   CalendarDays,
   CircleUserRound,
   ClipboardList,
   FolderHeart,
   Home,
-  MessageCircle,
+  Search,
 } from 'lucide-react-native';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Colors } from '../theme/colors';
 import { IconStroke } from '../theme/icons';
+import { Spacing } from '../theme/spacing';
 import { FontFamily, FontSize } from '../theme/typography';
 import { useAuthStore } from '../store/useAuthStore';
+import { useRequestStore } from '../store/useRequestStore';
+import { BrandLogo } from '../components/common/BrandLogo';
 
 import { LoginScreen, RegisterScreen } from '../screens/auth/AuthScreens';
 import { HomeScreen } from '../screens/patient/HomeScreen';
+import { SearchTabScreen } from '../screens/patient/SearchTabScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
+import { AcceptedOfferScreen } from '../screens/patient/AcceptedOfferScreen';
 import { MentaScreen as MentaSafetyScreen } from '../screens/patient/MentaScreen';
 import { MentaAgentScreen } from '../screens/shared/MentaAgentScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
@@ -80,9 +84,7 @@ const tabIconProps = (size: number, color: string) => ({
 
 function PatientTabs() {
   return (
-    <PatientTab.Navigator
-      screenOptions={tabScreenOptions}
-    >
+    <PatientTab.Navigator screenOptions={tabScreenOptions}>
       <PatientTab.Screen
         name="Home"
         component={HomeScreen}
@@ -94,30 +96,20 @@ function PatientTabs() {
         }}
       />
       <PatientTab.Screen
-        name="Menta"
-        component={MentaAgentScreen}
+        name="Search"
+        component={SearchTabScreen}
         options={{
-          tabBarLabel: 'MENTA',
+          tabBarLabel: 'Buscar',
           tabBarIcon: ({ color, size }) => (
-            <Bot {...tabIconProps(size, color)} />
+            <Search {...tabIconProps(size, color)} />
           ),
         }}
       />
       <PatientTab.Screen
-        name="Messages"
-        component={InboxScreen}
-        options={{
-          tabBarLabel: 'Mensajes',
-          tabBarIcon: ({ color, size }) => (
-            <MessageCircle {...tabIconProps(size, color)} />
-          ),
-        }}
-      />
-      <PatientTab.Screen
-        name="History"
+        name="Appointments"
         component={AgendaScreen}
         options={{
-          tabBarLabel: 'Agenda',
+          tabBarLabel: 'Citas',
           tabBarIcon: ({ color, size }) => (
             <CalendarDays {...tabIconProps(size, color)} />
           ),
@@ -139,9 +131,7 @@ function PatientTabs() {
 
 function PsychologistTabs() {
   return (
-    <PsychologistTab.Navigator
-      screenOptions={professionalTabScreenOptions}
-    >
+    <PsychologistTab.Navigator screenOptions={professionalTabScreenOptions}>
       <PsychologistTab.Screen
         name="Dashboard"
         component={DashboardScreen}
@@ -153,42 +143,22 @@ function PsychologistTabs() {
         }}
       />
       <PsychologistTab.Screen
-        name="Clinical"
-        component={ClinicalRecordsScreen}
-        options={{
-          tabBarLabel: 'Pacientes',
-          tabBarIcon: ({ color, size }) => (
-            <FolderHeart {...tabIconProps(size, color)} />
-          ),
-        }}
-      />
-      <PsychologistTab.Screen
-        name="Menta"
-        component={MentaAgentScreen}
-        options={{
-          tabBarLabel: 'MENTA',
-          tabBarIcon: ({ color, size }) => (
-            <Bot {...tabIconProps(size, color)} />
-          ),
-        }}
-      />
-      <PsychologistTab.Screen
-        name="Messages"
-        component={InboxScreen}
-        options={{
-          tabBarLabel: 'Mensajes',
-          tabBarIcon: ({ color, size }) => (
-            <MessageCircle {...tabIconProps(size, color)} />
-          ),
-        }}
-      />
-      <PsychologistTab.Screen
         name="History"
         component={AgendaScreen}
         options={{
           tabBarLabel: 'Agenda',
           tabBarIcon: ({ color, size }) => (
             <CalendarDays {...tabIconProps(size, color)} />
+          ),
+        }}
+      />
+      <PsychologistTab.Screen
+        name="Clinical"
+        component={ClinicalRecordsScreen}
+        options={{
+          tabBarLabel: 'Pacientes',
+          tabBarIcon: ({ color, size }) => (
+            <FolderHeart {...tabIconProps(size, color)} />
           ),
         }}
       />
@@ -219,9 +189,20 @@ export const AppNavigator: React.FC = () => {
     void initializeSession();
   }, [initializeSession]);
 
+  // Rehidratación segura de búsqueda activa para el rol paciente
+  useEffect(() => {
+    if (!isAuthenticated || !userProfile?.id) return;
+
+    useRequestStore.getState().bindSession(userProfile.id);
+    if (role === 'patient') {
+      void useRequestStore.getState().rehydrateActiveSearch(userProfile.id);
+    }
+  }, [isAuthenticated, role, userProfile?.id]);
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
+        <BrandLogo size="standard" variant="positive" />
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -241,6 +222,8 @@ export const AppNavigator: React.FC = () => {
           <>
             <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />
             <Stack.Screen name="Consultation" component={ConversationScreen} />
+            <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
+            <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : role === 'psychologist' ? (
@@ -249,8 +232,11 @@ export const AppNavigator: React.FC = () => {
           <>
             <Stack.Screen name="PatientMain" component={PatientTabs} />
             <Stack.Screen name="Radar" component={RadarScreen} />
-            <Stack.Screen name="MentaSafety" component={MentaSafetyScreen} />
+            <Stack.Screen name="AcceptedOffer" component={AcceptedOfferScreen} />
             <Stack.Screen name="Consultation" component={ConversationScreen} />
+            <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
+            <Stack.Screen name="Inbox" component={InboxScreen} />
+            <Stack.Screen name="MentaSafety" component={MentaSafetyScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />
           </>
@@ -266,5 +252,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.background,
+    gap: Spacing.md,
   },
 });

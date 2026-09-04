@@ -36,7 +36,7 @@ Los formularios relevantes tienen estados de carga y error, deshabilitan envíos
 
 - Navegación inferior consistente para paciente y psicólogo.
 - Jerarquía mediante tipografía, espaciado, superficies y estados; no mediante decoración excesiva.
-- Iconografía profesional de Material Icons a través de `@expo/vector-icons`.
+- Iconografía estática profesional de Lucide y microinteracciones puntuales de MorphIcons a través del límite seguro `AppMorphIcon`; no se usan emojis como sustituto visual.
 - Acciones destructivas o irreversibles separadas de acciones primarias y sujetas a confirmación.
 - Mensajes de vacío, carga, error y reintento en los flujos de datos remotos.
 - Sin emojis como sustituto de iconos de interfaz.
