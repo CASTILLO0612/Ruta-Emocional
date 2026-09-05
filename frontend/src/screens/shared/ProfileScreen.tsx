@@ -113,7 +113,7 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <AppHeader title="Mi perfil" showBack={!isTabScreen} showBrandMark={isTabScreen} />
+      <AppHeader title="Perfil" showBack={!isTabScreen} showBrandMark={isTabScreen} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.contentColumn}>

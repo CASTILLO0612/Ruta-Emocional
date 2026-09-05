@@ -29,6 +29,7 @@ SELECT NOT has_database_privilege(:'application_role', current_database(), 'TEMP
 
 SELECT has_table_privilege(:'application_role', 'public.users', 'SELECT')
    AND has_table_privilege(:'application_role', 'public.auth_sessions', 'INSERT')
+   AND has_table_privilege(:'application_role', 'public.password_reset_tokens', 'UPDATE')
    AND has_table_privilege(:'application_role', 'public.service_requests', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.specialties', 'INSERT')
    AND has_table_privilege(:'application_role', 'public.care_modalities', 'SELECT')
@@ -81,6 +82,7 @@ SELECT has_column_privilege(:'application_role', 'public.triage_assessments', 'r
 \endif
 
 SELECT NOT has_table_privilege(:'application_role', 'public.audit_events', 'DELETE')
+   AND NOT has_table_privilege(:'application_role', 'public.password_reset_tokens', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.audit_events', 'UPDATE')
    AND NOT has_table_privilege(:'application_role', 'public.outbox_events', 'DELETE')
    AND NOT has_table_privilege(:'application_role', 'public.messages', 'DELETE')

@@ -22,6 +22,7 @@ GRANT USAGE ON SCHEMA public TO :"application_role";
 GRANT SELECT, INSERT, UPDATE ON TABLE
   users,
   auth_sessions,
+  password_reset_tokens,
   psychologist_profiles,
   professional_licenses,
   specialties,

@@ -1,10 +1,3 @@
-/**
- * PrimaryActionCard — Tarjeta de acción primaria dominante en Inicio.
- *
- * Principio rector: Una sola acción primaria visible por pantalla.
- * Conduce directamente a la pestaña Buscar donde el paciente inicia
- * el formulario guiado paso a paso o gestiona su búsqueda activa.
- */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Compass } from 'lucide-react-native';

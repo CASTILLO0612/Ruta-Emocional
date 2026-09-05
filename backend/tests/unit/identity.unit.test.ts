@@ -7,9 +7,12 @@ import { AppError } from '../../src/shared/domain/appError';
 import { IdentityService } from '../../src/modules/identity/application/identityService';
 import {
   AccessTokenService,
+  CompletePasswordResetData,
+  CreatePasswordResetData,
   CreateSessionData,
   IdentityRepository,
   PasswordHasher,
+  PasswordResetTokenService,
   PasswordVerification,
   RegisterPatientData,
   RegisterPsychologistData,
@@ -47,9 +50,27 @@ class FakeAccessTokens implements AccessTokenService {
   }
 }
 
+class FakePasswordResetTokens implements PasswordResetTokenService {
+  issue() {
+    const token = 'local-qa-password-reset-token-with-enough-entropy-0001';
+    return { token, hash: this.hash(token) };
+  }
+  hash(token: string): string { return `reset:${token}`; }
+}
+
+interface InMemoryPasswordReset {
+  readonly id: string;
+  readonly userId: string;
+  readonly tokenHash: string;
+  readonly expiresAt: Date;
+  readonly consumedAt: Date | null;
+  readonly revokedAt: Date | null;
+}
+
 class InMemoryIdentityRepository implements IdentityRepository {
   readonly users = new Map<string, IdentityUser>();
   readonly sessions = new Map<string, IdentitySession>();
+  readonly passwordResets = new Map<string, InMemoryPasswordReset>();
 
   async findUserByEmail(email: string): Promise<IdentityUser | null> {
     return [...this.users.values()].find((user) => user.email === email) ?? null;
@@ -109,6 +130,33 @@ class InMemoryIdentityRepository implements IdentityRepository {
       }
     }
   }
+  async createPasswordReset(data: CreatePasswordResetData): Promise<void> {
+    for (const [id, reset] of this.passwordResets) {
+      if (reset.userId === data.userId && !reset.consumedAt && !reset.revokedAt) {
+        this.passwordResets.set(id, { ...reset, revokedAt: new Date() });
+      }
+    }
+    this.passwordResets.set(data.id, {
+      id: data.id,
+      userId: data.userId,
+      tokenHash: data.tokenHash,
+      expiresAt: data.expiresAt,
+      consumedAt: null,
+      revokedAt: null,
+    });
+  }
+  async revokePasswordReset(id: string, revokedAt: Date): Promise<void> {
+    const reset = this.passwordResets.get(id);
+    if (reset) this.passwordResets.set(id, { ...reset, revokedAt });
+  }
+  async completePasswordReset(data: CompletePasswordResetData): Promise<boolean> {
+    const reset = [...this.passwordResets.values()].find((item) => item.tokenHash === data.tokenHash);
+    if (!reset || reset.consumedAt || reset.revokedAt || reset.expiresAt <= data.completedAt) return false;
+    this.passwordResets.set(reset.id, { ...reset, consumedAt: data.completedAt });
+    await this.updatePasswordHash(reset.userId, data.passwordHash);
+    await this.revokeAllSessions(reset.userId, data.completedAt);
+    return true;
+  }
 
   private user(
     data: RegisterPatientData,
@@ -150,8 +198,11 @@ function buildIdentity() {
     new FastPasswordHasher(),
     new FakeAccessTokens(),
     new OpaqueRefreshTokenService(),
+    new FakePasswordResetTokens(),
+    null,
     clock,
-    30
+    30,
+    { tokenTtlMinutes: 30, exposeTokenForLocalQa: true }
   );
   return { repository, clock, service };
 }
@@ -185,6 +236,41 @@ test('psychologist remains limited while verification is pending', async () => {
   assert.equal(result.user.psychologistVerificationStatus, 'PENDING');
   assert.ok(result.user.capabilities.includes('psychologist_onboarding:update:self'));
   assert.ok(!result.user.capabilities.includes('offer:create:self'));
+});
+
+test('password recovery is non-enumerating, one-use and revokes existing sessions', async () => {
+  const { repository, service } = buildIdentity();
+  const registration = await service.registerPatient({
+    displayName: 'Ana Pérez',
+    email: 'ana@example.com',
+    password: 'a-long-test-passphrase',
+  });
+
+  const missing = await service.requestPasswordReset('missing@example.com', {});
+  const requested = await service.requestPasswordReset('ANA@example.com', {});
+  assert.equal(missing.accepted, true);
+  assert.equal(requested.accepted, true);
+  assert.equal(requested.delivery, 'LOCAL_QA');
+  assert.ok(requested.localQaToken);
+
+  await service.completePasswordReset(
+    requested.localQaToken!,
+    'a-new-long-test-passphrase',
+    {}
+  );
+  assert.ok([...repository.sessions.values()].every((session) => session.revokedAt));
+  await assert.rejects(
+    () => service.authenticateAccessToken(registration.tokens.accessToken),
+    (error: unknown) => error instanceof AppError && error.status === 401
+  );
+  await assert.rejects(
+    () => service.completePasswordReset(
+      requested.localQaToken!,
+      'another-long-test-passphrase',
+      {}
+    ),
+    (error: unknown) => error instanceof AppError && error.code === 'INVALID_PASSWORD_RESET_TOKEN'
+  );
 });
 
 test('refresh rotation rejects replay and revokes the token family', async () => {

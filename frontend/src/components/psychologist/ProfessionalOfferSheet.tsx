@@ -1,7 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
-  AccessibilityInfo,
-  findNodeHandle,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -25,6 +23,7 @@ import { Typography } from '../../theme/typography';
 import { formatCurrencySymbol, formatMoney } from '../../utils/money';
 import { shouldStackInteractiveContent } from '../../utils/responsiveLayout';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 interface ProfessionalOfferSheetProps {
   readonly request: ActiveRequest | null;
@@ -64,14 +63,7 @@ export const ProfessionalOfferSheet: React.FC<ProfessionalOfferSheetProps> = ({
     return `Ingresa un importe entre ${formatMoney(minimumAmount!, request.currencyCode)} y ${formatMoney(maximumAmount!, request.currencyCode)}.`;
   }, [amountInput, hasPolicy, isAmountValid, maximumAmount, minimumAmount, request]);
 
-  useEffect(() => {
-    if (!request) return;
-    const frame = requestAnimationFrame(() => {
-      const node = findNodeHandle(sheetRef.current);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [request]);
+  useModalAccessibilityFocus(sheetRef, Boolean(request));
 
   return (
     <Modal

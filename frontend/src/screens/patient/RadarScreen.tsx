@@ -104,8 +104,6 @@ export const RadarScreen: React.FC = () => {
     };
   }, []);
 
-  // PRIVACIDAD GEOGRÁFICA (Binding Note 7):
-  // Solo se solicita GPS y mapa si la modalidad es estrictamente 'in-person'.
   useEffect(() => {
     if (activeRequest?.modality !== 'in-person') {
       setUserLocation(null);
@@ -254,7 +252,6 @@ export const RadarScreen: React.FC = () => {
       setSelectedOffer(null);
       bottomSheetRef.current?.dismiss();
 
-      // Construcción del snapshot serializable AcceptedOfferSummaryParams
       const summaryParams: AcceptedOfferSummaryParams = {
         requestId: activeRequestId || activeRequest?.id || '',
         offerId: acceptedOffer.id,

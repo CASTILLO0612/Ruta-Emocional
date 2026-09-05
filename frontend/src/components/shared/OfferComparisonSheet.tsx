@@ -1,13 +1,3 @@
-/**
- * OfferComparisonSheet — Modal accesible de comparación monetaria y aceptación de oferta.
- *
- * Principios rectores aplicados:
- * 1. Comparación transparente: Presupuesto del paciente vs Importe del psicólogo (+/- diferencia).
- * 2. Condiciones de tu solicitud separadas visualmente (modalidad y horario solicitado).
- * 3. Cero datos inexistentes: NO muestra duración, NO muestra horario alternativo ni modalidad alterna.
- * 4. Valoración honesta: muestra estrellas solo si rating > 0 (omite si es 0, no inventa "Profesional nuevo").
- * 5. Semántica móvil accesible: foco inicial, accesibilityRole="dialog", accessibilityLabel.
- */
 import React, { useEffect, useRef } from 'react';
 import {
   View,
@@ -18,7 +8,6 @@ import {
   ScrollView,
   Image,
   AccessibilityInfo,
-  findNodeHandle,
   Platform,
 } from 'react-native';
 import {
@@ -45,6 +34,7 @@ import { IconSize, IconStroke } from '../../theme/icons';
 import { AppButton } from '../common/AppButton';
 import { formatMoney } from '../../utils/money';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 interface OfferComparisonSheetProps {
   readonly visible: boolean;
@@ -72,14 +62,10 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
     if (visible && offer) {
       const message = `Propuesta de ${offer.psychologistName} por ${formatMoney(offer.amount, offer.currencyCode)}`;
       AccessibilityInfo.announceForAccessibility(message);
-      const animationFrame = requestAnimationFrame(() => {
-        const reactTag = findNodeHandle(sheetRef.current);
-        if (reactTag) AccessibilityInfo.setAccessibilityFocus(reactTag);
-      });
-      return () => cancelAnimationFrame(animationFrame);
     }
     return undefined;
   }, [visible, offer]);
+  useModalAccessibilityFocus(sheetRef, visible && Boolean(offer));
 
   if (!offer || !request) return null;
 

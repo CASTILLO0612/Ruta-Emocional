@@ -1,9 +1,3 @@
-/**
- * Ruta Emocional color system.
- *
- * Brand colors come from the official visual identity. Product neutrals and
- * semantic feedback colors complement the brand without changing it.
- */
 export const BrandColors = {
   navy: '#253A82',
   periwinkle: '#88A2FF',
@@ -25,7 +19,6 @@ export const NeutralColors = {
 } as const;
 
 export const Colors = {
-  // Brand and primary interaction
   primary: BrandColors.navy,
   primaryLight: BrandColors.periwinkle,
   primaryDark: NeutralColors[950],
@@ -35,7 +28,6 @@ export const Colors = {
   primaryTintStrong: BrandColors.lightBlue,
   primaryOverlay: 'rgba(255, 255, 255, 0.16)',
 
-  // Brand accents. Lime communicates positive emphasis, not every success.
   accent: BrandColors.lime,
   accentLight: '#F1FFD0',
   accentDark: BrandColors.navy,
@@ -45,7 +37,6 @@ export const Colors = {
   interactive: BrandColors.periwinkle,
   informative: BrandColors.lightBlue,
 
-  // Surfaces
   background: NeutralColors[50],
   surface: NeutralColors.white,
   surfaceMuted: NeutralColors[100],
@@ -53,7 +44,6 @@ export const Colors = {
   surfaceSoft: NeutralColors[50],
   overlay: 'rgba(23, 32, 51, 0.68)',
 
-  // Text
   textPrimary: NeutralColors[950],
   textSecondary: NeutralColors[700],
   textTertiary: NeutralColors[500],
@@ -64,7 +54,6 @@ export const Colors = {
   surfaceOnBrand: 'rgba(255, 255, 255, 0.10)',
   borderOnBrand: 'rgba(255, 255, 255, 0.18)',
 
-  // Semantic feedback colors remain distinct from the brand palette.
   success: '#157A4A',
   successSurface: '#ECFDF3',
   successBorder: '#A7E3C3',
@@ -79,13 +68,11 @@ export const Colors = {
   infoSurface: '#EFF6FF',
   infoBorder: BrandColors.lightBlue,
 
-  // Borders and dividers
   border: NeutralColors[300],
   borderSubtle: NeutralColors[200],
   borderStrong: '#94A3B8',
   divider: NeutralColors[200],
 
-  // Specialized visuals
   starFilled: '#D97706',
   starEmpty: NeutralColors[300],
   radarRing: 'rgba(136, 162, 255, 0.20)',

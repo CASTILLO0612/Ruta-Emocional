@@ -24,6 +24,12 @@ El historial actual permite seguir la evolución sin depender de un único commi
 | `686a858` | `feat(verification): add controlled local approval flow` | aprobación local auditable |
 | `19b65c5` | `feat(appointments): implement secure agenda flow` | agenda transaccional |
 | `96182e1` | `feat(clinical): implement secure clinical records` | historia clínica versionada |
+| `14da572` | `feat: consolidate PostgreSQL core before phase 8` | relaciones conceptuales y lógicas consolidadas |
+| `64dfac3` | `feat: implement secure deterministic triage` | orientación MENTA determinista y privada |
+| `900db82` | `feat: add contextual MENTA agent` | agente contextual con herramientas autorizadas |
+| `2a20233` | `feat(frontend): consolidate visual identity and motion` | identidad visual y movimiento centralizados |
+| `2ee9a12` | `feat: consolidate visual experience and request workflows` | flujos visuales y de solicitudes refinados |
+| `203c262` | `test: align MENTA fallback expectation` | expectativa de contingencia alineada |
 
 ## 3. Operaciones mínimas reproducibles
 
@@ -52,4 +58,4 @@ git log --oneline --decorate -12
 git status --short --branch
 ```
 
-La captura final debe mostrar la rama sincronizada con `origin/postgresql-migration` y el commit documental de esta entrega. No muestre contenido de `.env`, tokens ni direcciones privadas en la evidencia.
+La captura final debe mostrar la rama sincronizada con `origin/postgresql-migration` y el commit documental de esta entrega. Al inicio de la consolidación, `HEAD` y `origin/postgresql-migration` coincidían en `203c262`; los cambios del paquete deben confirmarse y publicarse juntos al cerrar la entrega. No muestre contenido de `.env`, tokens ni direcciones privadas en la evidencia.

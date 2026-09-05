@@ -52,7 +52,6 @@ const TOAST_COLORS: Record<ToastType, string> = {
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
-/** Toast no-intrusivo tipo iOS — aparece abajo y desaparece solo */
 export const Toast: React.FC<ToastProps> = ({
   visible,
   message,
@@ -123,7 +122,6 @@ export const Toast: React.FC<ToastProps> = ({
   );
 };
 
-/** Hook sencillo para manejar el estado del Toast */
 export function useToast() {
   const [toastConfig, setToastConfig] = React.useState<ToastConfig & { visible: boolean }>({
     visible: false,

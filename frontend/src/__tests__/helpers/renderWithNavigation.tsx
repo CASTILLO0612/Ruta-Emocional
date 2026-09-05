@@ -1,10 +1,3 @@
-/**
- * renderWithNavigation — Helper de pruebas con navegadores reales.
- *
- * Sigue la guía oficial de pruebas de React Navigation y RNTL v14.
- * No mockea @react-navigation/native globalmente, sino que renderiza
- * contenedores y navegadores reales para verificar la estructura de rutas.
- */
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { View } from 'react-native';
@@ -26,7 +19,6 @@ export interface RenderWithStackOptions {
   readonly initialRouteName?: string;
 }
 
-/** Navegador real y ligero recomendado por React Navigation para pruebas unitarias. */
 function TestStackNavigator(props: any) {
   const { state, descriptors, NavigationContent } = useNavigationBuilder(StackRouter, props);
   return (

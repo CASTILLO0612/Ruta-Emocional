@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   createBottomTabNavigator,
@@ -13,17 +12,12 @@ import {
   Home,
   Search,
 } from 'lucide-react-native';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Colors } from '../theme/colors';
 import { IconStroke } from '../theme/icons';
-import { Spacing } from '../theme/spacing';
 import { FontFamily, FontSize } from '../theme/typography';
 import { useAuthStore } from '../store/useAuthStore';
 import { useRequestStore } from '../store/useRequestStore';
-import { BrandLogo } from '../components/common/BrandLogo';
-
-import { LoginScreen, RegisterScreen } from '../screens/auth/AuthScreens';
 import { HomeScreen } from '../screens/patient/HomeScreen';
 import { SearchTabScreen } from '../screens/patient/SearchTabScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
@@ -177,7 +171,7 @@ function PsychologistTabs() {
 }
 
 export const AppNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading, role, userProfile, initializeSession } = useAuthStore();
+  const { role, userProfile } = useAuthStore();
   const canUsePsychologistWorkspace = userProfile?.capabilities.includes(
     'service_request:read:eligible'
   ) ?? false;
@@ -186,72 +180,41 @@ export const AppNavigator: React.FC = () => {
   ) ?? false;
 
   useEffect(() => {
-    void initializeSession();
-  }, [initializeSession]);
-
-  // Rehidratación segura de búsqueda activa para el rol paciente
-  useEffect(() => {
-    if (!isAuthenticated || !userProfile?.id) return;
+    if (!userProfile?.id) return;
 
     useRequestStore.getState().bindSession(userProfile.id);
     if (role === 'patient') {
       void useRequestStore.getState().rehydrateActiveSearch(userProfile.id);
     }
-  }, [isAuthenticated, role, userProfile?.id]);
-
-  if (isLoading) {
-    return (
-      <View style={styles.loading}>
-        <BrandLogo size="standard" variant="positive" />
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+  }, [role, userProfile?.id]);
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        ) : canManageProfessionalVerifications ? (
-          <Stack.Screen name="AdminVerification" component={VerificationQueueScreen} />
-        ) : role === 'psychologist' && canUsePsychologistWorkspace ? (
-          <>
-            <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />
-            <Stack.Screen name="Consultation" component={ConversationScreen} />
-            <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
-            <Stack.Screen name="Inbox" component={InboxScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-          </>
-        ) : role === 'psychologist' ? (
-          <Stack.Screen name="PsychologistVerification" component={VerificationScreen} />
-        ) : (
-          <>
-            <Stack.Screen name="PatientMain" component={PatientTabs} />
-            <Stack.Screen name="Radar" component={RadarScreen} />
-            <Stack.Screen name="AcceptedOffer" component={AcceptedOfferScreen} />
-            <Stack.Screen name="Consultation" component={ConversationScreen} />
-            <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
-            <Stack.Screen name="Inbox" component={InboxScreen} />
-            <Stack.Screen name="MentaSafety" component={MentaSafetyScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {canManageProfessionalVerifications ? (
+        <Stack.Screen name="AdminVerification" component={VerificationQueueScreen} />
+      ) : role === 'psychologist' && canUsePsychologistWorkspace ? (
+        <>
+          <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />
+          <Stack.Screen name="Consultation" component={ConversationScreen} />
+          <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
+          <Stack.Screen name="Inbox" component={InboxScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+        </>
+      ) : role === 'psychologist' ? (
+        <Stack.Screen name="PsychologistVerification" component={VerificationScreen} />
+      ) : (
+        <>
+          <Stack.Screen name="PatientMain" component={PatientTabs} />
+          <Stack.Screen name="Radar" component={RadarScreen} />
+          <Stack.Screen name="AcceptedOffer" component={AcceptedOfferScreen} />
+          <Stack.Screen name="Consultation" component={ConversationScreen} />
+          <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
+          <Stack.Screen name="Inbox" component={InboxScreen} />
+          <Stack.Screen name="MentaSafety" component={MentaSafetyScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />
+        </>
+      )}
+    </Stack.Navigator>
   );
 };
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-    gap: Spacing.md,
-  },
-});

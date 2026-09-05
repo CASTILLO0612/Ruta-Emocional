@@ -15,13 +15,6 @@ export interface BrandLogoProps {
   readonly decorative?: boolean;
 }
 
-/**
- * Logotipo principal de Ruta Emocional.
- *
- * La variante positiva se usa sobre superficies claras y la negativa sobre el
- * azul institucional. El componente mantiene la proporción y protege los
- * colores de marca frente a la inversión automática de accesibilidad.
- */
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'standard',
   variant = 'positive',

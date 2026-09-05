@@ -1,6 +1,3 @@
-/**
- * StepProgress — Indicador de progreso accesible para el formulario guiado de 5 pasos.
- */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 

@@ -8,7 +8,7 @@ El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La 
 
 | Módulo | Estado actual |
 |---|---|
-| Identidad | registro de paciente o psicólogo, acceso, renovación y revocación de sesión en PostgreSQL |
+| Identidad | registro de paciente o psicólogo, acceso, recuperación de un solo uso, renovación y revocación de sesión en PostgreSQL |
 | Directorio profesional | perfil, especialidades, modalidades, disponibilidad y verificación controlada |
 | Solicitudes y ofertas | creación, búsqueda elegible, oferta, retiro, aceptación y cancelación transaccional |
 | Mensajería | conversaciones y mensajes persistidos, autorización por participante y entrega Socket.IO mediante outbox |
@@ -31,12 +31,13 @@ privacidad independiente.
 - TypeScript, React Navigation y Zustand.
 - Socket.IO Client para notificaciones en tiempo real.
 - `expo-secure-store` para el refresh token en Android/iOS; el access token permanece en memoria.
-- Material Icons mediante Expo Vector Icons; la interfaz no depende de emojis como iconografía.
+- Lucide como lenguaje iconográfico estático y MorphIcons únicamente para
+  microinteracciones con significado; la interfaz no usa emojis como iconografía.
 
 ### API y datos
 
 - Node.js, Express, TypeScript y Socket.IO.
-- PostgreSQL/PostGIS con 21 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
+- PostgreSQL/PostGIS con 23 migraciones versionadas y un esquema normalizado al menos hasta tercera forma normal.
 - Prisma como adaptador de persistencia dentro de módulos separados por dominio.
 - Contratos REST versionados bajo `/api/v1` y respuestas mediante DTO explícitos.
 - Sesiones rotativas, contraseñas con scrypt y pepper, límites de peticiones, CORS por lista permitida y auditoría de acciones sensibles.
@@ -169,6 +170,8 @@ El backend expone `GET http://localhost:5000/api/v1/health/live` y `GET http://l
 | `POST` | `/api/v1/auth/register/patient` | registrar paciente |
 | `POST` | `/api/v1/auth/register/psychologist` | solicitar cuenta profesional |
 | `POST` | `/api/v1/auth/login` | iniciar sesión |
+| `POST` | `/api/v1/auth/password-reset/request` | solicitar recuperación sin enumerar cuentas |
+| `POST` | `/api/v1/auth/password-reset/complete` | restablecer acceso con token opaco de un solo uso |
 | `GET` | `/api/v1/psychologists` | consultar directorio público |
 | `POST` | `/api/v1/service-requests` | crear solicitud autenticada |
 | `POST` | `/api/v1/service-requests/:requestId/offers` | crear oferta elegible |
@@ -184,9 +187,7 @@ El contrato completo está en [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
 ## Verificación de calidad
 
 ```bash
-npm --prefix backend run build
-npm --prefix backend test
-npm --prefix frontend run typecheck
+npm run quality:delivery
 ```
 
 Con una base de pruebas configurada de forma separada:

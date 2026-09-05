@@ -24,6 +24,24 @@ export interface CreateSessionData {
   readonly requestId?: string;
 }
 
+export interface CreatePasswordResetData {
+  readonly id: string;
+  readonly userId: string;
+  readonly tokenHash: string;
+  readonly requestedAt: Date;
+  readonly expiresAt: Date;
+  readonly requestedIp?: string;
+  readonly requestId?: string;
+}
+
+export interface CompletePasswordResetData {
+  readonly tokenHash: string;
+  readonly passwordHash: string;
+  readonly completedAt: Date;
+  readonly ipAddress?: string;
+  readonly requestId?: string;
+}
+
 export type RegistrationSessionData = Omit<CreateSessionData, 'userId'>;
 
 export interface IdentityRepository {
@@ -37,6 +55,9 @@ export interface IdentityRepository {
   rotateSession(sessionId: string, currentHash: string, nextHash: string, now: Date): Promise<boolean>;
   revokeSession(sessionId: string, revokedAt: Date, action?: string, requestId?: string): Promise<void>;
   revokeAllSessions(userId: string, revokedAt: Date, exceptSessionId?: string, requestId?: string): Promise<void>;
+  createPasswordReset(data: CreatePasswordResetData): Promise<void>;
+  revokePasswordReset(id: string, revokedAt: Date, requestId?: string): Promise<void>;
+  completePasswordReset(data: CompletePasswordResetData): Promise<boolean>;
 }
 
 export interface PasswordVerification {
@@ -69,4 +90,25 @@ export interface RefreshTokenService {
   issue(sessionId: string): IssuedRefreshToken;
   parse(token: string): ParsedRefreshToken;
   hashesMatch(left: string, right: string): boolean;
+}
+
+export interface IssuedPasswordResetToken {
+  readonly token: string;
+  readonly hash: string;
+}
+
+export interface PasswordResetTokenService {
+  issue(): IssuedPasswordResetToken;
+  hash(token: string): string;
+}
+
+export interface PasswordResetDeliveryInput {
+  readonly recipientEmail: string;
+  readonly displayName: string;
+  readonly token: string;
+  readonly expiresAt: Date;
+}
+
+export interface PasswordResetDelivery {
+  send(input: PasswordResetDeliveryInput): Promise<void>;
 }

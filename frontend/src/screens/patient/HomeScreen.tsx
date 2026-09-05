@@ -1,15 +1,3 @@
-/**
- * HomeScreen — Inicio del paciente (Refactor Visual 10/10).
- *
- * Principios rectores aplicados:
- * 1. Jerarquía dinámica guiada por prioritizeHomeSections.
- * 2. Una sola acción primaria visible («Buscar acompañamiento»).
- * 3. Máximo 2 profesionales en el preview del directorio.
- * 4. Ningún bloque vacío ocupa espacio en pantalla.
- * 5. MENTA se presenta como atajo contextual honesto, no como respuesta clínica simulada.
- * 6. Uso de FlatList en raíz (ScreenListContainer) sin ScrollView anidado.
- * 7. Eliminado el modal de formulario inline redundante.
- */
 import React, { useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -99,7 +87,6 @@ export const HomeScreen: React.FC = () => {
     ]);
   }, [fetchAvailablePsychologists, loadNextAppointment]);
 
-  // Generación dinámica de secciones según el estado real del store
   const sections = prioritizeHomeSections({
     userName: userProfile?.displayName,
     activeRequest,

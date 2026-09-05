@@ -1,5 +1,6 @@
 import {
   hasAuthValidationErrors,
+  passwordStrength,
   validateLoginInput,
   validateRegistrationInput,
 } from '../authValidation';
@@ -9,6 +10,12 @@ describe('authValidation', () => {
     const errors = validateLoginInput('usuario-sin-dominio', 'secreto');
     expect(errors.email).toBe('Escribe un correo electrónico válido.');
     expect(hasAuthValidationErrors(errors)).toBe(true);
+  });
+
+  it('clasifica fortaleza sin imponer requisitos distintos al backend', () => {
+    expect(passwordStrength('corta')).toEqual({ level: 1, label: 'Básica' });
+    expect(passwordStrength('frase-segura')).toEqual({ level: 2, label: 'Media' });
+    expect(passwordStrength('Frase-segura-2026!')).toEqual({ level: 3, label: 'Fuerte' });
   });
 
   it('exige una contraseña robusta al registrar una cuenta', () => {

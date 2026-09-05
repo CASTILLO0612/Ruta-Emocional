@@ -1,11 +1,3 @@
-/**
- * AcceptedOfferScreen — Pantalla de confirmación y ruta post-aceptación.
- *
- * Principios rectores aplicados:
- * 1. Desacoplado del estado del store: consume el snapshot serializable AcceptedOfferSummaryParams.
- * 2. Jerarquía de acciones adaptada por modalidad y horario (Binding Note 4).
- * 3. Usa formatDecimalMoney para la presentación monetaria.
- */
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -64,7 +56,7 @@ export const AcceptedOfferScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Propuesta confirmada" showBrand={false} />
+      <AppHeader title="Confirmación" showBrand={false} />
       <ScreenContainer edges={['bottom', 'left', 'right']} contentStyle={styles.content}>
         {/* Icono de éxito principal */}
         <View style={styles.successIconContainer}>

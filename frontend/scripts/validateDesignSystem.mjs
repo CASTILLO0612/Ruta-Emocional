@@ -7,7 +7,6 @@ const sourceRoot = path.join(root, 'src');
 const colorSource = path.join(sourceRoot, 'theme', 'colors.ts');
 const brandAssetBoundaries = new Set([
   path.join(sourceRoot, 'components', 'common', 'BrandLogo.tsx'),
-  path.join(sourceRoot, 'components', 'common', 'BrandSymbol.tsx'),
 ]);
 const morphIconBoundary = new Set([
   path.join(sourceRoot, 'components', 'common', 'AppMorphIcon.tsx'),
@@ -83,7 +82,7 @@ for (const file of await sourceFiles(sourceRoot)) {
     assert.equal(
       /ruta-emocional-(?:isotype|logo-(?:positive|negative))\.png/.test(contents),
       false,
-      `Consume official brand assets through BrandLogo or BrandSymbol: ${relativeFile}`
+      `Consume official brand assets through BrandLogo: ${relativeFile}`
     );
   }
 

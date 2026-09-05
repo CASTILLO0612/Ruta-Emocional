@@ -1,15 +1,7 @@
-/**
- * ActiveRequestPersistence — Contrato del adaptador multiplataforma.
- *
- * En tiempo de compilación Metro resuelve automáticamente:
- * - `.native.ts` en iOS / Android (usando expo-secure-store)
- * - `.web.ts` en navegadores web (usando localStorage)
- */
 export async function saveActiveRequestId(
   userId: string,
   requestId: string
 ): Promise<void> {
-  // Implementación fallback por defecto
   return Promise.resolve();
 }
 

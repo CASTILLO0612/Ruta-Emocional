@@ -3,7 +3,7 @@
 **Proyecto:** Ruta Emocional<br>
 **Categoría y área:** Aficionado / Desarrollo<br>
 **Corte técnico:** RV-7C a RV-8D<br>
-**Fecha de verificación:** 3 de septiembre de 2026<br>
+**Fecha de verificación:** 5 de septiembre de 2026<br>
 **Rama verificada:** `postgresql-migration`
 
 ## 1. Objetivo y alcance
@@ -18,7 +18,7 @@ No sustituye el video de navegación. Tampoco declara como aprobada una prueba f
 |---|---|---|
 | README técnico | [`README.md`](../../../README.md) | Completo |
 | Diagrama de base de datos | [DER conceptual](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf), [catálogo conceptual](modelo-entidad-relacion-conceptual.md) y [3FN](../../database/normalization-3nf.md) | Completo; supera 2FN |
-| Interfaces navegables y formularios funcionales | [Inventario funcional](evidencia-interfaz-y-formularios.md), [informe rector](informe-rector-refactor-visual.md) y capturas de este documento | Completo para el recorrido validado |
+| Interfaces navegables y formularios funcionales | [Inventario funcional](evidencia-interfaz-y-formularios.md) y capturas de este documento | Completo para el recorrido validado |
 | Control de versiones | [Evidencia Git](evidencia-control-versiones.md) | Completo al confirmar y sincronizar este corte |
 | Seguridad, código legible y tres roles | [Roles y permisos](roles-y-permisos.md), [matriz de autorización](../../security/authorization-matrix.md) y pruebas backend | Completo |
 | Ejecución local | [`README.md`](../../../README.md#instalación) y comprobaciones de este documento | Completo |
@@ -30,7 +30,7 @@ No sustituye el video de navegación. Tampoco declara como aprobada una prueba f
 
 ![Login de Ruta Emocional en escritorio](evidencias-visuales/01-login-web-escritorio.png)
 
-La pantalla presenta una única tarea, jerarquía clara, Poppins/Inter, acción dominante, campos etiquetados, iconografía lineal y ancho de lectura controlado. El render se capturó desde el bundle web exportado en una ventana de escritorio.
+La pantalla presenta una única tarea, jerarquía clara, Poppins/Inter, acción dominante, campos etiquetados, recuperación de acceso y ancho de lectura controlado. El encabezado compacto conserva la firma oficial sin competir con el formulario; privacidad, términos y ayuda completan la señal de confianza. El render se capturó desde el bundle web en una ventana de escritorio.
 
 ### 3.2 Registro compacto y validación
 
@@ -48,9 +48,9 @@ La variante profesional reutiliza el mismo formulario y revela la colegiatura so
 
 | Archivo | Resolución | SHA-256 |
 |---|---:|---|
-| `01-login-web-escritorio.png` | 1440 × 1024 | `818D740AF3F7BC81C91DE6112C3AB3EE972639FAD492A22B24DEF6C9FDEE7993` |
-| `02-registro-validacion-web-movil.png` | 390 × 844 | `C5C8BE3370785104D30283077C6855F7D4074DF493221B42E128B0E655DC20E0` |
-| `03-registro-profesional-web.png` | 390 × 844 | `F3120FB84F16C1A973D534D0A08ED077DD9FBE538BBE041A785C342391FDA977` |
+| `01-login-web-escritorio.png` | 1440 × 1024 | `A3167B0724F9DCB4F06A25B604886AB6749734590755C322965A54FDC45055A0` |
+| `02-registro-validacion-web-movil.png` | 390 × 844 | `609DDB6A0E08EE20B2ACFDC52B9F1D642FE58B52178C866AA496318108C63819` |
+| `03-registro-profesional-web.png` | 390 × 843 | `AF6EBFFBBC8FDE8E3FFDDC0298DFBE32985F62F52CCDFB0205A5308D6113C035` |
 
 ## 4. Validación visual y accesible ejecutada
 
@@ -81,28 +81,41 @@ Durante la aceptación web se detectó que React Native Web no trasladaba el est
 | Validador del sistema visual | Aprobado |
 | Validador de configuración nativa | Aprobado |
 | Compatibilidad Expo SDK 57 | Dependencias actualizadas y compatibles |
-| Pruebas frontend | 30 suites, 89 pruebas aprobadas |
-| Pruebas unitarias backend | 46 pruebas aprobadas |
+| Pruebas frontend | 36 suites, 105 pruebas aprobadas |
+| Pruebas unitarias backend | 48 pruebas aprobadas |
+| Integración HTTP de autenticación | Aprobada contra PostgreSQL, incluida recuperación de un solo uso |
+| Integración HTTP transversal | 9 suites aprobadas, sin regresiones de módulos existentes |
+| Migraciones PostgreSQL | 23 aplicadas desde una base aislada vacía; esquema de desarrollo actualizado |
+| Consistencia documental | 58/58 relaciones con cobertura 3FN, 58/58 modelos trazados y documentos privados fuera de Git |
 | Salud del backend | `live=ok` y `ready=ok` |
 | PostgreSQL en readiness | `database=ok` |
 | Outbox en readiness | `messagingOutbox=ok` después de recuperación automática |
 | Privacidad en readiness | `privacyRequests=ok` |
-| Exportación web | Aprobada, 4 928 módulos |
-| Exportación Android/Hermes | Aprobada, 3 538 módulos |
+| Exportación web | Aprobada, 4 936 módulos |
+| Exportación Android/Hermes | Aprobada, 3 550 módulos |
 
 Comandos equivalentes:
 
 ```bash
-npm --prefix frontend run typecheck
-npm --prefix frontend test -- --runInBand
-npm --prefix frontend run validate:design
-npm --prefix frontend run validate:native-config
-npm --prefix backend test
+npm run quality:delivery
+TEST_DATABASE_URL=<base_postgresql_aislada> npm --prefix backend run test:integration
 npx --prefix frontend expo export --platform web
 npx --prefix frontend expo export --platform android
 ```
 
-Los bundles se generaron fuera del repositorio para evitar versionar compilados. Los secretos, archivos `.env`, tokens, evidencias profesionales y datos clínicos no forman parte de las capturas ni de este documento.
+Los bundles se generaron en directorios temporales ignorados y se retiraron al
+terminar la verificación para evitar versionar compilados. Los secretos, archivos
+`.env`, tokens, evidencias profesionales y datos clínicos no forman parte de las
+capturas ni de este documento.
+
+La integración del 5 de septiembre se ejecutó sobre una base exclusiva creada
+vacía para QA. Las 23 migraciones se aplicaron en orden, las 9 suites finalizaron
+en verde y la base temporal se eliminó después de comprobar que no mantenía
+conexiones. La base de desarrollo no se usó como destino destructivo.
+
+El DER final se regeneró con 43 entidades, 72 relaciones y 7 N:N. Sus 16 páginas
+se renderizaron a PNG y se inspeccionaron individualmente para descartar texto
+cortado, solapamientos, atributos ilegibles o mezcla de elementos físicos.
 
 En una jornada de QA prolongada el dispatcher registró tres ciclos fallidos transitorios y continuó reintentando. La comprobación posterior devolvió `messagingOutbox=ok`, sin retraso ni dead letters. No se adjudica una causa definitiva sin logs externos persistidos; este dato queda conservado para la futura fase de observabilidad productiva.
 
@@ -111,10 +124,10 @@ En una jornada de QA prolongada el dispatcher registró tres ciclos fallidos tra
 | Fase | Resultado |
 |---|---|
 | RV-7C Pacientes e historia clínica | Implementada y automatizada; aceptación clínica física pendiente |
-| RV-7D Login, registro, perfil y verificación | Implementada y automatizada; recorrido público web aprobado |
+| RV-7D Login, registro, perfil y verificación | Implementada y automatizada; acceso minimalista, recuperación segura y recorrido público web aprobados |
 | RV-7E Inbox, conversación y MENTA | Implementada y automatizada; prueba multidispositivo pendiente |
 | RV-8A Estados, responsive y accesibilidad | Implementada; regresión ARIA encontrada y corregida |
-| RV-8B Iconos, splash y marca | Isotipo oficial integrado en interfaz, icono general, Android, splash y web |
+| RV-8B Iconos, splash y marca | Firma horizontal oficial en encabezados y acceso; isotipo reservado para iconos, splash compacto y activos de plataforma |
 | RV-8C Android y web | Bundles aprobados y web inspeccionada; Android físico pendiente |
 | RV-8D Evidencia final | Paquete técnico y capturas públicas completos; video fuera de alcance |
 
@@ -133,7 +146,7 @@ Estos gates no invalidan el cumplimiento Aficionado / Desarrollo ya documentado,
 - El logotipo y el isotipo entregados se contrastaron con las páginas 7 a 20 del diseño maestro de Canva.
 - La aplicación reconoce el logotipo horizontal como firma principal y reserva el isotipo como identificador complementario para espacios compactos y activos de plataforma.
 - Las aplicaciones positiva y negativa conservan zona segura, proporción mediante `contain` y protección ante inversión automática de color.
-- Login, registro y splash usan el logotipo negativo; rehidratación e inicio usan el positivo; los encabezados titulados consumen el isotipo mediante un componente separado.
+- Login, registro y splash usan el logotipo negativo; rehidratación e inicio usan el positivo; los encabezados titulados usan la firma horizontal correspondiente y reservan el isotipo para espacios realmente compactos.
 - Icono general, primer plano adaptativo y favicon mantienen el isotipo sobre `#253A82`, mientras el splash emplea la firma horizontal negativa.
 - No se declara icono monocromático temático porque la guía de identidad prohíbe explícitamente las variaciones en escala de grises.
 - Las pruebas de identidad validan ambas aplicaciones, accesibilidad y ausencia de deformación; el validador nativo fija rutas, tamaños y colores de plataforma.

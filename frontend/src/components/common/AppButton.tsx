@@ -22,6 +22,7 @@ interface AppButtonProps {
   variant?: Variant;
   size?: Size;
   isLoading?: boolean;
+  loadingLabel?: string;
   disabled?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
@@ -36,6 +37,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  loadingLabel,
   disabled = false,
   fullWidth = false,
   icon,
@@ -64,14 +66,21 @@ export const AppButton: React.FC<AppButtonProps> = ({
       ]}
     >
       {isLoading ? (
-        <ActivityIndicator
-          color={variant === 'dangerGhost'
-            ? Colors.error
-            : ['secondary', 'outline', 'ghost'].includes(variant)
-              ? Colors.primary
-              : Colors.textInverse}
-          size="small"
-        />
+        <View style={styles.inner}>
+          <ActivityIndicator
+            color={variant === 'dangerGhost'
+              ? Colors.error
+              : ['secondary', 'outline', 'ghost'].includes(variant)
+                ? Colors.primary
+                : Colors.textInverse}
+            size="small"
+          />
+          {loadingLabel ? (
+            <Text style={[styles.label, styles[`labelVariant_${variant}`], styles[`labelSize_${size}`]]}>
+              {loadingLabel}
+            </Text>
+          ) : null}
+        </View>
       ) : (
         <View style={styles.inner}>
           {icon && <View style={styles.iconWrapper}>{icon}</View>}

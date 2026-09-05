@@ -11,6 +11,15 @@ function safeMessage(message: string | undefined): string | null {
 
 export function presentUserError(error: unknown, fallback = DEFAULT_MESSAGE): string {
   if (error instanceof ApiError) {
+    if (error.code === 'INVALID_CREDENTIALS') {
+      return 'El correo o la contraseña no coinciden. Revísalos e intenta nuevamente.';
+    }
+    if (error.code === 'ACCOUNT_UNAVAILABLE') {
+      return 'Esta cuenta no está disponible. Solicita ayuda si consideras que se trata de un error.';
+    }
+    if (error.code === 'RATE_LIMIT_EXCEEDED') {
+      return 'Has realizado varios intentos. Espera un momento antes de volver a intentar.';
+    }
     if (error.code === 'NETWORK_ERROR' || error.status === 0) {
       return 'No pudimos conectar con Ruta Emocional. Revisa tu conexión e inténtalo nuevamente.';
     }

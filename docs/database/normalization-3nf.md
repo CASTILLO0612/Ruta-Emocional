@@ -18,8 +18,9 @@ evitar modelar relaciones o atributos clínicos.
 
 ## Alcance de conformidad
 
-Las dependencias que siguen describen el esquema lógico vigente después de la
-Fase 8.1. La
+Las dependencias que siguen describen el esquema lógico vigente en el corte de
+entrega, incluidas la Fase 8.1, la consolidación del agente contextual y la
+recuperación segura de acceso. La
 [`matriz de alineación`](conceptual-logical-alignment.md) distingue las
 relaciones ya materializadas de las que pertenecen a fases funcionales aún
 deshabilitadas. La conformidad 3FN no se usa para afirmar que pagos, diagnósticos
@@ -27,12 +28,23 @@ estén habilitados. El triaje determinista y la persistencia del agente MENTA
 forman parte del modelo vigente; habilitar el proveedor por entorno no cambia
 las dependencias funcionales.
 
-## Dependencias funcionales principales
+## Matriz de dependencias funcionales y cobertura 3FN
+
+La matriz cubre las **58 relaciones** declaradas por los 58 modelos Prisma del
+corte vigente. La flecha identifica el determinante de los atributos propios de
+cada fila; las marcas de creación y actualización que no se repiten en la
+notación dependen igualmente de la clave primaria. Las claves alternativas se
+declaran cuando aportan una dependencia adicional relevante. La ausencia de una
+dependencia transitiva se justifica por agregado en las decisiones que siguen a
+la matriz.
 
 | Relación | Dependencia funcional |
 |---|---|
 | `users` | `id -> email, display_name, password_hash, status` |
+| `roles` | `id -> code, name, description` y `code -> id, name, description` |
 | `user_roles` | `id -> user_id, role_id, status, assigned_at, ended_at`; una asignación activa por pareja |
+| `auth_sessions` | `id -> user_id, refresh_token_hash, device_name, ip_address, user_agent, expires_at, revoked_at, created_at` |
+| `password_reset_tokens` | `id -> user_id, token_hash, expires_at, consumed_at, revoked_at, requested_ip, created_at` y `token_hash -> id` |
 | `patient_profiles` | `id -> user_id, birth_date` y `user_id -> id` |
 | `psychologist_profiles` | `id -> user_id, verification_status, bio` |
 | `professional_licenses` | `id -> psychologist_profile_id, authority, license_number, status` |
@@ -46,14 +58,20 @@ las dependencias funcionales.
 | `availability_exceptions` | `id -> psychologist_profile_id, starts_at, ends_at, type, reason` |
 | `service_requests` | `id -> patient_profile_id, modality, proposed_budget, currency_code, status, scheduled_for, expires_at, location, location_expires_at` |
 | `offers` | `id -> request_id, psychologist_profile_id, amount, message, status` y `(request_id, psychologist_profile_id) -> id` |
+| `care_relationships` | `id -> patient_profile_id, psychologist_profile_id, status, started_at, ended_at` |
 | `care_relationship_sources` | `care_relationship_id -> accepted_offer_id, triage_assessment_id` y `accepted_offer_id -> care_relationship_id` |
 | `idempotency_records` | `(actor_user_id, operation, idempotency_key) -> request_hash, resource_id, expires_at` |
 | `appointments` | `id -> care_relationship_id, patient_profile_id, psychologist_profile_id, starts_at, ends_at, status` |
 | `appointment_events` | `id -> appointment_id, actor_user_id, type, estados, intervalo_anterior, reason, occurred_at` |
 | `clinical_records` | `id -> patient_profile_id, opened_at, status` |
 | `clinical_encounters` | `id -> clinical_record_id, psychologist_profile_id, care_relationship_id, fechas, reason` |
+| `clinical_encounter_appointments` | `clinical_encounter_id -> appointment_id` y `appointment_id -> clinical_encounter_id` |
+| `clinical_notes` | `id -> clinical_encounter_id, status, signed_at, created_at, updated_at` |
 | `clinical_note_versions` | `(clinical_note_id, version_number) -> content, author_user_id, created_at` |
 | `clinical_note_events` | `id -> clinical_note_id, actor_user_id, type, estados, version_number, occurred_at` |
+| `diagnosis_catalog` | `id -> code_system, code, name` y `(code_system, code) -> id, name` |
+| `clinical_diagnoses` | `id -> clinical_record_id, diagnosis_catalog_id, psychologist_profile_id, care_relationship_id, status, notes, diagnosed_at` |
+| `clinical_diagnosis_sources` | `clinical_diagnosis_id -> clinical_encounter_id` |
 | `treatment_plans` | `id -> clinical_record_id, psychologist_profile_id, care_relationship_id, status, summary, fechas` |
 | `treatment_goals` | `id -> treatment_plan_id, description, target_date, status` |
 | `consent_documents` | `(code, version) -> scope, title, content, content_hash, vigencia` |
@@ -76,6 +94,16 @@ las dependencias funcionales.
 | `menta_turns` | `id -> conversation_id, client_message_id, contenidos cifrados, status, provider_outcome, model_name, fechas` y `(conversation_id, client_message_id) -> id` |
 | `menta_tool_invocations` | `id -> turn_id, tool_code, outcome, resource_type, resource_count, invoked_at` |
 | `payments` | `id -> offer_id, amount, currency_code, status` |
+| `payment_events` | `id -> payment_id, from_status, to_status, external_ref, occurred_at` |
+| `reviews` | `id -> appointment_id, rating, comment, created_at` y `appointment_id -> id, rating, comment, created_at` |
+| `audit_events` | `id -> actor_user_id, action, resource_type, resource_id, request_id, ip_address, metadata, occurred_at` |
+| `outbox_events` | `id -> aggregate_type, aggregate_id, event_type, payload, occurred_at, published_at, available_at, claimed_at, claim_token, dead_lettered_at, attempts, last_error` |
+
+La cobertura se comprueba por nombre físico (`@@map`) contra
+`backend/prisma/schema.prisma`: no existen modelos omitidos ni relaciones
+documentadas que hayan dejado de existir. Esta comprobación evita que la
+normalización se limite al núcleo visible del MVP e incluye autenticación,
+clínica, pagos aún deshabilitados, auditoría, outbox y MENTA.
 
 ## Duplicaciones eliminadas respecto a MongoDB
 
@@ -92,9 +120,11 @@ Esos valores se obtienen mediante claves foráneas. Si el negocio necesita una
 captura histórica inmutable, se modelará explícitamente como snapshot con nombre
 y propósito documentados, no como duplicación accidental.
 
-## Relaciones de muchos a muchos
+## Relaciones multivaluadas y asociaciones materializadas
 
-Las relaciones multivaluadas se representan con tablas asociativas:
+Las relaciones conceptuales N:N se representan con tablas asociativas. El
+modelo lógico también puede materializar una asociación opcional 1:N cuando
+necesita conservar identidad, temporalidad o procedencia sin duplicar datos:
 
 - `user_roles`
 - `psychologist_specialties`
@@ -107,6 +137,22 @@ Las relaciones multivaluadas se representan con tablas asociativas:
 
 No se almacenarán arrays de roles, especialidades o modalidades dentro de una
 fila del núcleo transaccional.
+
+## Decisión de normalización de la recuperación de acceso
+
+- cada recuperación referencia a un único `user_id` y no copia correo, nombre,
+  roles ni datos de perfil;
+- la huella opaca `token_hash` es una clave candidata única y no contiene el
+  token utilizable por el usuario;
+- expiración, consumo y revocación describen exclusivamente el ciclo de vida de
+  esa recuperación y dependen de su identificador;
+- el índice por usuario y expiración optimiza revocación y limpieza sin añadir
+  una dependencia funcional nueva.
+
+Por tanto, `password_reset_tokens` cumple 1FN, 2FN y 3FN: sus valores son
+atómicos, la clave primaria no es compuesta y ningún atributo no clave depende
+de otro atributo no clave. La unicidad de la huella permite localizar el
+registro sin desnormalizar la identidad del usuario.
 
 La revocación no se modela como columnas duplicadas dentro de
 `triage_assessments`: relaciona una evaluación con la nueva decisión

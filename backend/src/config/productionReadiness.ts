@@ -22,6 +22,12 @@ interface ProductionReadinessConfig {
     readonly observabilityProvider: string | null;
     readonly alertingEnabled: boolean;
   };
+  readonly passwordRecovery: {
+    readonly provider: 'DISABLED' | 'RESEND';
+    readonly resendApiKey: string | null;
+    readonly sender: string | null;
+    readonly resetUrl: string | null;
+  };
   readonly triage: {
     readonly enabled: boolean;
     readonly protocolApproved: boolean;
@@ -203,6 +209,16 @@ export function assertProductionReadiness(
   }
   if (config.operations.rpoMinutes < 1 || config.operations.rtoMinutes < 1) {
     throw new ProductionReadinessError('Production RPO and RTO must be positive');
+  }
+  if (
+    config.passwordRecovery.provider !== 'RESEND'
+    || !config.passwordRecovery.resendApiKey
+    || !config.passwordRecovery.sender
+    || !config.passwordRecovery.resetUrl
+  ) {
+    throw new ProductionReadinessError(
+      'Production password recovery requires a configured email delivery provider'
+    );
   }
 
   validateTriage(config, now.getTime());

@@ -153,7 +153,6 @@ export function groupAppointmentSlots(
       );
       key = `${part('year')}-${part('month')}-${part('day')}`;
     } catch {
-      // El ISO continúa siendo una clave estable si la zona recibida no es válida.
     }
     const group = groups.get(key) ?? [];
     group.push(slot);
@@ -171,7 +170,6 @@ export function groupAppointmentSlots(
         timeZone: first.timezone,
       }).format(new Date(first.startsAt));
     } catch {
-      // Conserva la fecha ISO legible como último recurso.
     }
     return { key, label, slots: groupedSlots };
   });

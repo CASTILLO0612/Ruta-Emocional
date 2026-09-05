@@ -1,11 +1,3 @@
-/**
- * ProfessionalCompactCard — Tarjeta compacta de profesional para el preview del directorio.
- *
- * Principio rector:
- * - Muestra valoración únicamente cuando existen reseñas reales (sin estados de relleno).
- * - Muestra el badge «✓ Verificado» para los profesionales colegiados del directorio.
- * - Formatea la tarifa usando formatDecimalMoney.
- */
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { BadgeCheck, Star, UserRound } from 'lucide-react-native';

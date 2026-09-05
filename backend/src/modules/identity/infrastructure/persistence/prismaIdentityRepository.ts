@@ -2,6 +2,8 @@ import { AppError } from '../../../../shared/domain/appError';
 import { Prisma, PrismaClient, UserRoleAssignmentStatus } from '../../../../generated/prisma/client';
 import {
   CreateSessionData,
+  CreatePasswordResetData,
+  CompletePasswordResetData,
   IdentityRepository,
   RegisterPatientData,
   RegisterPsychologistData,
@@ -312,6 +314,118 @@ export class PrismaIdentityRepository implements IdentityRepository {
           metadata: exceptSessionId ? { exceptCurrentSession: true } : undefined,
         },
       });
+    });
+  }
+
+  async createPasswordReset(data: CreatePasswordResetData): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.passwordResetToken.updateMany({
+        where: {
+          userId: data.userId,
+          consumedAt: null,
+          revokedAt: null,
+        },
+        data: { revokedAt: data.requestedAt },
+      });
+      await transaction.passwordResetToken.create({
+        data: {
+          id: data.id,
+          userId: data.userId,
+          tokenHash: data.tokenHash,
+          createdAt: data.requestedAt,
+          expiresAt: data.expiresAt,
+          requestedIp: data.requestedIp,
+        },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: data.userId,
+          action: 'identity.password_reset_requested',
+          resourceType: 'password_reset_token',
+          resourceId: data.id,
+          requestId: data.requestId,
+          ipAddress: data.requestedIp,
+        },
+      });
+    });
+  }
+
+  async revokePasswordReset(id: string, revokedAt: Date, requestId?: string): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      const reset = await transaction.passwordResetToken.findUnique({ where: { id } });
+      if (!reset) return;
+      const result = await transaction.passwordResetToken.updateMany({
+        where: { id, consumedAt: null, revokedAt: null },
+        data: { revokedAt },
+      });
+      if (result.count === 0) return;
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: reset.userId,
+          action: 'identity.password_reset_delivery_failed',
+          resourceType: 'password_reset_token',
+          resourceId: id,
+          requestId,
+        },
+      });
+    });
+  }
+
+  async completePasswordReset(data: CompletePasswordResetData): Promise<boolean> {
+    return this.prisma.$transaction(async (transaction) => {
+      const reset = await transaction.passwordResetToken.findUnique({
+        where: { tokenHash: data.tokenHash },
+        include: { user: { select: { status: true } } },
+      });
+      if (
+        !reset
+        || reset.user.status !== 'ACTIVE'
+        || reset.consumedAt
+        || reset.revokedAt
+        || reset.expiresAt <= data.completedAt
+      ) {
+        return false;
+      }
+
+      const claimed = await transaction.passwordResetToken.updateMany({
+        where: {
+          id: reset.id,
+          consumedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: data.completedAt },
+        },
+        data: { consumedAt: data.completedAt },
+      });
+      if (claimed.count !== 1) return false;
+
+      await transaction.user.update({
+        where: { id: reset.userId },
+        data: { passwordHash: data.passwordHash },
+      });
+      await transaction.authSession.updateMany({
+        where: { userId: reset.userId, revokedAt: null },
+        data: { revokedAt: data.completedAt },
+      });
+      await transaction.passwordResetToken.updateMany({
+        where: {
+          userId: reset.userId,
+          id: { not: reset.id },
+          consumedAt: null,
+          revokedAt: null,
+        },
+        data: { revokedAt: data.completedAt },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: reset.userId,
+          action: 'identity.password_reset_completed',
+          resourceType: 'user',
+          resourceId: reset.userId,
+          requestId: data.requestId,
+          ipAddress: data.ipAddress,
+        },
+      });
+      return true;
     });
   }
 

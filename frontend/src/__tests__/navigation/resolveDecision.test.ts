@@ -2,7 +2,7 @@ import { resolveAcceptedOfferDecision } from '../../navigation/resolveAcceptedOf
 
 describe('resolveAcceptedOfferDecision', () => {
   it('resuelve SHOW_CONFIRMATION para cualquier modalidad programada a futuro', () => {
-    const futureDate = new Date(Date.now() + 86400000); // Mañana
+    const futureDate = new Date(Date.now() + 86400000);
     expect(
       resolveAcceptedOfferDecision({
         modality: 'chat',

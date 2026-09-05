@@ -50,7 +50,7 @@ describe('Wizard Utilities', () => {
 
       const invalidDraft: WizardDraft = {
         ...validDraft,
-        proposedBudgetInput: '200', // menor al mínimo
+        proposedBudgetInput: '200',
       };
       expect(validateWizardStep(5, invalidDraft, limits)).toBe(false);
     });

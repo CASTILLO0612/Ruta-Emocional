@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
-  findNodeHandle,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -34,6 +32,7 @@ import {
 } from '../../utils/availability';
 import { shouldStackInteractiveContent } from '../../utils/responsiveLayout';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 interface AvailabilityDraftRule extends WeeklyAvailabilityRule {
   readonly draftId: string;
@@ -75,12 +74,8 @@ export const ProfessionalAvailabilitySheet: React.FC<ProfessionalAvailabilityShe
     if (!visible) return;
     sequenceRef.current = 0;
     setDraftRules(sortAvailabilityRules(rules.filter(({ isActive }) => isActive)).map(withDraftId));
-    const frame = requestAnimationFrame(() => {
-      const node = findNodeHandle(sheetRef.current);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
   }, [visible, rules, withDraftId]);
+  useModalAccessibilityFocus(sheetRef, visible);
 
   const rulesWithoutDraftIds = useMemo(
     () => draftRules.map(({ draftId: _draftId, ...rule }) => rule),

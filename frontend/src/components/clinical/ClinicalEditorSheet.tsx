@@ -1,7 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
-  AccessibilityInfo,
-  findNodeHandle,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -23,6 +21,7 @@ import { IconSize, IconStroke } from '../../theme/icons';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 export type ClinicalEditorMode = 'ENCOUNTER' | 'DRAFT' | 'AMENDMENT' | 'PLAN' | null;
 
@@ -73,15 +72,7 @@ export const ClinicalEditorSheet: React.FC<ClinicalEditorSheetProps> = ({
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotionPreference();
   const sheetRef = useRef<View>(null);
-
-  useEffect(() => {
-    if (!mode) return;
-    const frame = requestAnimationFrame(() => {
-      const node = findNodeHandle(sheetRef.current);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [mode]);
+  useModalAccessibilityFocus(sheetRef, Boolean(mode));
 
   return (
     <Modal

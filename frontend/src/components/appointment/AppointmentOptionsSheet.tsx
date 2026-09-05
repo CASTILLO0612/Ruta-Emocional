@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
-  findNodeHandle,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +22,7 @@ import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
 import { getAppointmentActionPlan } from '../../utils/appointmentPresentation';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 interface AppointmentOptionsSheetProps {
   readonly appointment: Appointment | null;
@@ -51,13 +50,8 @@ export const AppointmentOptionsSheet: React.FC<AppointmentOptionsSheetProps> = (
   useEffect(() => {
     setIsConfirmingCancellation(false);
     setReason('');
-    if (!appointment) return;
-    const frame = requestAnimationFrame(() => {
-      const node = findNodeHandle(sheetRef.current);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
   }, [appointment]);
+  useModalAccessibilityFocus(sheetRef, Boolean(appointment));
 
   const secondaryActions = appointment
     ? getAppointmentActionPlan(appointment, role).secondary

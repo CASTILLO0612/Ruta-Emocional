@@ -36,6 +36,10 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 30. [Accesibilidad y seguridad nativa](security/native-accessibility-and-security.md)
 31. [ADR histórico: triaje sin proveedor externo](architecture/ADR-005-no-external-menta-provider-for-mvp.md)
 32. [ADR: agente contextual MENTA](architecture/ADR-006-contextual-menta-agent.md)
+33. [Consolidación de acceso y recuperación de cuenta](roadmap/authentication-hardening.md)
+34. [Planteamiento del problema para Aficionado / Desarrollo](Hackathon/desarrollo/planteamiento-y-comprension-del-problema.md)
+35. [Matriz de cumplimiento de la entrega](Hackathon/desarrollo/matriz-cumplimiento-entrega.md)
+36. [Trazabilidad del DER al esquema vigente](Hackathon/desarrollo/trazabilidad-modelo-vigente.md)
 
 ## Decisiones vigentes
 

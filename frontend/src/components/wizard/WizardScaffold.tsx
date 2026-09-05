@@ -1,10 +1,3 @@
-/**
- * WizardScaffold — Estructura visual compartida para los pasos del asistente.
- *
- * Principio rector:
- * - Proporciona barra de progreso, control de safe area, scroll con teclado
- *   y barra de acciones fija inferior (Atrás y Continuar/Publicar).
- */
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,7 +37,7 @@ export const WizardScaffold: React.FC<WizardScaffoldProps> = ({
     <View style={styles.container}>
       {/* Encabezado con retroceso */}
       <AppHeader
-        title="Solicitar acompañamiento"
+        title="Solicitud"
         showBack
         showMenta={false}
         showInbox={false}

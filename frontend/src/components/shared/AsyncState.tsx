@@ -1,12 +1,3 @@
-/**
- * AsyncState — Componente unificado para estados asíncronos.
- *
- * Maneja los cuatro estados estándar de datos:
- * 1. Carga (Spinner accesible + mensaje)
- * 2. Error (Alerta de feedback + botón de reintento)
- * 3. Vacío (Icono/ilustración + título + mensaje + acción opcional)
- * 4. Éxito / Contenido (Renderiza children)
- */
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { AlertCircle, Inbox, type LucideIcon } from 'lucide-react-native';

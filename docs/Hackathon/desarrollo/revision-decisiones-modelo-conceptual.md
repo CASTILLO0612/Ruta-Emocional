@@ -158,6 +158,29 @@ opcionales y la evaluación congelada ya están materializados por la migración
 `20260830001000_secure_triage_menta`. Su proveedor externo permanece fuera del
 modelo operativo hasta ser aprobado.
 
+## 5. Extensiones del corte vigente
+
+La consolidación posterior a las 62 decisiones originales agrega cuatro tipos
+de entidad que ya poseen identidad y ciclo de vida propios en el producto:
+
+1. **Recuperación de acceso**, perteneciente a un Usuario, con expiración,
+   consumo único y revocación. La migración
+   `20260903001000_secure_password_recovery` materializa la relación sin copiar
+   correo, nombre, roles ni perfiles.
+2. **Conversación MENTA**, perteneciente a un Usuario y a un alcance de rol.
+3. **Turno MENTA**, perteneciente a una Conversación MENTA y protegido contra
+   reenvíos mediante un identificador de cliente.
+4. **Invocación MENTA**, perteneciente a un Turno y limitada a evidencia mínima
+   de la herramienta ejecutada.
+
+Las tres entidades de MENTA fueron materializadas por
+`20260901001000_contextual_menta_agent`. No alteran las decisiones sobre la
+conversación asistencial: el diálogo entre paciente y psicólogo sigue
+perteneciendo a la Relación asistencial, mientras el agente conserva un contexto
+separado y de solo lectura. Estas extensiones añaden cuatro relaciones 1:N y no
+crean una relación N:N nueva; por ello el total conceptual vigente es de 43
+entidades, 72 relaciones y 7 relaciones N:N.
+
 La matriz de trazabilidad entre decisiones conceptuales, esquema y restricciones
 está en
 [`../../database/conceptual-logical-alignment.md`](../../database/conceptual-logical-alignment.md).

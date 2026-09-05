@@ -36,7 +36,6 @@ export function formatMoney(amount: number, currencyCode: string): string {
 
     return `${symbol} ${value}`;
   } catch {
-    // Compatibilidad con valores heredados como "C$" sin asumir una moneda.
     return `${currencyCode} ${amount.toFixed(2)}`;
   }
 }

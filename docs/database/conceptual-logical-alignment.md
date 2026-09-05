@@ -7,12 +7,13 @@ lógico ejecutable. Cada diferencia tiene una decisión, una fase responsable y
 un criterio de cierre. Una diferencia explícitamente diferida no autoriza a
 inventar una relación alternativa en código.
 
-## Consolidado después de la Fase 8.1
+## Consolidado del corte de entrega
 
-| Área conceptual | Estado lógico después de Fase 7.5 | Decisión |
+| Área conceptual | Estado lógico vigente | Decisión |
 |---|---|---|
 | Usuario–Rol con historial | Implementado | `user_roles` tiene identidad propia, inicio, finalización, estado, unicidad parcial de asignación activa y protección del último rol. |
 | Usuario ISA Paciente/Psicólogo | Implementado | Los perfiles 1:1 son la representación lógica de una especialización parcial y superpuesta. |
+| Usuario–Recuperación de acceso | Implementado | `password_reset_tokens` conserva una huella opaca única, expiración y estados terminales excluyentes. Cada registro pertenece a un usuario y nunca duplica sus atributos. |
 | Licencias profesionales | Implementado con política más estricta | El modelo admite varias licencias; el registro público actual exige una para evitar perfiles profesionales incompletos. |
 | Especialidad principal | Implementado | Índice parcial garantiza como máximo una principal; la habilitación profesional valida la requerida. |
 | Modalidad de atención | Implementado | `care_modalities` es el catálogo canónico y las columnas de modalidad lo referencian mediante FK. Precio y moneda siguen dependiendo de Psicólogo+Modalidad. |
@@ -62,6 +63,8 @@ inventar una relación alternativa en código.
 - cero dependencia `mongoose` y cero rutas MongoDB en el proceso;
 - esquema y grants runtime actualizados para las tablas consolidadas;
 - migración de triaje y gobierno de privacidad aplicadas de forma incremental;
+- migraciones del agente contextual y de recuperación segura aplicadas sin
+  modificar el historial anterior;
 - motor, autorización, congelación temporal e inmutabilidad cubiertos por
   pruebas PostgreSQL;
 - grants runtime incluyen inserción de resultados y actualización limitada de

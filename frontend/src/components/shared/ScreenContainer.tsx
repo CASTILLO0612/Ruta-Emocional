@@ -1,9 +1,3 @@
-/**
- * ScreenContainer — Contenedor para pantallas estáticas o con formulario.
- *
- * Usa SafeAreaView + ScrollView. No usar con FlatList como contenido
- * raíz (usar ScreenListContainer en ese caso).
- */
 import React from 'react';
 import {
   ScrollView,
@@ -19,17 +13,8 @@ import { Spacing } from '../../theme/spacing';
 
 interface ScreenContainerProps extends Omit<ScrollViewProps, 'style'> {
   readonly children: React.ReactNode;
-  /**
-   * Bordes de la safe area a aplicar. Por defecto aplica todos los bordes.
-   */
   readonly edges?: Edge[];
-  /**
-   * Estilo adicional para el contenedor de scroll interno.
-   */
   readonly contentStyle?: ViewStyle;
-  /**
-   * Color de fondo. Por defecto Colors.background.
-   */
   readonly backgroundColor?: string;
 }
 
@@ -52,11 +37,6 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   </SafeAreaView>
 );
 
-/**
- * ScreenListContainer — Contenedor para pantallas cuyo contenido raíz es una
- * FlatList o SectionList. No introduce un ScrollView adicional para evitar
- * listas virtualizadas anidadas.
- */
 interface ScreenListContainerProps {
   readonly children: React.ReactNode;
   readonly edges?: Edge[];
@@ -78,11 +58,6 @@ export const ScreenListContainer: React.FC<ScreenListContainerProps> = ({
   </SafeAreaView>
 );
 
-/**
- * KeyboardScreenContainer — Contenedor para formularios que necesitan
- * controlar el teclado virtual. Gestiona el desplazamiento automático
- * para mantener el campo activo visible.
- */
 import { KeyboardAvoidingView, Platform } from 'react-native';
 
 interface KeyboardScreenContainerProps {

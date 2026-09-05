@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   ActivityIndicator,
-  findNodeHandle,
   Modal,
   Pressable,
   ScrollView,
@@ -35,6 +33,7 @@ import {
 import { formatModalityLabel } from '../../utils/modality';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
 import type { UserRole } from '../../services/AuthService';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 interface AppointmentScheduleSheetProps {
   readonly visible: boolean;
@@ -92,14 +91,7 @@ export const AppointmentScheduleSheet: React.FC<AppointmentScheduleSheetProps> =
     ));
   }, [slotGroups]);
 
-  useEffect(() => {
-    if (!visible) return;
-    const frame = requestAnimationFrame(() => {
-      const node = findNodeHandle(sheetRef.current);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [visible]);
+  useModalAccessibilityFocus(sheetRef, visible);
 
   return (
     <Modal

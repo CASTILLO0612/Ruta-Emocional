@@ -78,7 +78,6 @@ async function adoptAuthenticatedUser(user: CurrentUser): Promise<UserProfile> {
     try {
       await signOutUser();
     } catch {
-      // El servicio siempre elimina las credenciales locales al cerrar sesión.
     }
     throw error;
   }
@@ -116,7 +115,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           try {
             await signOutUser();
           } catch {
-            // La sesión local se elimina en el bloque finally del servicio.
           }
         }
         set({

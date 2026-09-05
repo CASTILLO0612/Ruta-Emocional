@@ -55,11 +55,11 @@ Fuentes metodológicas:
 
 La revisión de las 62 observaciones produce:
 
-- **39 tipos de entidad conceptual** con identidad o ciclo de vida propio;
-- **68 asociaciones semánticas** con cardinalidad y participación definidas;
+- **43 tipos de entidad conceptual** con identidad o ciclo de vida propio;
+- **72 asociaciones semánticas** con cardinalidad y participación definidas;
 - **1 jerarquía ISA** parcial y superpuesta;
 - **7 relaciones N:N explícitas**, todavía sin resolver en el DER;
-- **20 dominios de estado o clasificación**, representados como atributos y no
+- **27 dominios de estado o clasificación** del esquema vigente, representados como atributos y no
   como entidades artificiales.
 
 Los modelos Prisma se usan para comprobar trazabilidad, no para dictar la
@@ -75,6 +75,7 @@ exponiendo una llave primaria física.
 | Identidad | Usuario | Identificador de usuario | correo, nombre visible, teléfono, estado, creación |
 | Identidad | Rol | Código de rol | nombre, descripción |
 | Identidad | Sesión | Identificador de sesión | credencial de renovación protegida, dispositivo, dirección de red, agente, expiración, revocación, creación |
+| Identidad | Recuperación de acceso | Identificador de recuperación | expiración, consumo, revocación, origen de solicitud, creación |
 | Identidad | Paciente | Identificador de paciente | fecha de nacimiento, creación, actualización |
 | Identidad | Psicólogo | Identificador de psicólogo | estado de verificación, presentación, ubicación pública aproximada, creación, actualización |
 | Directorio | Licencia profesional | Autoridad + número | estado, evidencia referenciada, verificada en, creación |
@@ -92,6 +93,9 @@ exponiendo una llave primaria física.
 | Reputación | Reseña | Identificador de reseña | puntuación, comentario, creación |
 | Mensajería | Conversación | Identificador de conversación | fecha de creación |
 | Mensajería | Mensaje | Identificador de mensaje | identificador del cliente, tipo, contenido, enviado en, editado en, origen |
+| MENTA contextual | Conversación MENTA | Identificador de conversación MENTA | alcance, versión de consentimiento, consentimiento, cierre, creación, actualización |
+| MENTA contextual | Turno MENTA | Identificador de turno | identificador del cliente, consulta, respuesta, estado, resultado del proveedor, modelo, creación, finalización |
+| MENTA contextual | Invocación MENTA | Identificador de invocación | herramienta, resultado, tipo y cantidad de recursos, invocación |
 | Clínica | Expediente clínico | Identificador de expediente | estado, abierto en, cerrado en |
 | Clínica | Encuentro clínico | Identificador de encuentro | inicio, fin, motivo, creación |
 | Clínica | Nota clínica | Identificador de nota | estado, firmada en, creación, actualización |
@@ -123,6 +127,7 @@ una instancia de A. `A por cada B` expresa la dirección inversa.
 |---|---|---|---:|---:|
 | Usuario | tiene asignado | Rol | 1..N | 0..N |
 | Usuario | mantiene | Sesión | 0..N | 1 |
+| Usuario | solicita | Recuperación de acceso | 0..N | 1 |
 | Psicólogo | acredita | Licencia profesional | 0..N | 1 |
 | Psicólogo | ejerce en | Especialidad | 0..N | 0..N |
 | Psicólogo | ofrece | Modalidad de atención | 0..N | 0..N |
@@ -166,7 +171,7 @@ una relación activa, incluida la primera; las citas posteriores no requieren
 otra solicitud. El pago corresponde a una cita y admite varios intentos o
 movimientos. Los pagos reales permanecen condicionados al proveedor.
 
-### 5.3 Conversaciones y mensajes
+### 5.3 Conversaciones, mensajes y MENTA contextual
 
 | Entidad A | Relación | Entidad B | B por cada A | A por cada B |
 |---|---|---|---:|---:|
@@ -178,6 +183,17 @@ movimientos. Los pagos reales permanecen condicionados al proveedor.
 La conversación es longitudinal a la relación asistencial y tiene exactamente
 dos participantes en el MVP. Un mensaje sin usuario emisor es un mensaje de
 sistema explícito; nunca se crea un usuario ficticio para representarlo.
+
+El agente contextual conserva una conversación diferente de la conversación
+asistencial. Pertenece al usuario y a un alcance de rol, y registra turnos e
+invocaciones de herramientas sin duplicar citas, solicitudes, perfiles ni
+expedientes.
+
+| Entidad A | Relación | Entidad B | B por cada A | A por cada B |
+|---|---|---|---:|---:|
+| Usuario | mantiene | Conversación MENTA | 0..N | 1 |
+| Conversación MENTA | contiene | Turno MENTA | 0..N | 1 |
+| Turno MENTA | registra | Invocación MENTA | 0..N | 1 |
 
 ### 5.4 Historia clínica
 
@@ -258,7 +274,8 @@ hasta aprobar ese caso de uso. Los nombres de implementación no aparecen en el
 DER conceptual.
 
 Las demás asociaciones implementadas mediante modelos auxiliares, como
-`AppointmentRequest` o `ClinicalEncounterAppointment`, no son problemas N:N:
+`CareRelationshipSource`, `ClinicalEncounterAppointment` o
+`RequestTriageAssessment`, no son problemas N:N:
 materializan asociaciones opcionales 1:1 o 1:N y tampoco deben confundirse con
 entidades conceptuales.
 
@@ -302,6 +319,11 @@ entidades conceptuales.
     resolverla; mientras está abierta bloquea procesamiento nuevo.
 19. Auditoría, outbox e idempotencia forman un bloque conceptual de plataforma,
     separado del dominio clínico y comercial.
+20. Cada recuperación de acceso pertenece a un usuario, expira y solo puede
+    consumirse una vez; no duplica correo, nombre, roles ni perfiles.
+21. Una conversación MENTA pertenece a un usuario y alcance. Sus turnos e
+    invocaciones conservan evidencia del agente sin convertirse en otra fuente
+    de verdad para agenda, directorio o historia clínica.
 
 ## 8. Trazabilidad y 3FN
 
@@ -313,7 +335,8 @@ duplican en solicitudes, ofertas, citas, conversaciones o historia clínica.
 
 El núcleo operativo ya implementa las decisiones necesarias para roles,
 procedencia de la oferta aceptada, relación asistencial, conversación, cita,
-contexto clínico, consentimiento y reglas estructuradas de triaje. Las
+contexto clínico, consentimiento, reglas estructuradas de triaje, recuperación
+de acceso y agente contextual MENTA. Las
 extensiones de pagos, actores automáticos y planes por diagnóstico están delimitadas en
 [`revision-decisiones-modelo-conceptual.md`](revision-decisiones-modelo-conceptual.md)
 y permanecen fuera de los módulos habilitados hasta su fase correspondiente.
@@ -322,3 +345,7 @@ La demostración detallada se encuentra en
 [`docs/database/normalization-3nf.md`](../../database/normalization-3nf.md). El
 DER y ese documento deben entregarse juntos: uno explica la semántica y el otro
 demuestra su implementación relacional normalizada.
+
+La cobertura completa de los 58 modelos Prisma se verifica en
+[`trazabilidad-modelo-vigente.md`](trazabilidad-modelo-vigente.md), sin mezclar
+esa transformación lógica con la notación conceptual del diagrama.

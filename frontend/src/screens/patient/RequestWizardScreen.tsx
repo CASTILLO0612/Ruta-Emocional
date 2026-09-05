@@ -1,14 +1,3 @@
-/**
- * RequestWizardScreen — Asistente guiado de 5 pasos para crear una solicitud.
- *
- * Principios rectores aplicados:
- * 1. Progressive disclosure: una decisión por paso.
- * 2. Estado de borrador efímero en memoria local (no contamina el store).
- * 3. Botón «Continuar» deshabilitado hasta que el paso sea válido.
- * 4. Chips de presupuesto generados dinámicamente desde la política del backend.
- * 5. Reintento transparente ante error de red (SUBMISSION_ERROR conserva el borrador).
- * 6. Prevención absoluta de doble envío.
- */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -72,7 +61,6 @@ export const RequestWizardScreen: React.FC = () => {
   const [isCustomNeed, setIsCustomNeed] = useState(false);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
 
-  // Borrador efímero en estado local
   const [draft, setDraft] = useState<WizardDraft>({
     primaryNeed: '',
     description: '',
@@ -161,7 +149,6 @@ export const RequestWizardScreen: React.FC = () => {
       }
       const payload = mapWizardDraftToPayload(draft);
       await createSessionRequest(payload, userProfile.id);
-      // Navegar a Radar en el stack raíz tras publicar
       navigation.navigate('Radar');
     } catch (error) {
       setSubmissionError(

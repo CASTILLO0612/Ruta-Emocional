@@ -4,6 +4,8 @@ import { IdentityService } from './modules/identity/application/identityService'
 import { PrismaIdentityRepository } from './modules/identity/infrastructure/persistence/prismaIdentityRepository';
 import { JwtAccessTokenService } from './modules/identity/infrastructure/security/jwtAccessTokenService';
 import { OpaqueRefreshTokenService } from './modules/identity/infrastructure/security/opaqueRefreshTokenService';
+import { OpaquePasswordResetTokenService } from './modules/identity/infrastructure/security/opaquePasswordResetTokenService';
+import { ResendPasswordResetDelivery } from './modules/identity/infrastructure/delivery/resendPasswordResetDelivery';
 import { ScryptPasswordHasher } from './modules/identity/infrastructure/security/scryptPasswordHasher';
 import { SystemClock } from './shared/application/clock';
 import { ProfessionalDirectoryService } from './modules/professional-directory/application/professionalDirectoryService';
@@ -58,6 +60,14 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
   const evidenceStorage = config.localQa.enabled && config.localQa.evidenceDirectory
     ? new LocalPrivateEvidenceStorage(config.localQa.evidenceDirectory)
     : undefined;
+  const passwordResetDelivery = config.passwordRecovery.provider === 'RESEND'
+    ? new ResendPasswordResetDelivery({
+        apiKey: config.passwordRecovery.resendApiKey!,
+        sender: config.passwordRecovery.sender!,
+        resetUrl: config.passwordRecovery.resetUrl!,
+        timeoutMs: config.passwordRecovery.providerTimeoutMs,
+      })
+    : null;
   const clinicalContentCipher = new AesGcmClinicalContentCipher(
     config.clinical.contentEncryptionKeys,
     config.clinical.activeContentEncryptionKeyVersion
@@ -77,8 +87,11 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       passwordHasher,
       accessTokens,
       new OpaqueRefreshTokenService(),
+      new OpaquePasswordResetTokenService(),
+      passwordResetDelivery,
       new SystemClock(),
-      config.jwt.refreshTtlDays
+      config.jwt.refreshTtlDays,
+      config.passwordRecovery
     ),
     professionalDirectory: new ProfessionalDirectoryService(
       new PrismaProfessionalDirectoryRepository(prisma),

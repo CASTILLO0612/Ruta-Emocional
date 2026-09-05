@@ -1,9 +1,5 @@
 import { StyleSheet, TextStyle } from 'react-native';
 
-/**
- * Loaded font names are shared by Expo Go, development builds and web.
- * Poppins carries brand hierarchy; Inter carries readable product content.
- */
 export const FontFamily = {
   brandRegular: 'Poppins_400Regular',
   brandSemiBold: 'Poppins_600SemiBold',
@@ -13,7 +9,6 @@ export const FontFamily = {
   bodySemiBold: 'Inter_600SemiBold',
   bodyBold: 'Inter_700Bold',
 
-  // Backward-compatible semantic aliases.
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
   semiBold: 'Inter_600SemiBold',

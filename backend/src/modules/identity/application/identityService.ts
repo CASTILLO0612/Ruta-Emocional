@@ -5,6 +5,8 @@ import {
   AccessTokenService,
   IdentityRepository,
   PasswordHasher,
+  PasswordResetDelivery,
+  PasswordResetTokenService,
   RefreshTokenService,
 } from './ports';
 import {
@@ -43,6 +45,17 @@ export interface AuthenticatedActor {
   readonly sessionId: string;
 }
 
+export interface PasswordResetRequestView {
+  readonly accepted: true;
+  readonly delivery: 'EMAIL' | 'LOCAL_QA' | 'UNAVAILABLE';
+  readonly localQaToken?: string;
+}
+
+interface PasswordRecoveryConfig {
+  readonly tokenTtlMinutes: number;
+  readonly exposeTokenForLocalQa: boolean;
+}
+
 interface PreparedSession {
   readonly id: string;
   readonly refreshToken: string;
@@ -58,8 +71,11 @@ export class IdentityService {
     private readonly passwordHasher: PasswordHasher,
     private readonly accessTokens: AccessTokenService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly passwordResetTokens: PasswordResetTokenService,
+    private readonly passwordResetDelivery: PasswordResetDelivery | null,
     private readonly clock: Clock,
-    private readonly refreshTtlDays: number
+    private readonly refreshTtlDays: number,
+    private readonly passwordRecovery: PasswordRecoveryConfig
   ) {
     this.dummyPasswordHash = passwordHasher.hash('invalid-login-candidate-for-timing-equalization');
   }
@@ -129,6 +145,74 @@ export class IdentityService {
     }
 
     return this.createAuthenticatedSession(user, input);
+  }
+
+  async requestPasswordReset(
+    emailInput: string,
+    metadata: RequestMetadata
+  ): Promise<PasswordResetRequestView> {
+    const delivery = this.passwordRecovery.exposeTokenForLocalQa
+      ? 'LOCAL_QA' as const
+      : this.passwordResetDelivery
+        ? 'EMAIL' as const
+        : 'UNAVAILABLE' as const;
+    const user = await this.repository.findUserByEmail(this.normalizeEmail(emailInput));
+    if (!user || user.status !== 'ACTIVE' || delivery === 'UNAVAILABLE') {
+      return { accepted: true, delivery };
+    }
+
+    const issued = this.passwordResetTokens.issue();
+    const id = randomUUID();
+    const requestedAt = this.clock.now();
+    const expiresAt = new Date(
+      requestedAt.getTime() + this.passwordRecovery.tokenTtlMinutes * 60_000
+    );
+    await this.repository.createPasswordReset({
+      id,
+      userId: user.id,
+      tokenHash: issued.hash,
+      requestedAt,
+      expiresAt,
+      requestedIp: metadata.ipAddress,
+      requestId: metadata.requestId,
+    });
+
+    if (delivery === 'LOCAL_QA') {
+      return { accepted: true, delivery, localQaToken: issued.token };
+    }
+
+    try {
+      await this.passwordResetDelivery!.send({
+        recipientEmail: user.email,
+        displayName: user.displayName,
+        token: issued.token,
+        expiresAt,
+      });
+    } catch {
+      await this.repository.revokePasswordReset(id, this.clock.now(), metadata.requestId);
+    }
+    return { accepted: true, delivery };
+  }
+
+  async completePasswordReset(
+    token: string,
+    password: string,
+    metadata: RequestMetadata
+  ): Promise<void> {
+    const passwordHash = await this.passwordHasher.hash(password);
+    const completed = await this.repository.completePasswordReset({
+      tokenHash: this.passwordResetTokens.hash(token),
+      passwordHash,
+      completedAt: this.clock.now(),
+      ipAddress: metadata.ipAddress,
+      requestId: metadata.requestId,
+    });
+    if (!completed) {
+      throw AppError.badRequest(
+        'INVALID_PASSWORD_RESET_TOKEN',
+        'El enlace de recuperación no es válido o ya expiró.'
+      );
+    }
   }
 
   async refresh(refreshToken: string, requestId?: string): Promise<TokenPair> {

@@ -157,13 +157,13 @@ confirmación accesible y estado de revocación/solicitud.
 | Evidencia | Resultado |
 |---|---|
 | Prisma format/validate/generate | correcto |
-| 21 migraciones desde una base vacía | correcto |
+| 21 migraciones al cierre original de la fase; 23 en el corte de entrega vigente | correcto |
 | TypeScript backend y frontend | correcto |
 | Pruebas unitarias | 41/41 |
 | Integraciones secuenciales PostgreSQL/WebSocket | 8/8 |
 | Integración específica MENTA | propietario/ajeno/profesional, idempotencia, inmutabilidad, retiro, eliminación, revisión y bloqueos de seguridad correctos |
 | Grants de runtime | grupo y login separado verificados; permisos requeridos presentes y destructivos ausentes |
-| Backup/restauración local | 21 migraciones y tablas críticas verificadas en destino desechable |
+| Backup/restauración local | 21 migraciones verificadas al cierre original; el corte vigente contiene 23 y requiere repetir el ensayo antes de producción |
 | Expo SDK 57 | dependencias exactas, TypeScript y configuración nativa correctos |
 | Exportación Expo Web | bundle generado y sin nombres de secretos públicos prohibidos |
 | CI del endurecimiento productivo `f305d65` | [Quality #33462146189](https://github.com/CASTILLO0612/Ruta-Emocional/actions/runs/33462146189) correcto |

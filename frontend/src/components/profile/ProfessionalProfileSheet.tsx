@@ -1,7 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
-  AccessibilityInfo,
-  findNodeHandle,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -26,6 +24,7 @@ import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
 import { isProfessionalBioValid } from '../../utils/profilePresentation';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
+import { useModalAccessibilityFocus } from '../../hooks/useModalAccessibilityFocus';
 
 interface ProfessionalProfileSheetProps {
   readonly visible: boolean;
@@ -51,15 +50,7 @@ export const ProfessionalProfileSheet: React.FC<ProfessionalProfileSheetProps> =
   const sheetRef = useRef<View>(null);
   const normalizedLength = bio.trim().length;
   const bioIsValid = isProfessionalBioValid(bio);
-
-  useEffect(() => {
-    if (!visible) return;
-    const frame = requestAnimationFrame(() => {
-      const node = findNodeHandle(sheetRef.current);
-      if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [visible]);
+  useModalAccessibilityFocus(sheetRef, visible);
 
   return (
     <Modal

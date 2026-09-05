@@ -2,7 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { BrandLogo } from '../../components/common/BrandLogo';
-import { BrandSymbol } from '../../components/common/BrandSymbol';
 
 describe('Brand identity', () => {
   it('expone el logotipo positivo sin deformarlo ni invertir sus colores', async () => {
@@ -22,11 +21,9 @@ describe('Brand identity', () => {
     expect(positive.props.source).not.toEqual(negative.props.source);
   });
 
-  it('permite que el logotipo y el isotipo sean decorativos', async () => {
+  it('permite que el logotipo sea decorativo', async () => {
     const logo = await render(<BrandLogo decorative />);
-    const symbol = await render(<BrandSymbol decorative />);
 
     expect(logo.queryByLabelText('Ruta Emocional')).toBeNull();
-    expect(symbol.queryByLabelText('Símbolo de Ruta Emocional')).toBeNull();
   });
 });

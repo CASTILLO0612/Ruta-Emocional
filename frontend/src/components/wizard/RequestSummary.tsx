@@ -1,10 +1,3 @@
-/**
- * RequestSummary — Pantalla de revisión y confirmación del asistente (Paso 5).
- *
- * Principio rector:
- * - Resumen editable por sección con botón «Editar» que permite saltar
- *   directamente al paso correspondiente antes de enviar.
- */
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Edit3, CheckCircle2, ShieldCheck } from 'lucide-react-native';

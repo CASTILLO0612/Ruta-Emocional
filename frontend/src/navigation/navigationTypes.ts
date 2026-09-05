@@ -1,5 +1,6 @@
 import type {
   CompositeNavigationProp,
+  NavigationProp,
   NavigatorScreenParams,
   RouteProp,
 } from '@react-navigation/native';
@@ -37,9 +38,17 @@ export type AcceptedOfferSummaryParams = {
   readonly scheduledFor?: string;
 };
 
-export type AppStackParamList = {
+export type LegalSection = 'privacy' | 'terms' | 'help';
+
+export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { readonly token?: string } | undefined;
+  LegalInformation: { readonly section: LegalSection };
+};
+
+export type AppStackParamList = {
   PatientMain: NavigatorScreenParams<PatientTabParamList> | undefined;
   PsychologistMain: NavigatorScreenParams<PsychologistTabParamList> | undefined;
   PsychologistVerification: undefined;
@@ -57,6 +66,7 @@ export type AppStackParamList = {
 };
 
 export type AppNavigation = NativeStackNavigationProp<AppStackParamList>;
+export type AuthNavigation = NavigationProp<AuthStackParamList>;
 
 export type PatientHomeNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<PatientTabParamList, 'Home'>,

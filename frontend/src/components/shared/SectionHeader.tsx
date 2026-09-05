@@ -1,8 +1,3 @@
-/**
- * SectionHeader — Encabezado estandarizado para secciones de contenido.
- *
- * Muestra título, subtítulo explicativo opcional y una acción secundaria alineada.
- */
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 

@@ -6,10 +6,11 @@ La raíz de navegación está en [`frontend/src/navigation/AppNavigator.tsx`](..
 
 | Actor | Pantalla o flujo | Archivo principal | Operación demostrable |
 |---|---|---|---|
-| Público | acceso y registro | [`AuthScreens.tsx`](../../../frontend/src/screens/auth/AuthScreens.tsx) | registrar paciente/psicólogo e iniciar sesión |
+| Público | acceso, registro, recuperación y legal | [`AuthNavigator.tsx`](../../../frontend/src/navigation/AuthNavigator.tsx), [`AuthScreens.tsx`](../../../frontend/src/screens/auth/AuthScreens.tsx), [`PasswordRecoveryScreens.tsx`](../../../frontend/src/screens/auth/PasswordRecoveryScreens.tsx) | registrar paciente/psicólogo, iniciar sesión, solicitar/restablecer acceso y consultar términos/privacidad |
 | Paciente | inicio y solicitud | [`HomeScreen.tsx`](../../../frontend/src/screens/patient/HomeScreen.tsx) | consultar profesionales y crear una solicitud con presupuesto |
 | Paciente | radar y ofertas | [`RadarScreen.tsx`](../../../frontend/src/screens/patient/RadarScreen.tsx) | seguir la solicitud, revisar ofertas, aceptar o cancelar |
 | Paciente | orientación MENTA | [`MentaScreen.tsx`](../../../frontend/src/screens/patient/MentaScreen.tsx) | responder opciones cerradas, consentir y obtener orientación sin presupuesto |
+| Usuario autenticado | agente contextual MENTA | [`MentaAgentScreen.tsx`](../../../frontend/src/screens/shared/MentaAgentScreen.tsx) | consultar contexto autorizado según rol sin sustituir agenda, directorio ni expediente |
 | Psicólogo pendiente | incorporación y evidencia | [`VerificationScreen.tsx`](../../../frontend/src/screens/psychologist/VerificationScreen.tsx) | completar presentación, especialidad, modalidad, disponibilidad y evidencia |
 | Administrador | cola de verificación | [`VerificationQueueScreen.tsx`](../../../frontend/src/screens/admin/VerificationQueueScreen.tsx) | aprobar o rechazar una solicitud y registrar la decisión |
 | Psicólogo verificado | solicitudes elegibles | [`DashboardScreen.tsx`](../../../frontend/src/screens/psychologist/DashboardScreen.tsx) | consultar solicitudes y presentar o retirar oferta |
@@ -24,7 +25,7 @@ Los formularios relevantes tienen estados de carga y error, deshabilitan envíos
 
 | Formulario | Validación del cliente | Validación y autorización del servidor |
 |---|---|---|
-| registro/acceso | correo, contraseña, tipo de cuenta y licencia cuando aplica | [`identityValidation.ts`](../../../backend/src/modules/identity/presentation/identityValidation.ts) y límites por endpoint |
+| registro/acceso/recuperación | correo, contraseña, tipo de cuenta, licencia cuando aplica y coincidencia del restablecimiento | [`identityValidation.ts`](../../../backend/src/modules/identity/presentation/identityValidation.ts), token opaco de un solo uso y límites por endpoint |
 | incorporación profesional | presentación, catálogo activo, importe, horario y archivo seleccionado | [`professionalDirectoryValidation.ts`](../../../backend/src/modules/professional-directory/presentation/professionalDirectoryValidation.ts) y propiedad dentro de transacción |
 | solicitud/oferta | necesidad, modalidad, presupuesto, mensaje e importe | [`serviceRequestValidation.ts`](../../../backend/src/modules/service-request/presentation/serviceRequestValidation.ts), reglas comerciales e idempotencia |
 | mensaje | texto no vacío, límite de caracteres y reintento visual | [`messagingValidation.ts`](../../../backend/src/modules/messaging/presentation/messagingValidation.ts) y participación persistida |
@@ -46,6 +47,8 @@ Los formularios relevantes tienen estados de carga y error, deshabilitan envíos
 | Paso | Resultado esperado |
 |---|---|
 | abrir sin sesión | se muestran acceso y registro |
+| solicitar recuperación con correo existente o inexistente | se muestra la misma respuesta genérica y no se enumera la cuenta |
+| usar dos veces el mismo enlace de recuperación | el segundo intento se rechaza sin revelar datos técnicos |
 | registrar psicólogo pendiente | se abre incorporación, no el panel profesional |
 | intentar guardar un formulario incompleto | el envío permanece deshabilitado o aparece validación |
 | aprobar la evidencia y renovar la sesión | se habilita automáticamente el panel profesional |
@@ -55,5 +58,6 @@ Los formularios relevantes tienen estados de carga y error, deshabilitan envíos
 | firmar una nota clínica | el contenido firmado queda inmutable; el cambio posterior requiere enmienda |
 | completar MENTA con peligro inmediato | aparecen acciones/recursos; no se muestra presupuesto ni modalidad comercial |
 | abrir MENTA desde un psicólogo ajeno | el backend responde como recurso no encontrado |
+| consultar MENTA contextual | solo aparecen datos que las herramientas autorizadas permiten al usuario y rol actuales |
 
 Para una demostración reproducible, use únicamente datos ficticios y siga el [runbook de verificación local](../../runbooks/local-professional-verification.md).

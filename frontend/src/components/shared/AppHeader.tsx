@@ -1,18 +1,11 @@
-/**
- * AppHeader — Encabezado configurable compartido.
- *
- * Reglas:
- * - Máximo dos acciones visibles a la derecha del título.
- * - showBack ocupa la izquierda y tiene prioridad. Representa un botón visual
- *   de retroceso de navegación; es independiente del back físico de Android.
- * - showMenta y showInbox pueden omitirse en pantallas donde no aporten contexto.
- * - La acción contextual tiene prioridad y el total permanece limitado a dos acciones.
- * - Soporta subtítulo contextual accesible.
- * - Todas las acciones tienen accessibilityLabel.
- * - InboxHeaderAction no muestra badge en v1 (sin unreadCount en el contrato actual).
- */
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, MessageCircle, BrainCircuit } from 'lucide-react-native';
@@ -24,6 +17,8 @@ import { IconSize, IconStroke } from '../../theme/icons';
 import { Layout } from '../../theme/layout';
 import { BrandLogo } from '../common/BrandLogo';
 
+const HEADER_SUBTITLE_MIN_WIDTH = 600;
+
 export interface HeaderContextualAction {
   readonly label: string;
   readonly icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -31,42 +26,14 @@ export interface HeaderContextualAction {
 }
 
 export interface AppHeaderProps {
-  /**
-   * Título centrado del encabezado. Omitir en pantallas de inicio que muestren logo.
-   */
   readonly title?: string;
-  /**
-   * Subtítulo descriptivo opcional para contexto de pantalla o rol.
-   */
   readonly subtitle?: string;
-  /**
-   * Muestra el logotipo principal en su aplicación positiva en lugar del título.
-   */
   readonly showBrand?: boolean;
-  /** Muestra el logotipo oficial compacto en encabezados raíz con título. */
   readonly showBrandMark?: boolean;
-  /** @deprecated Usar showBrandMark. Se conserva para compatibilidad transitoria. */
-  readonly showBrandSymbol?: boolean;
-  /**
-   * Botón visual de retroceso (chevron). Representa navegación hacia atrás en el stack,
-   * no el botón físico de Android (que React Navigation gestiona automáticamente).
-   */
   readonly showBack?: boolean;
-  /**
-   * Callback personalizado para el botón de retroceso.
-   */
   readonly onBack?: () => void;
-  /**
-   * Muestra el acceso a MentaAgentScreen (movido al AppStack).
-   */
   readonly showMenta?: boolean;
-  /**
-   * Muestra el acceso a InboxScreen. Sin badge en v1.
-   */
   readonly showInbox?: boolean;
-  /**
-   * Acción contextual adicional. Ocupa el primer espacio disponible.
-   */
   readonly contextualAction?: HeaderContextualAction;
 }
 
@@ -75,7 +42,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   subtitle,
   showBrand = false,
   showBrandMark = false,
-  showBrandSymbol = false,
   showBack = false,
   onBack,
   showMenta = false,
@@ -84,6 +50,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { width } = useWindowDimensions();
+  const compact = width <= Layout.compactWidth;
+  const shouldShowSubtitle = Boolean(subtitle) && width >= HEADER_SUBTITLE_MIN_WIDTH;
 
   const rightActions: HeaderContextualAction[] = [];
 
@@ -95,7 +64,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     rightActions.push({
       label: 'Abrir MENTA',
       icon: BrainCircuit,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onPress: () => (navigation as any).navigate('MentaAgent'),
     });
   }
@@ -104,7 +72,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     rightActions.push({
       label: 'Abrir mensajes',
       icon: MessageCircle,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onPress: () => (navigation as any).navigate('Inbox'),
     });
   }
@@ -131,27 +98,33 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             />
           </TouchableOpacity>
         )}
-        {!showBack && (showBrandMark || showBrandSymbol) ? (
-          <BrandLogo size="header" variant="positive" decorative />
+        {!showBack && showBrandMark ? (
+          <View testID="app-header-brand-logo" style={styles.headerLogo}>
+            <BrandLogo size="header" variant="positive" decorative />
+          </View>
         ) : null}
       </View>
 
       {/* Centro */}
       <View style={styles.center}>
         {showBrand ? (
-          <BrandLogo size="compact" variant="positive" />
+          <BrandLogo size={compact ? 'header' : 'compact'} variant="positive" />
         ) : title ? (
           <View style={styles.titleContainer}>
             <Text
-              style={[Typography.h4, { color: Colors.textPrimary }]}
+              style={styles.title}
               numberOfLines={1}
+              ellipsizeMode="clip"
+              maxFontSizeMultiplier={Layout.largeTextScale}
             >
               {title}
             </Text>
-            {subtitle ? (
+            {shouldShowSubtitle ? (
               <Text
-                style={[Typography.caption, { color: Colors.textSecondary }]}
+                style={styles.subtitle}
                 numberOfLines={1}
+                ellipsizeMode="clip"
+                maxFontSizeMultiplier={Layout.largeTextScale}
               >
                 {subtitle}
               </Text>
@@ -199,6 +172,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: 96,
+    minWidth: 96,
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  headerLogo: {
+    width: 88,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rightSide: {
     justifyContent: 'flex-end',
@@ -206,11 +188,28 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.xs,
+    overflow: 'hidden',
   },
   titleContainer: {
+    width: '100%',
+    minWidth: 0,
     alignItems: 'center',
+  },
+  title: {
+    ...Typography.h4,
+    width: '100%',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  subtitle: {
+    ...Typography.caption,
+    width: '100%',
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
   iconButton: {
     width: Layout.minimumTouchTarget,

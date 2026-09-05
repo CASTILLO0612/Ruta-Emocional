@@ -141,7 +141,6 @@ export const useRequestStore = create<RequestState>((set, get) => {
     try {
       await clearActiveRequestId(userId);
     } catch {
-      // La memoria se limpia siempre, incluso si el almacenamiento seguro no responde.
     }
   };
 
@@ -204,7 +203,6 @@ export const useRequestStore = create<RequestState>((set, get) => {
           get().startListeningToRequest(request.id);
           get().startListeningToOffers(request.id);
         } else {
-          // Terminal status: accepted, in_session, completed, cancelled, expired
           await clearPersistedRequest(userId);
           clearRequestState();
           set({ isRehydratingActiveSearch: false });
@@ -215,11 +213,9 @@ export const useRequestStore = create<RequestState>((set, get) => {
           error instanceof ApiError &&
           (error.status === 404 || error.status === 401 || error.status === 403)
         ) {
-          // Terminal error: request does not exist or unauthorized
           await clearPersistedRequest(userId);
           clearRequestState();
         } else {
-          // Recoverable error (offline, timeout, 5xx): keep ID, set error message
           set({ error: errorMessage(error) });
         }
         set({ isRehydratingActiveSearch: false });
@@ -253,7 +249,6 @@ export const useRequestStore = create<RequestState>((set, get) => {
         try {
           await saveActiveRequestId(userId, request.id);
         } catch {
-          // La solicitud ya existe en servidor y permanece disponible en memoria.
         }
         get().startListeningToRequest(request.id);
         get().startListeningToOffers(request.id);

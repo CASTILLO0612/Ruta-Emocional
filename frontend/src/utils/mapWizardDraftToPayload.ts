@@ -1,9 +1,3 @@
-/**
- * mapWizardDraftToPayload — Mapea el borrador local del wizard al payload del backend.
- *
- * Principio rector: El payload resultante es 100% idéntico al contrato
- * requerido por el endpoint POST /service-requests.
- */
 import type { CreateRequestPayload } from '../repositories/RequestRepository';
 import type { WizardDraft } from './validateWizardStep';
 

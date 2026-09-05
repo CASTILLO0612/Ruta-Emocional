@@ -1,11 +1,3 @@
-/**
- * ActiveSearchSummary — Resumen de solicitud activa para la pestaña Buscar.
- *
- * Se muestra dentro de SearchTabScreen cuando el paciente ya tiene una
- * solicitud en estado PENDING o BIDDING. Proporciona visibilidad del estado
- * y un botón primario para abrir RadarScreen en el AppStack raíz,
- * impidiendo la duplicación de solicitudes o la renderización anidada de Radar.
- */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Radar, Clock, DollarSign, MessageSquare, Phone, MapPin, Sparkles } from 'lucide-react-native';

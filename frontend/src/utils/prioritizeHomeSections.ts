@@ -1,12 +1,3 @@
-/**
- * prioritizeHomeSections — Jerarquía dinámica y honesta del Inicio del paciente.
- *
- * Principio rector:
- * - Ningún bloque vacío ocupa espacio en pantalla.
- * - Una sola acción primaria visible («Buscar acompañamiento»).
- * - Máximo 2 profesionales en el preview del directorio.
- * - MENTA solo aparece si existe una fuente real y verificada en el estado.
- */
 import type { ActiveRequest } from '../models/ActiveRequest';
 import type { Offer } from '../models/Offer';
 import type { Psychologist } from '../models/Psychologist';
@@ -57,14 +48,12 @@ export type HomeSection =
 export function prioritizeHomeSections(inputs: HomeStateInputs): HomeSection[] {
   const sections: HomeSection[] = [];
 
-  // 1. Saludo contextual
   sections.push({
     id: 'greeting',
     type: 'GREETING',
     userName: inputs.userName?.trim() || 'Paciente',
   });
 
-  // 2. Decisión pendiente (oferta no expirada esperando respuesta)
   const pendingOffers = inputs.incomingOffers?.filter((o) => o.status === 'pending') ?? [];
   const hasActionableOffer =
     inputs.activeRequest &&
@@ -81,7 +70,6 @@ export function prioritizeHomeSections(inputs: HomeStateInputs): HomeSection[] {
     });
   }
 
-  // 3. Próxima cita real confirmada
   if (inputs.nextAppointment) {
     sections.push({
       id: 'next_appointment',
@@ -90,7 +78,6 @@ export function prioritizeHomeSections(inputs: HomeStateInputs): HomeSection[] {
     });
   }
 
-  // 4. La decisión pendiente ya es la acción dominante. Evita dos CTA primarios simultáneos.
   if (!hasActionableOffer) {
     sections.push({
       id: 'primary_action',
@@ -98,7 +85,6 @@ export function prioritizeHomeSections(inputs: HomeStateInputs): HomeSection[] {
     });
   }
 
-  // 5. Sugerencia contextual MENTA (Honesta, sin respuestas clínicas simuladas)
   if (hasActionableOffer) {
     sections.push({
       id: 'menta_suggestion',
@@ -115,7 +101,6 @@ export function prioritizeHomeSections(inputs: HomeStateInputs): HomeSection[] {
     });
   }
 
-  // 6. Preview breve del directorio; la búsqueda contiene el listado completo.
   const previewPsychologists = inputs.featuredPsychologists?.slice(0, 2) ?? [];
   if (previewPsychologists.length > 0) {
     sections.push({

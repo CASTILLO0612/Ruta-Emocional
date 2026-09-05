@@ -1,10 +1,3 @@
-/**
- * ContextSuggestionCard — Tarjeta de sugerencia contextual de MENTA.
- *
- * Principio rector:
- * - Es una entrada contextual determinista, no una respuesta clínica generada por IA.
- * - Solo se renderiza cuando existe un evento real comprobable en el estado.
- */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BrainCircuit, ArrowRight } from 'lucide-react-native';

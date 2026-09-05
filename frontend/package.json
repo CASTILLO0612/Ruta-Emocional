@@ -56,7 +56,7 @@
     "web": "expo start --web",
     "test": "jest --watchAll=false",
     "test:watch": "jest --watchAll",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node --stack-size=16384 ./node_modules/typescript/bin/tsc --noEmit",
     "validate:design": "node scripts/validateDesignSystem.mjs",
     "validate:native-config": "node scripts/validateNativeConfig.mjs"
   },
