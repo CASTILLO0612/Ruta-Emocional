@@ -10,7 +10,7 @@ negocio, la cardinalidad y la participación. No es una captura de tablas.
 La fuente canónica del dominio es la
 [`revisión de decisiones conceptuales`](revision-decisiones-modelo-conceptual.md),
 contrastada con reglas de negocio, casos de uso y
-[`backend/prisma/schema.prisma`](../../../backend/prisma/schema.prisma). El DER
+[`backend/prisma/schema.prisma`](../../../../backend/prisma/schema.prisma). El DER
 representa el objetivo conceptual aprobado; las brechas con el modelo lógico
 vigente se mantienen documentadas para una migración incremental posterior.
 `spatial_ref_sys`, tabla técnica de PostGIS, no pertenece al dominio y se
@@ -43,7 +43,7 @@ transformar el modelo conceptual al modelo lógico.
 No se incluyen tipos SQL, longitudes, columnas foráneas, nombres `snake_case`,
 índices, triggers, políticas de borrado, cifrado ni detalles de Prisma. Esos
 elementos pertenecen al modelo relacional o físico y se documentan por separado
-en [`normalization-3nf.md`](../../database/normalization-3nf.md).
+en [`normalization-3nf.md`](../../../database/normalization-3nf.md).
 
 Fuentes metodológicas:
 
@@ -342,7 +342,7 @@ extensiones de pagos, actores automáticos y planes por diagnóstico están deli
 y permanecen fuera de los módulos habilitados hasta su fase correspondiente.
 
 La demostración detallada se encuentra en
-[`docs/database/normalization-3nf.md`](../../database/normalization-3nf.md). El
+[`docs/database/normalization-3nf.md`](../../../database/normalization-3nf.md). El
 DER y ese documento deben entregarse juntos: uno explica la semántica y el otro
 demuestra su implementación relacional normalizada.
 

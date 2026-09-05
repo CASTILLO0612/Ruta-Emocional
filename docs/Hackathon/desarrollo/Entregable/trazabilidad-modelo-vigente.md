@@ -91,5 +91,5 @@ centrales del problema.
 
 Esta matriz se revisa junto con
 [`modelo-entidad-relacion-conceptual.md`](modelo-entidad-relacion-conceptual.md),
-[`normalization-3nf.md`](../../database/normalization-3nf.md) y el esquema
-[`schema.prisma`](../../../backend/prisma/schema.prisma).
+[`normalization-3nf.md`](../../../database/normalization-3nf.md) y el esquema
+[`schema.prisma`](../../../../backend/prisma/schema.prisma).

@@ -56,7 +56,7 @@ assertSameSet(
 );
 
 const traceabilityDocument = readRepositoryFile(
-  'docs/Hackathon/desarrollo/trazabilidad-modelo-vigente.md',
+  'docs/Hackathon/desarrollo/Entregable/trazabilidad-modelo-vigente.md',
 );
 const tracedModels = [
   ...traceabilityDocument.matchAll(/^\| `(?<name>\w+)` \|/gm),
@@ -73,10 +73,10 @@ const migrationCount = readdirSync(migrationDirectory, { withFileTypes: true }).
 ).length;
 
 const conceptualDocument = readRepositoryFile(
-  'docs/Hackathon/desarrollo/modelo-entidad-relacion-conceptual.md',
+  'docs/Hackathon/desarrollo/Entregable/modelo-entidad-relacion-conceptual.md',
 );
 const deliveryMatrix = readRepositoryFile(
-  'docs/Hackathon/desarrollo/matriz-cumplimiento-entrega.md',
+  'docs/Hackathon/desarrollo/Entregable/matriz-cumplimiento-entrega.md',
 );
 const declaredFacts = [
   [modelBlocks.length, 'Modelos Prisma'],
@@ -104,7 +104,7 @@ for (const statement of [
 
 const pdfPath = join(
   repositoryRoot,
-  'output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf',
+  'docs/Hackathon/desarrollo/Entregable/Diagrama ER.pdf',
 );
 if (!existsSync(pdfPath)) {
   fail(`no existe ${relative(repositoryRoot, pdfPath)}`);

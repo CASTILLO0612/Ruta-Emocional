@@ -29,13 +29,13 @@ Ruta Emocional cumple la definición de **Usuario**, **Administrador** y **Audit
 ## 3. Aplicación técnica
 
 - Los roles se crean en la migración inicial, no llegan desde un valor libre enviado por el cliente.
-- La API convierte los roles en capacidades explícitas en [`identityService.ts`](../../../backend/src/modules/identity/application/identityService.ts).
+- La API convierte los roles en capacidades explícitas en [`identityService.ts`](../../../../backend/src/modules/identity/application/identityService.ts).
 - Cada ruta exige autenticación y capacidad; el repositorio vuelve a filtrar por propietario, participante o relación.
 - Un psicólogo no recibe capacidades profesionales solo por tener el rol: también debe estar verificado.
 - La posesión de un UUID no concede acceso. Para recursos sensibles se responde como no encontrado cuando revelar existencia aumentaría el riesgo.
 - El rol administrador está separado del acceso clínico.
 
-La matriz completa, incluidas reglas negativas y permisos por módulo, está en [`docs/security/authorization-matrix.md`](../../security/authorization-matrix.md).
+La matriz completa, incluidas reglas negativas y permisos por módulo, está en [`docs/security/authorization-matrix.md`](../../../security/authorization-matrix.md).
 
 ## 4. Alcance honesto del auditor
 

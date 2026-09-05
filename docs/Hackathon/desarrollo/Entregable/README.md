@@ -8,17 +8,17 @@ Este directorio reúne la evidencia verificable de Ruta Emocional para la catego
 |---|---|---|
 | Matriz integral de aceptación | [Trazabilidad de los nueve apartados y compuerta de QA](matriz-cumplimiento-entrega.md) | Completa |
 | Planteamiento y comprensión del problema | [Problema, actores, solución, límites y criterios de éxito](planteamiento-y-comprension-del-problema.md) | Completo y trazable al MVP |
-| README técnico: descripción, tecnologías, instalación y ejecución | [`README.md` del proyecto](../../../README.md) | Completo |
-| Diagrama de base de datos: modelo ER básico y al menos 2FN | [DER conceptual completo](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf), [catálogo y criterio](modelo-entidad-relacion-conceptual.md), [decisiones revisadas](revision-decisiones-modelo-conceptual.md), [evidencia 3FN](../../database/normalization-3nf.md) | Completo; supera el mínimo de normalización |
+| README técnico: descripción, tecnologías, instalación y ejecución | [`README.md` del proyecto](../../../../README.md) | Completo |
+| Diagrama de base de datos: modelo ER básico y al menos 2FN | [DER conceptual completo](Diagrama%20ER.pdf), [catálogo y criterio](modelo-entidad-relacion-conceptual.md), [decisiones revisadas](revision-decisiones-modelo-conceptual.md), [evidencia 3FN](../../../database/normalization-3nf.md) | Completo; supera el mínimo de normalización |
 | Interfaces navegables y formularios funcionales | [Evidencia de interfaz y formularios](evidencia-interfaz-y-formularios.md), [evidencia final del refactor visual](evidencia-refactor-visual-final.md) | Completo para el recorrido seleccionado |
 | Uso básico de GitHub con commits legibles y operaciones Commit/Push/Pull | [Evidencia de control de versiones](evidencia-control-versiones.md) | Completo al sincronizar esta entrega |
-| Código limpio y definición de tres roles o permisos | [Roles y permisos](roles-y-permisos.md), [matriz completa](../../security/authorization-matrix.md) | Completo |
-| Ejecución local e instrucciones básicas | [Instalación y ejecución](../../../README.md#instalación) | Completo |
+| Código limpio y definición de tres roles o permisos | [Roles y permisos](roles-y-permisos.md), [matriz completa](../../../security/authorization-matrix.md) | Completo |
+| Ejecución local e instrucciones básicas | [Instalación y ejecución](../../../../README.md#instalación) | Completo |
 | Video de navegación | Lo prepara el responsable del proyecto, según el alcance acordado | Fuera de esta entrega técnica |
 
 ## Entregable principal de base de datos
 
-El archivo [`modelo-entidad-relacion-conceptual-ruta-emocional.pdf`](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf) contiene:
+El archivo [`Modelo ER.pdf`](Diagrama%20ER.pdf) contiene:
 
 - 43 entidades conceptuales con cada atributo declarado en un óvalo propio;
 - 72 asociaciones semánticas con cardinalidad y participación;
@@ -71,4 +71,4 @@ npm run db:validate
 npm run quality:delivery
 ```
 
-La prueba manual de verificación profesional está descrita en [`docs/runbooks/local-professional-verification.md`](../../runbooks/local-professional-verification.md).
+La prueba manual de verificación profesional está descrita en [`docs/runbooks/local-professional-verification.md`](../../../runbooks/local-professional-verification.md).

@@ -16,12 +16,12 @@ No sustituye el video de navegación. Tampoco declara como aprobada una prueba f
 
 | Requisito Aficionado / Desarrollo | Evidencia verificable | Estado |
 |---|---|---|
-| README técnico | [`README.md`](../../../README.md) | Completo |
-| Diagrama de base de datos | [DER conceptual](../../../output/pdf/modelo-entidad-relacion-conceptual-ruta-emocional.pdf), [catálogo conceptual](modelo-entidad-relacion-conceptual.md) y [3FN](../../database/normalization-3nf.md) | Completo; supera 2FN |
+| README técnico | [`README.md`](../../../../README.md) | Completo |
+| Diagrama de base de datos | [DER conceptual](Diagrama%20ER.pdf), [catálogo conceptual](modelo-entidad-relacion-conceptual.md) y [3FN](../../../database/normalization-3nf.md) | Completo; supera 2FN |
 | Interfaces navegables y formularios funcionales | [Inventario funcional](evidencia-interfaz-y-formularios.md) y capturas de este documento | Completo para el recorrido validado |
 | Control de versiones | [Evidencia Git](evidencia-control-versiones.md) | Completo al confirmar y sincronizar este corte |
-| Seguridad, código legible y tres roles | [Roles y permisos](roles-y-permisos.md), [matriz de autorización](../../security/authorization-matrix.md) y pruebas backend | Completo |
-| Ejecución local | [`README.md`](../../../README.md#instalación) y comprobaciones de este documento | Completo |
+| Seguridad, código legible y tres roles | [Roles y permisos](roles-y-permisos.md), [matriz de autorización](../../../security/authorization-matrix.md) y pruebas backend | Completo |
+| Ejecución local | [`README.md`](../../../../README.md#instalación) y comprobaciones de este documento | Completo |
 | Video | A cargo del responsable del proyecto | Fuera del corte técnico |
 
 ## 3. Evidencia visual

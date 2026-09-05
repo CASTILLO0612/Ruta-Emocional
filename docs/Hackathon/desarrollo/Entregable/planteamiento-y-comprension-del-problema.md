@@ -76,9 +76,9 @@ El corte Aficionado / Desarrollo se considera comprobable cuando:
 
 ## 6. Trazabilidad
 
-- Alcance funcional completo: [`docs/product/mvp-definition.md`](../../product/mvp-definition.md).
-- Reglas de negocio: [`docs/domain/business-rules.md`](../../domain/business-rules.md).
-- Arquitectura: [`ADR-001`](../../architecture/ADR-001-postgresql-clean-architecture.md).
-- Seguridad: [`security-and-privacy.md`](../../security/security-and-privacy.md).
+- Alcance funcional completo: [`docs/product/mvp-definition.md`](../../../product/mvp-definition.md).
+- Reglas de negocio: [`docs/domain/business-rules.md`](../../../domain/business-rules.md).
+- Arquitectura: [`ADR-001`](../../../architecture/ADR-001-postgresql-clean-architecture.md).
+- Seguridad: [`security-and-privacy.md`](../../../security/security-and-privacy.md).
 - Evidencia del Hackathon: [`README.md`](README.md).
 

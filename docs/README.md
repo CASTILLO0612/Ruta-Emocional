@@ -27,7 +27,7 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 21. [ADR propuesto de objetos y secretos](architecture/ADR-002-object-storage-and-secrets-provider.md)
 22. [ADR de agenda segura](architecture/ADR-003-secure-appointment-agenda.md)
 23. [ADR de historia clínica segura](architecture/ADR-004-secure-clinical-records.md)
-24. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/README.md)
+24. [Entregable Hackathon Aficionado / Desarrollo](Hackathon/desarrollo/Entregable/README.md)
 25. [Aprobación profesional de MENTA](governance/triage-clinical-approval.md)
 26. [Verificación de recursos por país](governance/triage-resource-verification.md)
 27. [Borrador de retención MENTA](governance/triage-retention-policy-draft.md)
@@ -37,9 +37,9 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 31. [ADR histórico: triaje sin proveedor externo](architecture/ADR-005-no-external-menta-provider-for-mvp.md)
 32. [ADR: agente contextual MENTA](architecture/ADR-006-contextual-menta-agent.md)
 33. [Consolidación de acceso y recuperación de cuenta](roadmap/authentication-hardening.md)
-34. [Planteamiento del problema para Aficionado / Desarrollo](Hackathon/desarrollo/planteamiento-y-comprension-del-problema.md)
-35. [Matriz de cumplimiento de la entrega](Hackathon/desarrollo/matriz-cumplimiento-entrega.md)
-36. [Trazabilidad del DER al esquema vigente](Hackathon/desarrollo/trazabilidad-modelo-vigente.md)
+34. [Planteamiento del problema para Aficionado / Desarrollo](Hackathon/desarrollo/Entregable/planteamiento-y-comprension-del-problema.md)
+35. [Matriz de cumplimiento de la entrega](Hackathon/desarrollo/Entregable/matriz-cumplimiento-entrega.md)
+36. [Trazabilidad del DER al esquema vigente](Hackathon/desarrollo/Entregable/trazabilidad-modelo-vigente.md)
 
 ## Decisiones vigentes
 

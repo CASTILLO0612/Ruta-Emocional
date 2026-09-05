@@ -11,14 +11,14 @@ como brecha y no se disfraza dentro del diagrama.
 
 Fuentes internas revisadas:
 
-- [`mvp-definition.md`](../../product/mvp-definition.md);
-- [`business-rules.md`](../../domain/business-rules.md);
-- [`state-machines.md`](../../domain/state-machines.md);
-- [`schema.prisma`](../../../backend/prisma/schema.prisma);
-- cierres de fases de [solicitudes](../../roadmap/phase-4-service-requests-and-offers.md),
-  [mensajería](../../roadmap/phase-5-secure-messaging.md),
-  [agenda](../../roadmap/phase-6-secure-agenda.md) e
-  [historia clínica](../../roadmap/phase-7-secure-clinical-records.md).
+- [`mvp-definition.md`](../../../product/mvp-definition.md);
+- [`business-rules.md`](../../../domain/business-rules.md);
+- [`state-machines.md`](../../../domain/state-machines.md);
+- [`schema.prisma`](../../../../backend/prisma/schema.prisma);
+- cierres de fases de [solicitudes](../../../roadmap/phase-4-service-requests-and-offers.md),
+  [mensajería](../../../roadmap/phase-5-secure-messaging.md),
+  [agenda](../../../roadmap/phase-6-secure-agenda.md) e
+  [historia clínica](../../../roadmap/phase-7-secure-clinical-records.md).
 
 ## 2. Decisiones bloqueantes
 
@@ -183,6 +183,6 @@ entidades, 72 relaciones y 7 relaciones N:N.
 
 La matriz de trazabilidad entre decisiones conceptuales, esquema y restricciones
 está en
-[`../../database/conceptual-logical-alignment.md`](../../database/conceptual-logical-alignment.md).
+[`../../database/conceptual-logical-alignment.md`](../../../database/conceptual-logical-alignment.md).
 Estas extensiones no invalidan el DER: delimitan módulos aún no habilitados y no
 se representan como funcionalidad productiva terminada.
