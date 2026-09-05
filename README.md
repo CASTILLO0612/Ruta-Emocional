@@ -61,8 +61,7 @@ Ruta Emocional/
 │   │   └── migrations/         # Historial SQL inmutable
 │   ├── src/modules/            # Identidad, directorio, solicitudes, mensajería, agenda y clínica
 │   └── tests/                  # Pruebas unitarias e integración
-├── docs/                       # Arquitectura, seguridad, API, reglas y entregables
-├── output/pdf/                 # DER conceptual exportado
+├── docs/                       # Arquitectura, seguridad, API, entregables y Diagrama ER
 ├── compose.yaml                # PostgreSQL/PostGIS local
 └── package.json                # Scripts del monorepositorio
 ```
