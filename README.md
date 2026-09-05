@@ -2,7 +2,7 @@
 
 Ruta Emocional es una aplicación móvil que conecta pacientes con profesionales de psicología verificados. El flujo demostrable permite registrar cuentas, verificar localmente a un profesional, publicar solicitudes de atención, presentar y aceptar ofertas, conversar, gestionar citas y documentar un expediente clínico básico.
 
-El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La evidencia de la categoría **Aficionado / Desarrollo** se encuentra en [`docs/Hackathon/desarrollo/Entregable/`](docs/Hackathon/desarrollo/Entregable/README.md).
+El MVP usa PostgreSQL como fuente canónica para los módulos implementados. La evidencia de la categoría **Aficionado / Desarrollo** se encuentra en [`docs/Hackathon/desarrollo/Entregable/`](docs/Hackathon/desarrollo/Entregable/).
 
 ## Capacidades demostrables
 
