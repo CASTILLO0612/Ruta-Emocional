@@ -12,6 +12,8 @@ import {
   signOutUser,
 } from '../services/AuthService';
 import { ApiError } from '../services/apiClient';
+import { presentUserError } from '../utils/userFacingError';
+import { useRequestStore } from './useRequestStore';
 
 export interface UserProfile extends CurrentUser {
   readonly role: UserRole;
@@ -76,7 +78,6 @@ async function adoptAuthenticatedUser(user: CurrentUser): Promise<UserProfile> {
     try {
       await signOutUser();
     } catch {
-      // El servicio siempre elimina las credenciales locales al cerrar sesión.
     }
     throw error;
   }
@@ -95,10 +96,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const user = await restoreSession();
         if (!user) {
+          await useRequestStore.getState().clearSession();
           set({ ...anonymousState, isLoading: false });
           return;
         }
         const profile = toUserProfile(user);
+        useRequestStore.getState().bindSession(profile.id);
         set({
           userProfile: profile,
           isAuthenticated: true,
@@ -112,13 +115,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           try {
             await signOutUser();
           } catch {
-            // La sesión local se elimina en el bloque finally del servicio.
           }
         }
         set({
           ...anonymousState,
           isLoading: false,
-          initializationError: error instanceof Error ? error.message : 'No pudimos restaurar la sesión.',
+          initializationError: presentUserError(error, 'No pudimos restaurar la sesión.'),
         });
       }
     })();
@@ -133,6 +135,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authenticate: async (email, password) => {
     const user = await signInRequest(email, password);
     const profile = await adoptAuthenticatedUser(user);
+    useRequestStore.getState().bindSession(profile.id);
     set({
       userProfile: profile,
       isAuthenticated: true,
@@ -144,6 +147,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   registerAccount: async (input) => {
     const user = await registerUserRequest(input);
     const profile = await adoptAuthenticatedUser(user);
+    useRequestStore.getState().bindSession(profile.id);
     set({
       userProfile: profile,
       isAuthenticated: true,
@@ -155,6 +159,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshProfile: async () => {
     const user = await getCurrentUser();
     const profile = toUserProfile(user, get().userProfile);
+    useRequestStore.getState().bindSession(profile.id);
     set({
       userProfile: profile,
       isAuthenticated: true,
@@ -164,22 +169,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    const userId = get().userProfile?.id;
+    const clearRequestSession = useRequestStore.getState().clearSession(userId);
     try {
       await signOutUser();
     } finally {
+      await clearRequestSession;
       set({ ...anonymousState, isLoading: false, initializationError: null });
     }
   },
 
   signOutAll: async () => {
+    const userId = get().userProfile?.id;
+    const clearRequestSession = useRequestStore.getState().clearSession(userId);
     try {
       await signOutAllSessions();
     } finally {
+      await clearRequestSession;
       set({ ...anonymousState, isLoading: false, initializationError: null });
     }
   },
 
   setUserProfile: (profile) => {
+    useRequestStore.getState().bindSession(profile.id);
     set({
       userProfile: profile,
       isAuthenticated: true,
@@ -191,6 +203,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 setSessionInvalidHandler(() => {
+  const userId = useAuthStore.getState().userProfile?.id;
+  void useRequestStore.getState().clearSession(userId);
   useAuthStore.setState({
     ...anonymousState,
     isLoading: false,

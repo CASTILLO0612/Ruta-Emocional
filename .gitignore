@@ -10,6 +10,7 @@ docs/Hackathon/Identidad Visual/
 dist/
 **/dist
 web-build/
+.qa-*-build/
 expo-env.d.ts
 
 .kotlin/
@@ -21,6 +22,8 @@ expo-env.d.ts
 *.mobileprovision
 
 .metro-health-check*
+.expo-*.log
+.mobile-qa.*.log
 
 npm-debug.*
 yarn-debug.*

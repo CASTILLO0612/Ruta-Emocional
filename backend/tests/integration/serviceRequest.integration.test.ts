@@ -113,7 +113,7 @@ async function registerPsychologist(
   return { userId: body.data.user.id, accessToken: body.data.tokens.accessToken };
 }
 
-test('service request HTTP flow enforces ownership, eligibility, idempotency and one concurrent winner', {
+test('service request HTTP flow enforces ownership, idempotency, one winner and active-relationship reuse', {
   skip: !testDatabaseUrl,
 }, async () => {
   const databaseUrl = testDatabaseUrl!;
@@ -490,7 +490,11 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
     assert.equal(await dispatcher.drainOnce(), 1);
     assert.equal(deliveredMessages[0].id, sent.data.message.id);
     assert.equal(await prisma.outboxEvent.count({
-      where: { eventType: 'message.created', publishedAt: { not: null } },
+      where: {
+        aggregateId: winner.data.conversationId,
+        eventType: 'message.created',
+        publishedAt: { not: null },
+      },
     }), 1);
 
     const persistedOffers = await prisma.offer.findMany({
@@ -505,6 +509,62 @@ test('service request HTTP flow enforces ownership, eligibility, idempotency and
     assert.equal(await prisma.outboxEvent.count({
       where: { aggregateId: createdRequest.data.id, eventType: 'offer.accepted' },
     }), 1);
+
+    const followUpCreation = await fetch(`${baseUrl}/service-requests`, {
+      method: 'POST',
+      headers: authenticatedHeaders(patient.accessToken, randomUUID()),
+      body: JSON.stringify(creationBody),
+    });
+    assert.equal(followUpCreation.status, 201);
+    const followUpRequest = await readJson<RequestResponse>(followUpCreation);
+    requestIds.push(followUpRequest.data.id);
+
+    const winningProfessional = offerInputs[winnerIndex].professional;
+    const followUpOfferResponse = await fetch(
+      `${baseUrl}/service-requests/${followUpRequest.data.id}/offers`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(winningProfessional.accessToken, randomUUID()),
+        body: JSON.stringify({ price: { amount: '500.00' } }),
+      }
+    );
+    assert.equal(followUpOfferResponse.status, 201);
+    const followUpOffer = await readJson<OfferResponse>(followUpOfferResponse);
+    const followUpAcceptanceKey = randomUUID();
+    const followUpAcceptanceResponse = await fetch(
+      `${baseUrl}/service-requests/${followUpRequest.data.id}/offers/${followUpOffer.data.id}/accept`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken, followUpAcceptanceKey),
+      }
+    );
+    assert.equal(followUpAcceptanceResponse.status, 200);
+    const followUpAcceptance = await readJson<AcceptanceResponse>(followUpAcceptanceResponse);
+    assert.equal(followUpAcceptance.data.careRelationshipId, winner.data.careRelationshipId);
+    assert.equal(followUpAcceptance.data.conversationId, winner.data.conversationId);
+    assert.equal(await prisma.careRelationship.count({
+      where: {
+        patientProfile: { userId: patient.userId },
+        psychologistProfile: { userId: winningProfessional.userId },
+        status: 'ACTIVE',
+      },
+    }), 1);
+    assert.equal(await prisma.careRelationshipSource.count({
+      where: { careRelationshipId: winner.data.careRelationshipId },
+    }), 1, 'reusing a relationship must preserve its original accepted-offer provenance');
+
+    const followUpReplayResponse = await fetch(
+      `${baseUrl}/service-requests/${followUpRequest.data.id}/offers/${followUpOffer.data.id}/accept`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken, followUpAcceptanceKey),
+      }
+    );
+    assert.equal(followUpReplayResponse.status, 200);
+    const followUpReplay = await readJson<AcceptanceResponse>(followUpReplayResponse);
+    assert.equal(followUpReplay.data.replayed, true);
+    assert.equal(followUpReplay.data.careRelationshipId, winner.data.careRelationshipId);
+    assert.equal(followUpReplay.data.conversationId, winner.data.conversationId);
   } finally {
     const userIds = actors.map(({ userId }) => userId);
     if (userIds.length > 0) {

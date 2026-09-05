@@ -46,10 +46,10 @@ import {
   requestTriageErasure,
   withdrawTriageConsent,
 } from '../../repositories/TriageRepository';
-import { ApiError } from '../../services/apiClient';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
+import { presentUserError } from '../../utils/userFacingError';
 
 const MODALITY_LABELS: Readonly<Record<TriageModality, string>> = {
   CHAT: 'Chat seguro',
@@ -79,8 +79,7 @@ interface PendingAttempt {
 type PrivacyAction = 'WITHDRAW_CONSENT' | 'REQUEST_ERASURE';
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ApiError || error instanceof Error) return error.message;
-  return 'No pudimos completar la orientación. Intenta nuevamente.';
+  return presentUserError(error, 'No pudimos completar la orientación. Inténtalo nuevamente.');
 }
 
 function riskColor(riskLevel: TriageRiskLevel): string {
@@ -294,6 +293,7 @@ export const MentaScreen: React.FC = () => {
                         accessibilityLabel={option.label}
                         accessibilityHint={option.helpText ?? undefined}
                         accessibilityState={{ checked: selected }}
+                        aria-checked={selected}
                       >
                         {selected
                           ? <CircleDot size={20} color={Colors.primary} strokeWidth={2} />
@@ -323,6 +323,7 @@ export const MentaScreen: React.FC = () => {
               accessibilityLabel={`Aceptar ${policy.consentDocument.title}, versión ${policy.consentDocument.version}`}
               accessibilityHint="Puedes retirar este consentimiento después desde la evaluación."
               accessibilityState={{ checked: consentGranted }}
+              aria-checked={consentGranted}
             >
               {consentGranted
                 ? <SquareCheckBig size={23} color={Colors.primary} strokeWidth={2} />
@@ -371,6 +372,8 @@ export const MentaScreen: React.FC = () => {
           : 'La evaluación quedará bloqueada mientras se revisan las obligaciones legales de conservación y eliminación.'}
         confirmText={privacyAction === 'WITHDRAW_CONSENT' ? 'Retirar' : 'Enviar solicitud'}
         cancelText="Volver"
+        tone="warning"
+        confirmDestructive={privacyAction === 'WITHDRAW_CONSENT'}
         showCancel
         onCancel={() => !privacyBusy && setPrivacyAction(null)}
         onConfirm={() => void confirmPrivacyAction()}

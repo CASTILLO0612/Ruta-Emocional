@@ -1,7 +1,7 @@
 # Refactor transversal de identidad visual
 
 **Estado:** implementado y validado localmente
-**Alcance:** frontend Expo SDK 57, sin cambios en contratos HTTP ni reglas de negocio
+**Alcance:** frontend Expo SDK 57 y consolidación aditiva del acceso; se preservan los contratos y reglas de negocio existentes
 
 ## 1. Objetivo
 
@@ -78,7 +78,7 @@ pantalla declara colores hexadecimales o valores RGB por su cuenta.
 
 El refactor se aplicó a:
 
-- acceso y registro;
+- acceso, registro, recuperación de contraseña e información legal;
 - inicio y directorio del paciente;
 - búsqueda y recepción de propuestas;
 - perfil público del psicólogo;
@@ -111,14 +111,14 @@ parche recomendadas para Expo SDK 57 también quedaron fijadas y verificadas.
 
 ## 6. Verificación ejecutada
 
-Se completaron correctamente:
+Se completaron correctamente en el último corte:
 
 ```text
 npm run typecheck
+npm test -- --runInBand
 npm run validate:design
 npm run validate:native-config
-npx expo install --check
-npx expo export --platform all
+npx expo export --platform web
 ```
 
 La revisión visual en Expo Web se realizó con viewport móvil de 390 × 844 y con
@@ -132,14 +132,13 @@ correctamente sus adaptadores específicos.
 
 ## 7. Pendientes explícitos
 
-1. Sustituir los pictogramas temporales de cabecera por el logotipo/isotipo
-   oficial cuando se entregue el activo maestro en SVG o PNG transparente. No se
-   debe reconstruir el logotipo a partir de una captura comprimida.
-2. Ejecutar pruebas manuales de accesibilidad, escalado de texto y contraste en
+1. Ejecutar pruebas manuales de accesibilidad, escalado de texto y contraste en
    Android físico y, cuando exista disponibilidad, en iOS.
-3. Añadir regresión visual automatizada cuando el pipeline de CI disponga de un
+2. Añadir regresión visual automatizada cuando el pipeline de CI disponga de un
    entorno estable para renderizar Expo Web.
-4. Dar seguimiento a las vulnerabilidades transitivas moderadas que permanecen
+3. Dar seguimiento a las vulnerabilidades transitivas moderadas que permanecen
    en Expo y React Navigation. El hallazgo alto de `browserslist` se corrigió con
    `npm audit fix`; no se aplicó `--force` porque la resolución propuesta degrada
    versiones mayores e introduce cambios incompatibles.
+4. Configurar el proveedor y dominio de correo de recuperación antes de declarar
+   el acceso listo para producción.

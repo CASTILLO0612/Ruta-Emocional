@@ -30,6 +30,7 @@ import { Colors } from '../../theme/colors';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
 import { showAlert } from '../../utils/alert';
+import { presentUserError } from '../../utils/userFacingError';
 
 const REJECTION_REASON_MIN_LENGTH = 10;
 
@@ -69,7 +70,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, onDecided }) => {
     } catch (error) {
       showAlert(
         'No pudimos registrar la decisión',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+        presentUserError(error, 'La decisión no se guardó. Inténtalo nuevamente.')
       );
     } finally {
       setIsSubmitting(false);
@@ -161,7 +162,7 @@ export const VerificationQueueScreen: React.FC = () => {
         if (error instanceof Error && error.name === 'AbortError') return;
         showAlert(
           'No pudimos cargar las verificaciones',
-          error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+          presentUserError(error, 'No pudimos cargar las verificaciones. Inténtalo nuevamente.')
         );
       })
       .finally(() => setIsLoading(false));
@@ -175,7 +176,7 @@ export const VerificationQueueScreen: React.FC = () => {
     } catch (error) {
       showAlert(
         'No pudimos actualizar la cola',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+        presentUserError(error, 'No pudimos actualizar la cola. Inténtalo nuevamente.')
       );
     } finally {
       setIsRefreshing(false);

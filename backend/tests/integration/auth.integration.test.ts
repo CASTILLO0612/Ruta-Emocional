@@ -39,6 +39,16 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       scryptP: 1,
       keyLength: 32,
     },
+    passwordRecovery: {
+      provider: 'DISABLED',
+      resendApiKey: null,
+      sender: null,
+      resetUrl: null,
+      tokenTtlMinutes: 30,
+      requestsPerHour: 20,
+      providerTimeoutMs: 1_000,
+      exposeTokenForLocalQa: true,
+    },
     professionalDirectory: {
       defaultPageSize: 20,
       maxPageSize: 50,
@@ -171,6 +181,63 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       headers: { authorization: `Bearer ${loginBody.data.tokens.accessToken}` },
     });
     assert.equal(afterLogout.status, 401);
+
+    const resetRequest = await fetch(`${baseUrl}/auth/password-reset/request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    assert.equal(resetRequest.status, 202);
+    const resetRequestBody = await resetRequest.json() as {
+      data: { accepted: true; delivery: string; localQaToken?: string };
+    };
+    assert.equal(resetRequestBody.data.delivery, 'LOCAL_QA');
+    assert.ok(resetRequestBody.data.localQaToken);
+
+    const resetCompletion = await fetch(`${baseUrl}/auth/password-reset/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        token: resetRequestBody.data.localQaToken,
+        password: 'integration-new-passphrase',
+      }),
+    });
+    assert.equal(resetCompletion.status, 204);
+
+    const oldPasswordLogin = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'integration-test-passphrase' }),
+    });
+    assert.equal(oldPasswordLogin.status, 401);
+    const newPasswordLogin = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'integration-new-passphrase' }),
+    });
+    assert.equal(newPasswordLogin.status, 200);
+
+    const resetReplay = await fetch(`${baseUrl}/auth/password-reset/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        token: resetRequestBody.data.localQaToken,
+        password: 'integration-replayed-passphrase',
+      }),
+    });
+    assert.equal(resetReplay.status, 400);
+
+    const unknownResetRequest = await fetch(`${baseUrl}/auth/password-reset/request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: `missing-${email}` }),
+    });
+    assert.equal(unknownResetRequest.status, 202);
+    const unknownResetBody = await unknownResetRequest.json() as {
+      data: { accepted: true; delivery: string; localQaToken?: string };
+    };
+    assert.equal(unknownResetBody.data.accepted, true);
+    assert.equal(unknownResetBody.data.localQaToken, undefined);
 
     const psychologistEmail = `integration-psychologist-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
     const psychologistRegistration = await fetch(`${baseUrl}/auth/register/psychologist`, {

@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '../../components/shared/AppHeader';
+import { AsyncState } from '../../components/shared/AsyncState';
 import type { AppNavigation } from '../../navigation/navigationTypes';
 import {
   Conversation,
@@ -22,22 +24,12 @@ import { BorderRadius, Spacing } from '../../theme/spacing';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { IconSize, IconStroke } from '../../theme/icons';
-
-function displayActivity(isoDate: string): string {
-  const date = new Date(isoDate);
-  const today = new Date();
-  const sameDay = date.getFullYear() === today.getFullYear()
-    && date.getMonth() === today.getMonth()
-    && date.getDate() === today.getDate();
-  return new Intl.DateTimeFormat('es-NI', sameDay
-    ? { hour: '2-digit', minute: '2-digit' }
-    : { day: '2-digit', month: 'short' }
-  ).format(date);
-}
-
-function roleLabel(role: Conversation['counterpart']['role']): string {
-  return role === 'psychologist' ? 'Profesional de psicología' : 'Paciente';
-}
+import { Layout } from '../../theme/layout';
+import {
+  formatConversationActivity,
+  getConversationRoleLabel,
+} from '../../utils/messagingPresentation';
+import { presentUserError } from '../../utils/userFacingError';
 
 export const InboxScreen: React.FC = () => {
   const navigation = useNavigation<AppNavigation>();
@@ -56,9 +48,10 @@ export const InboxScreen: React.FC = () => {
       setNextCursor(page.page.nextCursor);
     } catch (loadError) {
       if (loadError instanceof Error && loadError.name === 'AbortError') return;
-      setError(loadError instanceof Error
-        ? loadError.message
-        : 'No pudimos cargar tus conversaciones.');
+      setError(presentUserError(
+        loadError,
+        'No pudimos cargar tus conversaciones. Inténtalo nuevamente.'
+      ));
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
@@ -87,33 +80,31 @@ export const InboxScreen: React.FC = () => {
       });
       setNextCursor(page.page.nextCursor);
     } catch (loadError) {
-      setError(loadError instanceof Error
-        ? loadError.message
-        : 'No pudimos cargar más conversaciones.');
+      setError(presentUserError(
+        loadError,
+        'No pudimos cargar más conversaciones. Inténtalo nuevamente.'
+      ));
     } finally {
       setIsLoadingMore(false);
     }
   }, [isLoadingMore, nextCursor]);
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.centered}>
-          <ActivityIndicator color={Colors.primary} size="large" />
-          <Text style={styles.supportingText}>Cargando conversaciones</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Mensajes</Text>
-        <Text style={styles.subtitle}>Conversaciones vinculadas a tu atención</Text>
-      </View>
+    <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
+      <AppHeader title="Mensajes" subtitle="Conversaciones de atención" showBack />
 
-      {error ? (
+      <AsyncState
+        isLoading={isLoading}
+        loadingMessage="Cargando conversaciones"
+        error={conversations.length === 0 ? error : null}
+        errorTitle="No pudimos abrir tus mensajes"
+        onRetry={() => void refresh()}
+        isEmpty={!error && conversations.length === 0}
+        emptyIcon={MessageCircle}
+        emptyTitle="Aún no hay conversaciones"
+        emptyMessage="Aparecerán aquí después de aceptar una oferta y establecer la relación de atención."
+      >
+      {error && conversations.length > 0 ? (
         <Pressable
           accessibilityRole="button"
           onPress={() => void refresh()}
@@ -130,7 +121,7 @@ export const InboxScreen: React.FC = () => {
       <FlatList
         data={conversations}
         keyExtractor={({ id }) => id}
-        contentContainerStyle={conversations.length === 0 ? styles.emptyList : styles.list}
+        contentContainerStyle={styles.list}
         refreshControl={(
           <RefreshControl
             refreshing={isRefreshing}
@@ -157,9 +148,9 @@ export const InboxScreen: React.FC = () => {
                 <Text numberOfLines={1} style={styles.name}>
                   {item.counterpart.displayName}
                 </Text>
-                <Text style={styles.time}>{displayActivity(item.activityAt)}</Text>
+                <Text style={styles.time}>{formatConversationActivity(item.activityAt)}</Text>
               </View>
-              <Text style={styles.role}>{roleLabel(item.counterpart.role)}</Text>
+              <Text style={styles.role}>{getConversationRoleLabel(item.counterpart.role)}</Text>
               <Text numberOfLines={1} style={styles.preview}>
                 {item.lastMessage
                   ? `${item.lastMessage.isOwn ? 'Tú: ' : ''}${item.lastMessage.text}`
@@ -169,40 +160,26 @@ export const InboxScreen: React.FC = () => {
             <ChevronRight size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
           </Pressable>
         )}
-        ListEmptyComponent={(
-          <View style={styles.centered}>
-            <View style={styles.emptyIcon}>
-              <MessageCircle size={IconSize.state} strokeWidth={IconStroke.regular} color={Colors.primary} />
-            </View>
-            <Text style={styles.emptyTitle}>Aún no hay conversaciones</Text>
-            <Text style={styles.emptyText}>
-              Aparecerán aquí después de aceptar una oferta y establecer la relación de atención.
-            </Text>
-          </View>
-        )}
         ListFooterComponent={isLoadingMore
           ? <ActivityIndicator style={styles.footer} color={Colors.primary} />
           : null}
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={0.35}
       />
+      </AsyncState>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.base,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.divider,
+  list: {
+    width: '100%',
+    maxWidth: Layout.maxReadableWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
   },
-  title: { ...Typography.h1, color: Colors.textPrimary },
-  subtitle: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xs },
-  list: { paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm },
-  emptyList: { flexGrow: 1 },
   row: {
     minHeight: 88,
     flexDirection: 'row',
@@ -228,29 +205,6 @@ const styles = StyleSheet.create({
   time: { ...Typography.caption, color: Colors.textTertiary },
   role: { ...Typography.caption, color: Colors.primary, marginTop: Spacing.xxs },
   preview: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xs },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xxl,
-  },
-  supportingText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primaryTint,
-    marginBottom: Spacing.base,
-  },
-  emptyTitle: { ...Typography.h3, color: Colors.textPrimary, textAlign: 'center' },
-  emptyText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-  },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -262,6 +216,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.errorSurface,
     borderWidth: 1,
     borderColor: Colors.errorBorder,
+    width: '100%',
+    maxWidth: Layout.maxReadableWidth,
+    alignSelf: 'center',
   },
   errorCopy: { flex: 1 },
   errorText: { ...Typography.bodySmall, color: Colors.error },

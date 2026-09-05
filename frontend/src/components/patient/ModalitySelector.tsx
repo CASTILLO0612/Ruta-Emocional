@@ -57,6 +57,10 @@ export const ModalitySelector: React.FC<ModalitySelectorProps> = ({
               onPress={() => onSelect(option.key)}
               activeOpacity={0.85}
               style={[styles.chip, isActive && styles.chipActive]}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: isActive }}
+              aria-checked={isActive}
+              accessibilityLabel={`${option.label}. ${option.description}`}
             >
               <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
                 <ModalityIcon

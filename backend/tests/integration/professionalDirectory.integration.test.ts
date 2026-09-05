@@ -65,6 +65,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
       scryptP: 1,
       keyLength: 32,
     },
+    passwordRecovery: createTestConfig(databaseUrl, 'directory-integration').passwordRecovery,
     professionalDirectory: {
       defaultPageSize: 20,
       maxPageSize: 50,

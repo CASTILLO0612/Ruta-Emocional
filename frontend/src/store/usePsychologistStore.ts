@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Psychologist } from '../models/Psychologist';
 import { getAvailablePsychologists } from '../repositories/PsychologistRepository';
+import { presentUserError } from '../utils/userFacingError';
 
 interface PsychologistState {
   psychologists: Psychologist[];
@@ -26,7 +27,10 @@ export const usePsychologistStore = create<PsychologistState>((set) => ({
       set({ psychologists: list, isLoading: false });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return;
-      set({ error: `${error}`, isLoading: false });
+      set({
+        error: presentUserError(error, 'No pudimos cargar los profesionales disponibles.'),
+        isLoading: false,
+      });
     }
   },
 

@@ -33,6 +33,8 @@ import type {
   PsychologistProfileRoute,
 } from '../../navigation/navigationTypes';
 import { formatModalityLabel } from '../../utils/modality';
+import { formatDecimalMoney } from '../../utils/formatDecimalMoney';
+import { presentUserError } from '../../utils/userFacingError';
 
 function ModalityIcon({ modality }: { readonly modality: Modality }) {
   if (modality === 'chat') return <MessageCircle size={16} color={Colors.primary} strokeWidth={1.9} />;
@@ -62,7 +64,7 @@ export const PsychologistProfileScreen: React.FC = () => {
       .then(setPsychologist)
       .catch((error) => {
         if (error instanceof Error && error.name === 'AbortError') return;
-        setLoadError(error instanceof Error ? error.message : 'No pudimos cargar el perfil.');
+        setLoadError(presentUserError(error, 'No pudimos cargar el perfil. Inténtalo nuevamente.'));
       })
       .finally(() => setIsLoading(false));
     return () => controller.abort();
@@ -134,7 +136,7 @@ export const PsychologistProfileScreen: React.FC = () => {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
-              {psychologist.currencyCode} {psychologist.pricePerHour}
+              {formatDecimalMoney(psychologist.pricePerHour, psychologist.currencyCode)}
             </Text>
             <Text style={styles.statLabel}>desde / hora</Text>
           </View>
@@ -220,8 +222,8 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     margin: Spacing.md,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.surfaceOnBrand,
     alignItems: 'center',

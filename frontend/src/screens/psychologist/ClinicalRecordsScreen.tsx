@@ -21,22 +21,27 @@ import { FilePlus2, Plus, X as MorphX } from 'lucide';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  ClinicalEditorSheet,
+  ClinicalEditorMode,
+} from '../../components/clinical/ClinicalEditorSheet';
 import { AppButton } from '../../components/common/AppButton';
+import { AppHeader } from '../../components/shared/AppHeader';
 import { AppMorphIcon } from '../../components/common/AppMorphIcon';
+import { showAlert } from '../../utils/alert';
+import { presentUserError } from '../../utils/userFacingError';
 import {
   amendClinicalNote,
   ClinicalEncounter,
-  ClinicalNote,
   ClinicalNoteVersion,
   ClinicalPatient,
   ClinicalPolicy,
@@ -61,45 +66,16 @@ import {
 } from '../../repositories/TriageRepository';
 import { Colors } from '../../theme/colors';
 import { IconSize, IconStroke } from '../../theme/icons';
+import {
+  formatClinicalDate,
+  getNextGoalStatus,
+  GOAL_STATUS_LABELS,
+  NOTE_STATUS_LABELS,
+  PLAN_STATUS_LABELS,
+} from '../../utils/clinicalPresentation';
 import { clinicalRecordsStyles as styles } from './clinicalRecordsStyles';
 
-type EditorMode = 'ENCOUNTER' | 'DRAFT' | 'AMENDMENT' | 'PLAN' | null;
-
-const NOTE_STATUS_LABELS: Record<ClinicalNote['status'], string> = {
-  DRAFT: 'Borrador',
-  SIGNED: 'Firmada',
-  AMENDED: 'Enmendada',
-};
-
-const PLAN_STATUS_LABELS: Record<TreatmentPlan['status'], string> = {
-  DRAFT: 'Borrador',
-  ACTIVE: 'Activo',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-};
-
-const GOAL_STATUS_LABELS: Record<TreatmentGoalStatus, string> = {
-  PENDING: 'Pendiente',
-  IN_PROGRESS: 'En progreso',
-  ACHIEVED: 'Alcanzado',
-  CANCELLED: 'Cancelado',
-};
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('es-NI', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function nextGoalStatus(status: TreatmentGoalStatus): TreatmentGoalStatus | null {
-  if (status === 'PENDING') return 'IN_PROGRESS';
-  if (status === 'IN_PROGRESS') return 'ACHIEVED';
-  return null;
-}
+type RecordSection = 'OVERVIEW' | 'PLAN' | 'NOTES';
 
 export const ClinicalRecordsScreen: React.FC = () => {
   const [policy, setPolicy] = useState<ClinicalPolicy | null>(null);
@@ -112,7 +88,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
   const [isLoadingRecord, setIsLoadingRecord] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editorMode, setEditorMode] = useState<EditorMode>(null);
+  const [editorMode, setEditorMode] = useState<ClinicalEditorMode>(null);
   const [editingEncounter, setEditingEncounter] = useState<ClinicalEncounter | null>(null);
   const [noteContent, setNoteContent] = useState('');
   const [encounterReason, setEncounterReason] = useState('');
@@ -122,6 +98,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
   const [versions, setVersions] = useState<readonly ClinicalNoteVersion[] | null>(null);
   const [versionsNoteId, setVersionsNoteId] = useState<string | null>(null);
   const [triageAssessment, setTriageAssessment] = useState<TriageAssessment | null>(null);
+  const [recordSection, setRecordSection] = useState<RecordSection>('OVERVIEW');
 
   const selectedPatient = useMemo(
     () => patients.find(({ patientUserId }) => patientUserId === selectedPatientId) ?? null,
@@ -159,7 +136,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
       else setRecord(null);
     } catch (loadError) {
       if (loadError instanceof Error && loadError.name === 'AbortError') return;
-      setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los expedientes.');
+      setError(presentUserError(loadError, 'No pudimos cargar los expedientes. Inténtalo nuevamente.'));
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
@@ -184,11 +161,12 @@ export const ClinicalRecordsScreen: React.FC = () => {
     setRecord(null);
     setEditorMode(null);
     setVersions(null);
+    setRecordSection('OVERVIEW');
     setError(null);
     try {
       await loadRecord(patientUserId);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No pudimos abrir el expediente.');
+      setError(presentUserError(loadError, 'No pudimos abrir el expediente. Inténtalo nuevamente.'));
     }
   }, [loadRecord]);
 
@@ -198,7 +176,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
     try {
       setTriageAssessment(await fetchTriageAssessment(assessmentId));
     } catch (triageError) {
-      setError(triageError instanceof Error ? triageError.message : 'No pudimos abrir la orientación.');
+      setError(presentUserError(triageError, 'No pudimos abrir la orientación. Inténtalo nuevamente.'));
     } finally {
       setBusyAction(null);
     }
@@ -211,7 +189,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
     try {
       setTriageAssessment(await reviewTriageAssessment(triageAssessment.id));
     } catch (triageError) {
-      setError(triageError instanceof Error ? triageError.message : 'No pudimos registrar la revisión.');
+      setError(presentUserError(triageError, 'No pudimos registrar la revisión. Inténtalo nuevamente.'));
     } finally {
       setBusyAction(null);
     }
@@ -232,6 +210,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
     setNoteContent('');
     setEncounterReason('');
     setAmendmentReason('');
+    setRecordSection('NOTES');
     setEditorMode('ENCOUNTER');
   }, []);
 
@@ -240,8 +219,26 @@ export const ClinicalRecordsScreen: React.FC = () => {
     setNoteContent(encounter.note.content);
     setEncounterReason('');
     setAmendmentReason('');
+    setRecordSection('NOTES');
     setEditorMode(mode);
   }, []);
+
+  const selectRecordSection = useCallback((section: RecordSection) => {
+    if (editorMode || busyAction) return;
+    setRecordSection(section);
+    setVersions(null);
+    setVersionsNoteId(null);
+    if (section !== 'OVERVIEW') setTriageAssessment(null);
+  }, [busyAction, editorMode]);
+
+  const togglePlanEditor = useCallback(() => {
+    if (editorMode === 'PLAN') {
+      closeEditor();
+      return;
+    }
+    setRecordSection('PLAN');
+    setEditorMode('PLAN');
+  }, [closeEditor, editorMode]);
 
   const runMutation = useCallback(async (
     actionId: string,
@@ -255,7 +252,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
       const patientPage = await fetchClinicalPatients();
       setPatients(patientPage.data);
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : 'No pudimos guardar los cambios.');
+      setError(presentUserError(mutationError, 'No pudimos guardar los cambios. Inténtalo nuevamente.'));
     } finally {
       setBusyAction(null);
     }
@@ -309,7 +306,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
         } : current);
         closeEditor();
       } catch (mutationError) {
-        setError(mutationError instanceof Error ? mutationError.message : 'No pudimos crear el plan.');
+        setError(presentUserError(mutationError, 'No pudimos crear el plan. Inténtalo nuevamente.'));
       } finally {
         setBusyAction(null);
       }
@@ -329,7 +326,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
   ]);
 
   const confirmSign = useCallback((encounter: ClinicalEncounter) => {
-    Alert.alert(
+    showAlert(
       'Firmar nota clínica',
       'Después de firmarla no podrá editarse. Cualquier corrección quedará registrada como una enmienda.',
       [
@@ -342,7 +339,8 @@ export const ClinicalRecordsScreen: React.FC = () => {
             randomUUID()
           )),
         },
-      ]
+      ],
+      'warning'
     );
   }, [runMutation]);
 
@@ -358,7 +356,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
       setVersions(await fetchClinicalNoteVersions(noteId));
       setVersionsNoteId(noteId);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar las versiones.');
+      setError(presentUserError(loadError, 'No pudimos cargar las versiones. Inténtalo nuevamente.'));
     } finally {
       setBusyAction(null);
     }
@@ -380,21 +378,21 @@ export const ClinicalRecordsScreen: React.FC = () => {
     try {
       replacePlan(await transitionTreatmentPlan(plan.id, transition, randomUUID()));
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : 'No pudimos actualizar el plan.');
+      setError(presentUserError(mutationError, 'No pudimos actualizar el plan. Inténtalo nuevamente.'));
     } finally {
       setBusyAction(null);
     }
   }, [replacePlan]);
 
   const advanceGoal = useCallback(async (goalId: string, status: TreatmentGoalStatus) => {
-    const next = nextGoalStatus(status);
+    const next = getNextGoalStatus(status);
     if (!next) return;
     setBusyAction(goalId);
     setError(null);
     try {
       replacePlan(await updateTreatmentGoalStatus(goalId, next, randomUUID()));
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : 'No pudimos actualizar el objetivo.');
+      setError(presentUserError(mutationError, 'No pudimos actualizar el objetivo. Inténtalo nuevamente.'));
     } finally {
       setBusyAction(null);
     }
@@ -432,17 +430,15 @@ export const ClinicalRecordsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <View style={styles.flex}>
-          <Text style={styles.title}>Pacientes</Text>
-          <Text style={styles.subtitle}>Historia clínica privada y versionada</Text>
-        </View>
-        <View style={styles.securityMark} accessibilityLabel="Contenido cifrado">
-          <LockKeyhole size={18} color={Colors.primary} strokeWidth={1.9} />
-          <Text style={styles.securityText}>Privado</Text>
-        </View>
-      </View>
+    <SafeAreaView style={styles.screen} edges={['left', 'right']}>
+      <AppHeader
+        title="Pacientes"
+        subtitle="Historia clínica privada y versionada"
+        showBrand={false}
+        showBrandMark
+        showMenta
+        showInbox
+      />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -474,14 +470,23 @@ export const ClinicalRecordsScreen: React.FC = () => {
           </View>
         ) : (
           <>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.patientStrip}>
-              {patients.map((patient) => {
+            <FlatList
+              horizontal
+              data={patients}
+              keyExtractor={({ patientUserId }) => patientUserId}
+              showsHorizontalScrollIndicator={false}
+              style={styles.patientStrip}
+              contentContainerStyle={styles.patientStripContent}
+              initialNumToRender={5}
+              windowSize={5}
+              renderItem={({ item: patient }) => {
                 const selected = patient.patientUserId === selectedPatientId;
                 return (
                   <Pressable
                     key={patient.patientUserId}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
+                    aria-pressed={selected}
                     onPress={() => void choosePatient(patient.patientUserId)}
                     style={[styles.patientChip, selected && styles.patientChipSelected]}
                   >
@@ -499,13 +504,13 @@ export const ClinicalRecordsScreen: React.FC = () => {
                       <Text style={[styles.patientMeta, selected && styles.patientMetaSelected]}>
                         {patient.draftNotesCount > 0
                           ? `${patient.draftNotesCount} borrador${patient.draftNotesCount === 1 ? '' : 'es'}`
-                          : patient.lastEncounterAt ? formatDate(patient.lastEncounterAt) : 'Sin encuentros'}
+                          : patient.lastEncounterAt ? formatClinicalDate(patient.lastEncounterAt) : 'Sin encuentros'}
                       </Text>
                     </View>
                   </Pressable>
                 );
-              })}
-            </ScrollView>
+              }}
+            />
 
             {isLoadingRecord ? (
               <ActivityIndicator style={styles.recordLoader} color={Colors.primary} />
@@ -532,6 +537,56 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     />
                   </Pressable>
                 </View>
+
+                <View style={styles.recordNavigation} accessibilityRole="tablist">
+                  {([
+                    ['OVERVIEW', 'Resumen'],
+                    ['PLAN', 'Plan'],
+                    ['NOTES', 'Notas'],
+                  ] as const).map(([value, label]) => {
+                    const selected = recordSection === value;
+                    return (
+                      <Pressable
+                        key={value}
+                        onPress={() => selectRecordSection(value)}
+                        disabled={Boolean(editorMode || busyAction)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected, disabled: Boolean(editorMode || busyAction) }}
+                        aria-selected={selected}
+                        style={[styles.recordTab, selected && styles.recordTabSelected]}
+                      >
+                        <Text style={[styles.recordTabText, selected && styles.recordTabTextSelected]}>
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {recordSection === 'OVERVIEW' ? (
+                  <View style={styles.overviewSection}>
+                    <View style={styles.clinicalSummary}>
+                      <View style={styles.summaryMetric}>
+                        <Text style={styles.summaryValue}>{record.encounters.length}</Text>
+                        <Text style={styles.summaryLabel}>Encuentros</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+                      <View style={styles.summaryMetric}>
+                        <Text style={styles.summaryValue}>{record.treatmentPlans.length}</Text>
+                        <Text style={styles.summaryLabel}>Planes</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+                      <View style={styles.summaryMetric}>
+                        <Text style={styles.summaryValue}>{selectedPatient.draftNotesCount}</Text>
+                        <Text style={styles.summaryLabel}>Borradores</Text>
+                      </View>
+                    </View>
+                    <View style={styles.privacyNotice}>
+                      <LockKeyhole size={IconSize.inline} color={Colors.primary} strokeWidth={IconStroke.regular} />
+                      <Text style={styles.privacyNoticeText}>
+                        Información clínica privada. Solo se muestra dentro de esta relación asistencial.
+                      </Text>
+                    </View>
 
                 {selectedPatient.triageAssessmentId ? (
                   triageAssessment ? (
@@ -566,7 +621,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                         <View style={styles.reviewedMark}>
                           <BadgeCheck size={18} color={Colors.success} strokeWidth={2} />
                           <Text style={styles.reviewedText}>
-                            Revisada {formatDate(triageAssessment.reviewedAt)}
+                            Revisada {formatClinicalDate(triageAssessment.reviewedAt)}
                           </Text>
                         </View>
                       ) : (
@@ -599,101 +654,17 @@ export const ClinicalRecordsScreen: React.FC = () => {
                       <ChevronRight size={22} color={Colors.textTertiary} strokeWidth={2} />
                     </Pressable>
                   )
-                ) : null}
-
-                {editorMode ? (
-                  <View style={styles.editorPanel}>
-                    <View style={styles.sectionHeading}>
-                      <Text style={styles.sectionTitle}>
-                        {editorMode === 'ENCOUNTER' ? 'Nuevo encuentro'
-                          : editorMode === 'DRAFT' ? 'Editar borrador'
-                            : editorMode === 'AMENDMENT' ? 'Enmendar nota'
-                              : 'Nuevo plan de tratamiento'}
-                      </Text>
-                      {editorMode === 'PLAN'
-                        ? <ClipboardList size={22} color={Colors.primary} strokeWidth={1.9} />
-                        : <FileText size={22} color={Colors.primary} strokeWidth={1.9} />}
-                    </View>
-
-                    {editorMode === 'PLAN' ? (
-                      <>
-                        <Text style={styles.inputLabel}>Resumen del plan</Text>
-                        <TextInput
-                          value={planSummary}
-                          onChangeText={setPlanSummary}
-                          multiline
-                          maxLength={policy?.maximumTreatmentSummaryLength}
-                          placeholder="Enfoque, frecuencia y criterios de seguimiento"
-                          placeholderTextColor={Colors.textTertiary}
-                          style={styles.textArea}
-                        />
-                        <Text style={styles.inputLabel}>Primer objetivo</Text>
-                        <TextInput
-                          value={goalDescription}
-                          onChangeText={setGoalDescription}
-                          multiline
-                          maxLength={policy?.maximumGoalLength}
-                          placeholder="Objetivo observable y clínicamente pertinente"
-                          placeholderTextColor={Colors.textTertiary}
-                          style={styles.compactTextArea}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        {editorMode === 'ENCOUNTER' ? (
-                          <>
-                            <Text style={styles.inputLabel}>Motivo del encuentro</Text>
-                            <TextInput
-                              value={encounterReason}
-                              onChangeText={setEncounterReason}
-                              maxLength={policy?.maximumEncounterReasonLength}
-                              placeholder="Opcional"
-                              placeholderTextColor={Colors.textTertiary}
-                              style={styles.input}
-                            />
-                          </>
-                        ) : null}
-                        <Text style={styles.inputLabel}>Nota clínica</Text>
-                        <TextInput
-                          value={noteContent}
-                          onChangeText={setNoteContent}
-                          multiline
-                          maxLength={policy?.maximumNoteLength}
-                          placeholder="Registra observaciones relevantes y evita información innecesaria"
-                          placeholderTextColor={Colors.textTertiary}
-                          style={styles.noteArea}
-                        />
-                        {editorMode === 'AMENDMENT' ? (
-                          <>
-                            <Text style={styles.inputLabel}>Motivo de la enmienda</Text>
-                            <TextInput
-                              value={amendmentReason}
-                              onChangeText={setAmendmentReason}
-                              maxLength={policy?.maximumAmendmentReasonLength}
-                              placeholder="Explica por qué se corrige la nota firmada"
-                              placeholderTextColor={Colors.textTertiary}
-                              style={styles.compactTextArea}
-                              multiline
-                            />
-                          </>
-                        ) : null}
-                      </>
-                    )}
-
-                    <View style={styles.editorActions}>
-                      <AppButton label="Cancelar" variant="ghost" size="sm" onPress={closeEditor} />
-                      <AppButton
-                        label={editorMode === 'PLAN' ? 'Crear plan' : 'Guardar'}
-                        variant="secondary"
-                        size="sm"
-                        disabled={!canSubmitEditor}
-                        isLoading={busyAction !== null}
-                        onPress={() => void submitEditor()}
-                      />
-                    </View>
+                ) : (
+                  <View style={styles.inlineEmpty}>
+                    <ShieldCheck size={IconSize.action} color={Colors.textTertiary} strokeWidth={IconStroke.regular} />
+                    <Text style={styles.inlineEmptyText}>No hay una orientación previa vinculada.</Text>
+                  </View>
+                )}
                   </View>
                 ) : null}
 
+                {recordSection === 'PLAN' ? (
+                  <>
                 <View style={styles.sectionHeadingWithAction}>
                   <View>
                     <Text style={styles.sectionTitle}>Plan de tratamiento</Text>
@@ -702,7 +673,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Crear plan de tratamiento"
-                    onPress={() => editorMode === 'PLAN' ? closeEditor() : setEditorMode('PLAN')}
+                    onPress={togglePlanEditor}
                     style={styles.secondaryIconButton}
                   >
                     <AppMorphIcon
@@ -724,14 +695,14 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     <View style={styles.cardTopRow}>
                       <View style={styles.flex}>
                         <Text style={styles.planSummary}>{plan.summary}</Text>
-                        <Text style={styles.cardDate}>Iniciado {formatDate(plan.startsAt)}</Text>
+                        <Text style={styles.cardDate}>Iniciado {formatClinicalDate(plan.startsAt)}</Text>
                       </View>
                       <View style={styles.statusPill}>
                         <Text style={styles.statusText}>{PLAN_STATUS_LABELS[plan.status]}</Text>
                       </View>
                     </View>
                     {plan.goals.map((goal) => {
-                      const next = nextGoalStatus(goal.status);
+                      const next = getNextGoalStatus(goal.status);
                       return (
                         <Pressable
                           key={goal.id}
@@ -784,7 +755,11 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     </View>
                   </View>
                 ))}
+                  </>
+                ) : null}
 
+                {recordSection === 'NOTES' ? (
+                  <>
                 <View style={styles.timelineHeading}>
                   <View>
                     <Text style={styles.sectionTitle}>Línea clínica</Text>
@@ -807,7 +782,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     <View style={styles.encounterBody}>
                       <View style={styles.cardTopRow}>
                         <View style={styles.flex}>
-                          <Text style={styles.encounterDate}>{formatDate(encounter.startedAt)}</Text>
+                          <Text style={styles.encounterDate}>{formatClinicalDate(encounter.startedAt)}</Text>
                           <Text style={styles.cardDate}>{encounter.reason ?? 'Encuentro clínico'}</Text>
                         </View>
                         <View style={styles.statusPill}>
@@ -868,7 +843,7 @@ export const ClinicalRecordsScreen: React.FC = () => {
                             <View key={version.id} style={styles.versionItem}>
                               <View style={styles.cardTopRow}>
                                 <Text style={styles.versionTitle}>Versión {version.versionNumber}</Text>
-                                <Text style={styles.versionDate}>{formatDate(version.createdAt)}</Text>
+                                <Text style={styles.versionDate}>{formatClinicalDate(version.createdAt)}</Text>
                               </View>
                               <Text style={styles.versionAuthor}>Por {version.author.displayName}</Text>
                               <Text style={styles.versionContent}>{version.content}</Text>
@@ -885,11 +860,31 @@ export const ClinicalRecordsScreen: React.FC = () => {
                     </View>
                   </View>
                 ))}
+                  </>
+                ) : null}
               </>
             ) : null}
           </>
         )}
       </ScrollView>
+      <ClinicalEditorSheet
+        mode={editorMode}
+        policy={policy}
+        noteContent={noteContent}
+        encounterReason={encounterReason}
+        amendmentReason={amendmentReason}
+        planSummary={planSummary}
+        goalDescription={goalDescription}
+        canSubmit={canSubmitEditor}
+        isSubmitting={busyAction !== null}
+        onNoteContentChange={setNoteContent}
+        onEncounterReasonChange={setEncounterReason}
+        onAmendmentReasonChange={setAmendmentReason}
+        onPlanSummaryChange={setPlanSummary}
+        onGoalDescriptionChange={setGoalDescription}
+        onSubmit={() => void submitEditor()}
+        onClose={closeEditor}
+      />
     </SafeAreaView>
   );
 };

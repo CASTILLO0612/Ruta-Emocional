@@ -117,7 +117,6 @@ interface PolylineProps {
 }
 
 export const Polyline: React.FC<PolylineProps> = () => {
-  // En Web, Google Maps embebido dibuja directamente el trazo nativo sobre las calles mediante los parámetros saddr y daddr en la URL
   return null;
 };
 
@@ -139,7 +138,6 @@ const CustomMapView: React.FC<MapViewProps> = (props) => {
   const lat = props.initialRegion?.latitude ?? 12.1328;
   const lng = props.initialRegion?.longitude ?? -86.2904;
 
-  // Build Google Maps URL: directions embed if we have start/end, else plain map
   let mapUrl: string;
   if (
     props.routeStart && props.routeEnd &&

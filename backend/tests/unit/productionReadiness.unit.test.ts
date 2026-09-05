@@ -31,6 +31,13 @@ function readyConfig(): AppConfig {
       observabilityProvider: 'AWS_CLOUDWATCH',
       alertingEnabled: true,
     },
+    passwordRecovery: {
+      ...base.passwordRecovery,
+      provider: 'RESEND',
+      resendApiKey: 're_test_password_recovery_provider_key',
+      sender: 'acceso@rutaemocional.example',
+      resetUrl: 'https://app.rutaemocional.example/restablecer-contrasena',
+    },
     triage: {
       ...base.triage,
       protocolApproved: true,
@@ -90,6 +97,23 @@ test('production readiness rejects missing clinical evidence and stale operation
       operations: {
         ...ready.operations,
         lastRestoreVerifiedAt: '2026-01-01T00:00:00.000Z',
+      },
+    }, NOW),
+    ProductionReadinessError
+  );
+});
+
+test('production readiness rejects a password recovery flow without delivery', () => {
+  const ready = readyConfig();
+  assert.throws(
+    () => assertProductionReadiness({
+      ...ready,
+      passwordRecovery: {
+        ...ready.passwordRecovery,
+        provider: 'DISABLED',
+        resendApiKey: null,
+        sender: null,
+        resetUrl: null,
       },
     }, NOW),
     ProductionReadinessError

@@ -16,10 +16,6 @@ interface ErrorBoundaryProps {
   fallback?: React.ReactNode;
 }
 
-/**
- * ErrorBoundary global — captura errores JS no controlados y muestra
- * una pantalla de recuperación elegante en lugar de una pantalla blanca.
- */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);

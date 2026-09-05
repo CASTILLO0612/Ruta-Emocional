@@ -48,12 +48,25 @@ import {
 } from '../../repositories/ProfessionalProfileRepository';
 import { showAlert } from '../../utils/alert';
 import { subscribeToPsychologistVerificationUpdates } from '../../services/socketClient';
-import { ApiError } from '../../services/apiClient';
+import { presentUserError } from '../../utils/userFacingError';
 import { formatModalityLabel } from '../../utils/modality';
+import {
+  PROFESSIONAL_BIO_MAX_LENGTH,
+  PROFESSIONAL_BIO_MIN_LENGTH,
+} from '../../config/professionalProfile';
+import { getDeviceTimeZone } from '../../config/localization';
+import { normalizeClockTime } from '../../utils/availability';
 
 const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as const;
-const PROFESSIONAL_BIO_MIN_LENGTH = 20;
-const PROFESSIONAL_BIO_MAX_LENGTH = 3000;
+type VerificationSection = 'SPECIALTY' | 'MODALITY' | 'EVIDENCE' | 'BIO' | 'AVAILABILITY';
+
+const VERIFICATION_SECTIONS: readonly { readonly key: VerificationSection; readonly label: string }[] = [
+  { key: 'SPECIALTY', label: 'Especialidad' },
+  { key: 'MODALITY', label: 'Modalidad' },
+  { key: 'EVIDENCE', label: 'Evidencia' },
+  { key: 'BIO', label: 'Presentación' },
+  { key: 'AVAILABILITY', label: 'Disponibilidad' },
+];
 
 interface SelectedEvidence {
   readonly file: File;
@@ -104,19 +117,8 @@ function formatFileSize(bytes: number | undefined): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
-function normalizeClockTime(value: string): string | null {
-  const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim());
-  if (!match) return null;
-  const hour = Number(match[1]);
-  if (hour > 23) return null;
-  return `${String(hour).padStart(2, '0')}:${match[2]}`;
-}
-
 function presentError(error: unknown): string {
-  if (error instanceof ApiError && error.fieldErrors.length > 0) {
-    return [...new Set(error.fieldErrors.map(({ message }) => message))].join('\n');
-  }
-  return error instanceof Error ? error.message : 'Inténtalo nuevamente.';
+  return presentUserError(error, 'No pudimos completar la acción. Inténtalo nuevamente.');
 }
 
 export const VerificationScreen: React.FC = () => {
@@ -141,6 +143,7 @@ export const VerificationScreen: React.FC = () => {
   const [evidencePolicy, setEvidencePolicy] = useState<EvidenceUploadPolicy>({ mode: 'DISABLED' });
   const [selectedEvidence, setSelectedEvidence] = useState<SelectedEvidence | null>(null);
   const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
+  const [activeSetupSection, setActiveSetupSection] = useState<VerificationSection>('SPECIALTY');
 
   const rejected = userProfile?.psychologistVerificationStatus === 'REJECTED';
   const title = rejected ? 'Verificación no aprobada' : 'Verificación en proceso';
@@ -174,6 +177,18 @@ export const VerificationScreen: React.FC = () => {
           setStartTime(rule.startTime);
           setEndTime(rule.endTime);
         }
+        const primarySpecialtyExists = ownProfile.specialties.some(({ isPrimary }) => isPrimary);
+        const enabledModalityExists = ownProfile.modalities.some(({ isEnabled }) => isEnabled);
+        const submittedEvidenceExists = ownProfile.licenses.some(({ evidenceSubmitted }) => evidenceSubmitted);
+        setActiveSetupSection(
+          !primarySpecialtyExists
+            ? 'SPECIALTY'
+            : !enabledModalityExists
+              ? 'MODALITY'
+              : !submittedEvidenceExists
+                ? 'EVIDENCE'
+                : 'BIO'
+        );
       })
       .catch((error) => {
         if (error instanceof Error && error.name === 'AbortError') return;
@@ -187,7 +202,7 @@ export const VerificationScreen: React.FC = () => {
     void refreshProfile().catch((error: unknown) => {
       showAlert(
         'No pudimos actualizar la verificación',
-        error instanceof Error ? error.message : 'Vuelve a intentarlo.'
+        presentError(error)
       );
     });
   }), [refreshProfile]);
@@ -205,7 +220,7 @@ export const VerificationScreen: React.FC = () => {
     }
   };
 
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = getDeviceTimeZone();
   const normalizedStartTime = normalizeClockTime(startTime);
   const normalizedEndTime = normalizeClockTime(endTime);
   const availabilityIsValid = normalizedStartTime !== null
@@ -291,7 +306,7 @@ export const VerificationScreen: React.FC = () => {
     } catch (error) {
       showAlert(
         'No pudimos actualizar la verificación',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+        presentError(error)
       );
     }
   };
@@ -339,12 +354,18 @@ export const VerificationScreen: React.FC = () => {
             </View>
           </View>
           {[
-            { label: 'Presentación profesional', ready: bioIsValid, optional: true },
-            { label: 'Especialidad principal', ready: hasPrimarySpecialty, optional: false },
-            { label: 'Modalidad y tarifa activa', ready: hasEnabledModality, optional: false },
-            { label: 'Evidencia enviada a revisión', ready: hasSubmittedEvidence, optional: false },
+            { label: 'Especialidad principal', ready: hasPrimarySpecialty, optional: false, section: 'SPECIALTY' as const },
+            { label: 'Modalidad y tarifa activa', ready: hasEnabledModality, optional: false, section: 'MODALITY' as const },
+            { label: 'Evidencia enviada a revisión', ready: hasSubmittedEvidence, optional: false, section: 'EVIDENCE' as const },
+            { label: 'Presentación profesional', ready: bioIsValid, optional: true, section: 'BIO' as const },
           ].map((step) => (
-            <View key={step.label} style={styles.progressRow}>
+            <TouchableOpacity
+              key={step.label}
+              style={styles.progressRow}
+              onPress={() => setActiveSetupSection(step.section)}
+              accessibilityRole="button"
+              accessibilityLabel={`${step.label}: ${step.ready ? 'completado' : 'pendiente'}`}
+            >
               <AppMorphIcon
                 icon={step.ready ? CircleCheck : Circle}
                 size={IconSize.action}
@@ -353,7 +374,7 @@ export const VerificationScreen: React.FC = () => {
               />
               <Text style={styles.progressText}>{step.label}</Text>
               {step.optional ? <Text style={styles.optionalText}>Recomendado</Text> : null}
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -361,7 +382,32 @@ export const VerificationScreen: React.FC = () => {
           <ActivityIndicator color={Colors.primary} />
         ) : (
           <>
-            {evidencePolicy.mode === 'LOCAL_QA' ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.setupNavigation}
+              accessibilityRole="tablist"
+            >
+              {VERIFICATION_SECTIONS.map((section) => {
+                const selected = activeSetupSection === section.key;
+                return (
+                  <TouchableOpacity
+                    key={section.key}
+                    onPress={() => setActiveSetupSection(section.key)}
+                    style={[styles.setupTab, selected && styles.setupTabSelected]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    aria-selected={selected}
+                  >
+                    <Text style={[styles.setupTabText, selected && styles.setupTabTextSelected]}>
+                      {section.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {activeSetupSection === 'EVIDENCE' ? (evidencePolicy.mode === 'LOCAL_QA' ? (
               <View style={styles.formCard}>
                 <View style={styles.sectionHeadingRow}>
                   <View style={styles.sectionIcon}>
@@ -450,9 +496,9 @@ export const VerificationScreen: React.FC = () => {
                   </View>
                 </View>
               </View>
-            )}
+            )) : null}
 
-            <View style={styles.formCard}>
+            {activeSetupSection === 'BIO' ? <View style={styles.formCard}>
               <Text style={styles.formTitle}>Presentación profesional</Text>
               <TextInput
                 style={[styles.input, styles.bioInput]}
@@ -488,9 +534,9 @@ export const VerificationScreen: React.FC = () => {
               >
                 <Text style={styles.saveButtonText}>Guardar presentación</Text>
               </TouchableOpacity>
-            </View>
+            </View> : null}
 
-            <View style={styles.formCard}>
+            {activeSetupSection === 'SPECIALTY' ? <View style={styles.formCard}>
               <Text style={styles.formTitle}>Especialidad principal</Text>
               <View style={styles.chipGroup}>
                 {specialties.map((specialty) => (
@@ -498,6 +544,10 @@ export const VerificationScreen: React.FC = () => {
                     key={specialty.code}
                     style={[styles.chip, specialtyCode === specialty.code && styles.selectedChip]}
                     onPress={() => setSpecialtyCode(specialty.code)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: specialtyCode === specialty.code }}
+                    aria-checked={specialtyCode === specialty.code}
+                    accessibilityLabel={`Especialidad ${specialty.name}`}
                   >
                     <Text style={specialtyCode === specialty.code ? styles.selectedChipText : styles.chipText}>
                       {specialty.name}
@@ -521,9 +571,9 @@ export const VerificationScreen: React.FC = () => {
               >
                 <Text style={styles.saveButtonText}>Guardar especialidad</Text>
               </TouchableOpacity>
-            </View>
+            </View> : null}
 
-            <View style={styles.formCard}>
+            {activeSetupSection === 'MODALITY' ? <View style={styles.formCard}>
               <Text style={styles.formTitle}>Modalidad y tarifa</Text>
               <View style={styles.chipGroup}>
                 {modalities.map((item) => (
@@ -531,6 +581,10 @@ export const VerificationScreen: React.FC = () => {
                     key={item}
                     style={[styles.chip, modality === item && styles.selectedChip]}
                     onPress={() => setModality(item)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: modality === item }}
+                    aria-checked={modality === item}
+                    accessibilityLabel={`Modalidad ${formatModalityLabel(item)}`}
                   >
                     <Text style={modality === item ? styles.selectedChipText : styles.chipText}>
                       {formatModalityLabel(item)}
@@ -545,24 +599,28 @@ export const VerificationScreen: React.FC = () => {
                   onChangeText={setPrice}
                   placeholder="Tarifa por hora"
                   keyboardType="decimal-pad"
+                  accessibilityLabel="Tarifa por hora"
                 />
                 <View style={styles.currencyBox}>
                   <Text style={styles.currencyText}>{currency || currencies[0]}</Text>
                 </View>
               </View>
               <TouchableOpacity
-                style={styles.saveButton}
+                style={[styles.saveButton, (isSaving || !modality || !currency || !price) && styles.disabledButton]}
                 disabled={isSaving || !modality || !currency || !price}
                 onPress={() => modality && void saveSection(
                   () => configureProfessionalModality(modality, price.trim(), currency, true),
                   'Tu modalidad y tarifa fueron actualizadas.'
                 )}
+                accessibilityRole="button"
+                accessibilityLabel="Guardar modalidad y tarifa"
+                accessibilityState={{ disabled: isSaving || !modality || !currency || !price }}
               >
                 <Text style={styles.saveButtonText}>Guardar modalidad</Text>
               </TouchableOpacity>
-            </View>
+            </View> : null}
 
-            <View style={styles.formCard}>
+            {activeSetupSection === 'AVAILABILITY' ? <View style={styles.formCard}>
               <Text style={styles.formTitle}>Disponibilidad semanal básica</Text>
               <Text style={styles.helperText}>Zona horaria: {timezone}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipGroup}>
@@ -571,6 +629,10 @@ export const VerificationScreen: React.FC = () => {
                     key={label}
                     style={[styles.chip, weekday === index && styles.selectedChip]}
                     onPress={() => setWeekday(index)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: weekday === index }}
+                    aria-checked={weekday === index}
+                    accessibilityLabel={`Día ${label}`}
                   >
                     <Text style={weekday === index ? styles.selectedChipText : styles.chipText}>{label}</Text>
                   </TouchableOpacity>
@@ -583,6 +645,7 @@ export const VerificationScreen: React.FC = () => {
                   onChangeText={setStartTime}
                   placeholder="Inicio 08:00"
                   maxLength={5}
+                  accessibilityLabel="Hora de inicio"
                 />
                 <TextInput
                   style={[styles.input, styles.flexInput]}
@@ -590,6 +653,7 @@ export const VerificationScreen: React.FC = () => {
                   onChangeText={setEndTime}
                   placeholder="Fin 17:00"
                   maxLength={5}
+                  accessibilityLabel="Hora de fin"
                 />
               </View>
               <Text style={startTime || endTime ? (availabilityIsValid ? styles.helperText : styles.validationText) : styles.helperText}>
@@ -619,7 +683,7 @@ export const VerificationScreen: React.FC = () => {
               >
                 <Text style={styles.saveButtonText}>Guardar disponibilidad</Text>
               </TouchableOpacity>
-            </View>
+            </View> : null}
           </>
         )}
 
@@ -752,9 +816,36 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   progressRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  setupNavigation: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+  },
+  setupTab: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  setupTabSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryTint,
+  },
+  setupTabText: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+  },
+  setupTabTextSelected: {
+    color: Colors.primary,
+    fontFamily: FontFamily.bodySemiBold,
   },
   progressText: {
     ...Typography.body,
@@ -850,6 +941,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,

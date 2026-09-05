@@ -118,6 +118,54 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /auth/password-reset/request:
+    post:
+      tags: [Auth]
+      operationId: requestPasswordReset
+      description: Responde de forma genérica para no revelar si el correo pertenece a una cuenta.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '202':
+          description: Solicitud aceptada para procesamiento, exista o no la cuenta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/password-reset/complete:
+    post:
+      tags: [Auth]
+      operationId: completePasswordReset
+      description: Consume una vez el token y revoca todas las sesiones activas de la cuenta.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetCompletionRequest'
+      responses:
+        '204':
+          description: Contraseña actualizada y sesiones previas revocadas.
+        '400':
+          description: El token es inválido, expiró, fue revocado o ya se consumió.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /auth/refresh:
     post:
       tags: [Auth]
@@ -1442,6 +1490,50 @@ components:
         deviceName:
           type: string
           maxLength: 160
+    PasswordResetRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+    PasswordResetCompletionRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          minLength: 40
+          maxLength: 200
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+    PasswordResetRequestResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [accepted, delivery]
+          properties:
+            accepted:
+              type: boolean
+              const: true
+            delivery:
+              type: string
+              enum: [EMAIL, LOCAL_QA, UNAVAILABLE]
+            localQaToken:
+              type: string
+              minLength: 40
+              maxLength: 200
+              description: Disponible únicamente en desarrollo con el modo de QA local explícitamente habilitado.
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
     AuthResponse:
       type: object
       required: [data, meta]

@@ -150,8 +150,6 @@ export class ProfessionalDirectoryService {
       try {
         await this.evidenceStorage.remove(stored.objectKey);
       } catch {
-        // The original domain error remains authoritative; local QA storage is
-        // private and its orphan cleanup is an operational concern.
       }
       throw error;
     }

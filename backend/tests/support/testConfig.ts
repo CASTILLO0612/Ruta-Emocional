@@ -37,6 +37,16 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
       scryptP: 1,
       keyLength: 32,
     },
+    passwordRecovery: {
+      provider: 'DISABLED',
+      resendApiKey: null,
+      sender: null,
+      resetUrl: null,
+      tokenTtlMinutes: 30,
+      requestsPerHour: 20,
+      providerTimeoutMs: 1_000,
+      exposeTokenForLocalQa: false,
+    },
     professionalDirectory: {
       defaultPageSize: 20,
       maxPageSize: 50,
@@ -89,7 +99,7 @@ export function createTestConfig(databaseUrl: string, namespace: string): AppCon
     },
     appointments: {
       durationMinutes: 50,
-      slotIntervalMinutes: 10,
+      slotIntervalMinutes: 60,
       minimumLeadMinutes: 0,
       maximumHorizonDays: 90,
       patientCancellationNoticeMinutes: 60,

@@ -92,7 +92,7 @@ test('MENTA HTTP flow authenticates, persists encrypted turns and returns a safe
     }>(turnResponse);
     assert.equal(turn.data.providerOutcome, 'UNAVAILABLE');
     assert.equal(turn.data.userMessage, userMessage);
-    assert.match(turn.data.assistantMessage, /no pudo responder/i);
+    assert.match(turn.data.assistantMessage, /no puedo responder ahora/i);
 
     const stored = await prisma.mentaTurn.findFirstOrThrow({
       where: { conversationId: conversation.data.id },

@@ -61,6 +61,16 @@ export interface AppConfig {
     readonly scryptP: number;
     readonly keyLength: number;
   };
+  readonly passwordRecovery: {
+    readonly provider: 'DISABLED' | 'RESEND';
+    readonly resendApiKey: string | null;
+    readonly sender: string | null;
+    readonly resetUrl: string | null;
+    readonly tokenTtlMinutes: number;
+    readonly requestsPerHour: number;
+    readonly providerTimeoutMs: number;
+    readonly exposeTokenForLocalQa: boolean;
+  };
   readonly professionalDirectory: {
     readonly defaultPageSize: number;
     readonly maxPageSize: number;
@@ -264,6 +274,14 @@ function readMentaProvider(source: NodeJS.ProcessEnv): 'DISABLED' | 'GEMINI' {
   const value = source.MENTA_AI_PROVIDER?.trim().toUpperCase() || 'DISABLED';
   if (value !== 'DISABLED' && value !== 'GEMINI') {
     throw new ConfigurationError('MENTA_AI_PROVIDER must be DISABLED or GEMINI');
+  }
+  return value;
+}
+
+function readPasswordResetProvider(source: NodeJS.ProcessEnv): 'DISABLED' | 'RESEND' {
+  const value = source.PASSWORD_RESET_PROVIDER?.trim().toUpperCase() || 'DISABLED';
+  if (value !== 'DISABLED' && value !== 'RESEND') {
+    throw new ConfigurationError('PASSWORD_RESET_PROVIDER must be DISABLED or RESEND');
   }
   return value;
 }
@@ -585,12 +603,45 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const environment = readEnvironment(source);
   const localQaEnabled = readBoolean(source, 'ENABLE_LOCAL_QA', false);
   const localQaEvidenceDirectory = source.LOCAL_QA_EVIDENCE_DIRECTORY?.trim() || null;
+  const exposePasswordResetToken = readBoolean(
+    source,
+    'LOCAL_QA_EXPOSE_PASSWORD_RESET_TOKEN',
+    false
+  );
 
   if (localQaEnabled && environment !== 'development') {
     throw new ConfigurationError('ENABLE_LOCAL_QA can only be enabled in development');
   }
   if (localQaEnabled && !localQaEvidenceDirectory) {
     throw new ConfigurationError('LOCAL_QA_EVIDENCE_DIRECTORY is required when ENABLE_LOCAL_QA is enabled');
+  }
+  if (exposePasswordResetToken && !localQaEnabled) {
+    throw new ConfigurationError(
+      'LOCAL_QA_EXPOSE_PASSWORD_RESET_TOKEN requires ENABLE_LOCAL_QA in development'
+    );
+  }
+
+  const passwordResetProvider = readPasswordResetProvider(source);
+  const passwordResetApiKey = source.PASSWORD_RESET_RESEND_API_KEY?.trim() || null;
+  const passwordResetSender = source.PASSWORD_RESET_SENDER?.trim() || null;
+  const passwordResetUrl = source.PASSWORD_RESET_URL?.trim() || null;
+  if (passwordResetProvider === 'RESEND') {
+    if (!passwordResetApiKey || !passwordResetSender || !passwordResetUrl) {
+      throw new ConfigurationError(
+        'PASSWORD_RESET_RESEND_API_KEY, PASSWORD_RESET_SENDER and PASSWORD_RESET_URL are required with RESEND'
+      );
+    }
+    assertSecret('PASSWORD_RESET_RESEND_API_KEY', passwordResetApiKey);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(passwordResetSender)) {
+      throw new ConfigurationError('PASSWORD_RESET_SENDER must contain a valid email address');
+    }
+    try {
+      const parsedResetUrl = new URL(passwordResetUrl);
+      if (environment === 'production' && parsedResetUrl.protocol !== 'https:') throw new Error();
+      if (!['http:', 'https:', 'rutaemocional:'].includes(parsedResetUrl.protocol)) throw new Error();
+    } catch {
+      throw new ConfigurationError('PASSWORD_RESET_URL must contain a valid recovery URL');
+    }
   }
 
   const supportedCurrencies = readCurrencies(source);
@@ -658,6 +709,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       scryptR: readInteger(source, 'PASSWORD_SCRYPT_R', 8, 1, 32),
       scryptP: readInteger(source, 'PASSWORD_SCRYPT_P', 3, 1, 16),
       keyLength: readInteger(source, 'PASSWORD_SCRYPT_KEY_LENGTH', 64, 32, 128),
+    },
+    passwordRecovery: {
+      provider: passwordResetProvider,
+      resendApiKey: passwordResetApiKey,
+      sender: passwordResetSender,
+      resetUrl: passwordResetUrl,
+      tokenTtlMinutes: readInteger(source, 'PASSWORD_RESET_TOKEN_TTL_MINUTES', 30, 5, 120),
+      requestsPerHour: readInteger(source, 'PASSWORD_RESET_REQUESTS_PER_HOUR', 5, 1, 20),
+      providerTimeoutMs: readInteger(source, 'PASSWORD_RESET_PROVIDER_TIMEOUT_MS', 10_000, 1_000, 30_000),
+      exposeTokenForLocalQa: exposePasswordResetToken,
     },
     professionalDirectory: {
       defaultPageSize: readInteger(source, 'DIRECTORY_DEFAULT_PAGE_SIZE', 20, 1, 100),
@@ -1045,11 +1106,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (config.appointments.defaultPageSize > config.appointments.maximumPageSize) {
     throw new ConfigurationError(
       'APPOINTMENT_DEFAULT_PAGE_SIZE cannot exceed APPOINTMENT_MAXIMUM_PAGE_SIZE'
-    );
-  }
-  if (config.appointments.slotIntervalMinutes > config.appointments.durationMinutes) {
-    throw new ConfigurationError(
-      'APPOINTMENT_SLOT_INTERVAL_MINUTES cannot exceed APPOINTMENT_DURATION_MINUTES'
     );
   }
   if (config.clinical.defaultPageSize > config.clinical.maximumPageSize) {

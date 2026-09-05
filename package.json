@@ -12,6 +12,8 @@
     "db:validate": "cd backend && npm run db:validate",
     "db:generate": "cd backend && npm run db:generate",
     "db:migrate:dev": "cd backend && npm run db:migrate:dev",
-    "db:migrate:deploy": "cd backend && npm run db:migrate:deploy"
+    "db:migrate:deploy": "cd backend && npm run db:migrate:deploy",
+    "validate:delivery-docs": "node scripts/validateDeliveryDocumentation.mjs",
+    "quality:delivery": "npm run validate:delivery-docs && npm run db:validate && npm run build:backend && npm --prefix backend test && npm --prefix frontend run typecheck && npm --prefix frontend test -- --runInBand && npm --prefix frontend run validate:design && npm --prefix frontend run validate:native-config"
   }
 }

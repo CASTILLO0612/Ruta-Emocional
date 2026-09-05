@@ -136,7 +136,10 @@ export function createApp(dependencies: AppDependencies): Express {
     response.json({ status: 'ok', service: 'ruta-emocional-api' });
   });
 
-  app.use('/api/v1/auth', createIdentityRouter(services.identity));
+  app.use(
+    '/api/v1/auth',
+    createIdentityRouter(services.identity, config.passwordRecovery)
+  );
   app.use(
     '/api/v1',
     createProfessionalDirectoryRouter(

@@ -1,12 +1,9 @@
 import {
-  ArrowRight,
   ArrowUp,
   ArrowUpRight,
   BrainCircuit,
   CircleAlert,
   ClipboardCheck,
-  CloudOff,
-  LockKeyhole,
   ShieldCheck,
 } from 'lucide-react-native';
 import { Square, SquareCheckBig } from 'lucide';
@@ -14,6 +11,7 @@ import { randomUUID } from 'expo-crypto';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -26,68 +24,38 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppMorphIcon } from '../../components/common/AppMorphIcon';
+import { AppButton } from '../../components/common/AppButton';
+import { MentaMessageContent } from '../../components/menta/MentaMessageContent';
+import { AppHeader } from '../../components/shared/AppHeader';
 import type { AppNavigation } from '../../navigation/navigationTypes';
 import {
   fetchMentaBootstrap,
   MentaBootstrap,
   MentaConversation,
   MentaScope,
-  MentaToolCode,
   openMentaConversation,
   sendMentaMessage,
 } from '../../repositories/MentaRepository';
-import { ApiError } from '../../services/apiClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
 import { IconSize, IconStroke } from '../../theme/icons';
-
-const TOOL_LABELS: Readonly<Record<MentaToolCode, string>> = {
-  get_my_agenda: 'Agenda consultada',
-  get_my_requests: 'Solicitudes consultadas',
-  find_psychologists: 'Directorio consultado',
-  list_my_patients: 'Pacientes autorizados consultados',
-  get_patient_context: 'Contexto autorizado consultado',
-};
+import { Layout } from '../../theme/layout';
+import { presentUserError } from '../../utils/userFacingError';
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  return 'No pudimos conectar con MENTA. Inténtalo nuevamente.';
+  return presentUserError(error, 'No pudimos conectar con MENTA. Inténtalo nuevamente.');
 }
 
-function AssistantBubble({
-  message,
-  tools,
-  unavailable,
-}: {
-  readonly message: string;
-  readonly tools: readonly MentaToolCode[];
-  readonly unavailable: boolean;
-}) {
+function AssistantMessage({ message }: { readonly message: string }) {
   return (
     <View style={styles.assistantRow}>
       <View style={styles.agentAvatar}>
         <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
       </View>
-      <View style={styles.assistantBubble}>
-        <Text selectable style={styles.assistantText}>{message}</Text>
-        {tools.length > 0 ? (
-          <View style={styles.toolList}>
-            {tools.map((tool) => (
-              <View key={tool} style={styles.toolBadge}>
-                <ShieldCheck size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
-                <Text style={styles.toolBadgeText}>{TOOL_LABELS[tool]}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-        {unavailable ? (
-          <View style={styles.availabilityNotice}>
-            <CloudOff size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
-            <Text style={styles.availabilityNoticeText}>Respuesta segura de contingencia</Text>
-          </View>
-        ) : null}
+      <View style={styles.assistantContent}>
+        <MentaMessageContent message={message} />
       </View>
     </View>
   );
@@ -97,7 +65,7 @@ export function MentaAgentScreen() {
   const navigation = useNavigation<AppNavigation>();
   const role = useAuthStore((state) => state.role);
   const scope: MentaScope = role === 'psychologist' ? 'PSYCHOLOGIST' : 'PATIENT';
-  const scrollRef = useRef<ScrollView>(null);
+  const turnsRef = useRef<FlatList<MentaConversation['turns'][number]>>(null);
   const [bootstrap, setBootstrap] = useState<MentaBootstrap | null>(null);
   const [conversation, setConversation] = useState<MentaConversation | null>(null);
   const [consentGranted, setConsentGranted] = useState(false);
@@ -109,8 +77,8 @@ export function MentaAgentScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const subtitle = useMemo(() => scope === 'PATIENT'
-    ? 'Tu asistente para navegar Ruta Emocional'
-    : 'Apoyo contextual para tu práctica profesional', [scope]);
+    ? 'Tu asistente en Ruta Emocional'
+    : 'Asistente para tu práctica', [scope]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -166,10 +134,11 @@ export function MentaAgentScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <AppHeader title="MENTA" subtitle={subtitle} showBack />
         <View style={styles.centeredState}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.stateText}>Preparando tu contexto seguro…</Text>
+          <Text style={styles.stateText}>Preparando MENTA…</Text>
         </View>
       </SafeAreaView>
     );
@@ -177,7 +146,8 @@ export function MentaAgentScreen() {
 
   if (!bootstrap?.enabled) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <AppHeader title="MENTA" subtitle={subtitle} showBack />
         <View style={styles.centeredState}>
           <View style={styles.largeIcon}>
             <BrainCircuit size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
@@ -194,7 +164,8 @@ export function MentaAgentScreen() {
 
   if (!conversation) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <AppHeader title="MENTA" subtitle={subtitle} showBack />
         <ScrollView contentContainerStyle={styles.consentContainer}>
           <View style={styles.largeIcon}>
             <BrainCircuit size={42} strokeWidth={IconStroke.regular} color={Colors.primary} />
@@ -214,6 +185,7 @@ export function MentaAgentScreen() {
             onPress={() => setConsentGranted((current) => !current)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: consentGranted }}
+            aria-checked={consentGranted}
           >
             <AppMorphIcon
               icon={consentGranted ? SquareCheckBig : Square}
@@ -225,70 +197,43 @@ export function MentaAgentScreen() {
               Entiendo el alcance de MENTA y autorizo esta conversación contextual.
             </Text>
           </TouchableOpacity>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          <TouchableOpacity
-            style={[styles.primaryButton, !consentGranted && styles.disabled]}
+          {error ? <Text style={styles.errorText} accessibilityRole="alert">{error}</Text> : null}
+          <AppButton
+            label="Iniciar conversación"
             onPress={() => void handleOpenConversation()}
-            disabled={!consentGranted || isOpening}
-            accessibilityRole="button"
-          >
-            {isOpening ? (
-              <ActivityIndicator color={Colors.textInverse} />
-            ) : (
-              <>
-                <Text style={[
-                  styles.primaryButtonText,
-                  !consentGranted && styles.primaryButtonTextDisabled,
-                ]}>Iniciar conversación</Text>
-                <ArrowRight
-                  size={IconSize.action}
-                  strokeWidth={IconStroke.emphasized}
-                  color={consentGranted ? Colors.textInverse : Colors.textDisabled}
-                />
-              </>
-            )}
-          </TouchableOpacity>
+            disabled={!consentGranted}
+            isLoading={isOpening}
+            fullWidth
+            size="lg"
+            style={styles.consentAction}
+          />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <View style={styles.headerIdentity}>
-            <View style={styles.headerIcon}>
-              <BrainCircuit size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
-            </View>
-            <View style={styles.flex}>
-              <Text style={styles.headerTitle}>MENTA</Text>
-              <Text style={styles.headerSubtitle}>{subtitle}</Text>
-            </View>
-          </View>
-          <View style={styles.privateBadge}>
-            <LockKeyhole size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
-            <Text style={styles.privateBadgeText}>Contexto privado</Text>
-          </View>
-        </View>
+        <AppHeader title="MENTA" subtitle={subtitle} showBack />
 
-        <ScrollView
-          ref={scrollRef}
+        <FlatList
+          ref={turnsRef}
+          data={[...conversation.turns]}
+          keyExtractor={(turn) => turn.id}
           style={styles.flex}
           contentContainerStyle={styles.messagesContent}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {conversation.turns.length === 0 ? (
-            <View style={styles.welcomeCard}>
+          initialNumToRender={12}
+          windowSize={7}
+          onContentSizeChange={() => turnsRef.current?.scrollToEnd({ animated: conversation.turns.length > 0 })}
+          ListHeaderComponent={conversation.turns.length === 0 ? (
+            <View style={styles.welcomeSection}>
               <Text style={styles.welcomeTitle}>
                 {scope === 'PATIENT' ? '¿En qué puedo ayudarte hoy?' : '¿Qué deseas preparar o consultar?'}
-              </Text>
-              <Text style={styles.welcomeText}>
-                Consultaré únicamente la información de Ruta Emocional necesaria para responder.
               </Text>
               <View style={styles.suggestions}>
                 {bootstrap.suggestedPrompts.map((prompt) => (
@@ -297,6 +242,8 @@ export function MentaAgentScreen() {
                     style={styles.suggestion}
                     onPress={() => void handleSend(prompt)}
                     disabled={isSending}
+                    accessibilityRole="button"
+                    accessibilityLabel={prompt}
                   >
                     <Text style={styles.suggestionText}>{prompt}</Text>
                     <ArrowUpRight size={IconSize.inline} strokeWidth={IconStroke.regular} color={Colors.primary} />
@@ -305,23 +252,19 @@ export function MentaAgentScreen() {
               </View>
             </View>
           ) : null}
-
-          {conversation.turns.map((turn) => (
+          renderItem={({ item: turn }) => (
             <View key={turn.id} style={styles.turn}>
               <View style={styles.userRow}>
                 <View style={styles.userBubble}>
                   <Text selectable style={styles.userText}>{turn.userMessage}</Text>
                 </View>
               </View>
-              <AssistantBubble
-                message={turn.assistantMessage}
-                tools={turn.toolsUsed}
-                unavailable={turn.providerOutcome === 'UNAVAILABLE' || turn.providerOutcome === 'REJECTED_OUTPUT'}
-              />
+              <AssistantMessage message={turn.assistantMessage} />
             </View>
-          ))}
-
-          {pendingMessage ? (
+          )}
+          ListFooterComponent={(
+            <View style={styles.footerContent}>
+              {pendingMessage ? (
             <View style={styles.turn}>
               <View style={styles.userRow}>
                 <View style={styles.userBubble}>
@@ -332,35 +275,38 @@ export function MentaAgentScreen() {
                 <View style={styles.agentAvatar}>
                   <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
                 </View>
-                <View style={styles.typingBubble}>
+                <View style={styles.typingState}>
                   <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={styles.typingText}>Consultando contexto autorizado…</Text>
+                  <Text style={styles.typingText}>Preparando respuesta…</Text>
                 </View>
               </View>
             </View>
-          ) : null}
+              ) : null}
 
-          {scope === 'PATIENT' ? (
+              {scope === 'PATIENT' ? (
             <TouchableOpacity
               style={styles.safetyLink}
               onPress={() => navigation.navigate('MentaSafety')}
               accessibilityRole="button"
+              accessibilityLabel="Abrir orientación estructurada de seguridad"
             >
               <ShieldCheck size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
-              <Text style={styles.safetyLinkText}>Abrir orientación estructurada de seguridad</Text>
+              <Text style={styles.safetyLinkText}>Orientación de seguridad</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.draftNotice}>
               <ClipboardCheck size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
               <Text style={styles.draftNoticeText}>
-                Todo contenido clínico generado es un borrador y requiere tu revisión profesional.
+                Revisa los borradores antes de guardarlos.
               </Text>
             </View>
+              )}
+            </View>
           )}
-        </ScrollView>
+        />
 
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={styles.errorBanner} accessibilityRole="alert">
             <CircleAlert size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.error} />
             <Text style={styles.errorBannerText}>{error}</Text>
           </View>
@@ -384,6 +330,7 @@ export function MentaAgentScreen() {
             disabled={!message.trim() || isSending}
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
+            accessibilityState={{ disabled: !message.trim() || isSending }}
           >
             <ArrowUp size={IconSize.navigation} strokeWidth={IconStroke.emphasized} color={Colors.textInverse} />
           </TouchableOpacity>
@@ -447,67 +394,23 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   consentText: { ...Typography.body, color: Colors.textPrimary, flex: 1 },
-  primaryButton: {
-    width: '100%',
-    maxWidth: 560,
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primary,
-  },
-  primaryButtonText: { ...Typography.button, color: Colors.textInverse },
-  primaryButtonTextDisabled: { color: Colors.textDisabled },
-  disabled: { backgroundColor: Colors.surfaceMuted },
+  consentAction: { maxWidth: 560 },
   errorText: { ...Typography.bodySmall, color: Colors.error, textAlign: 'center' },
-  header: {
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-    backgroundColor: Colors.surface,
-    gap: Spacing.sm,
+  messagesContent: {
+    width: '100%',
+    maxWidth: Layout.maxReadableWidth,
+    alignSelf: 'center',
+    padding: Spacing.base,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
   },
-  headerIdentity: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primaryTint,
-  },
-  headerTitle: { ...Typography.h3, color: Colors.textPrimary },
-  headerSubtitle: { ...Typography.caption, color: Colors.textSecondary },
-  privateBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primaryTint,
-  },
-  privateBadgeText: {
-    ...Typography.caption,
-    fontFamily: FontFamily.bodySemiBold,
-    color: Colors.primary,
-  },
-  messagesContent: { padding: Spacing.base, paddingBottom: Spacing.xl, gap: Spacing.lg },
-  welcomeCard: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    backgroundColor: Colors.surfaceRaised,
-    gap: Spacing.sm,
+  footerContent: { gap: Spacing.lg },
+  welcomeSection: {
+    paddingVertical: Spacing.lg,
+    gap: Spacing.md,
   },
   welcomeTitle: { ...Typography.h3, color: Colors.textPrimary },
-  welcomeText: { ...Typography.body, color: Colors.textSecondary },
-  suggestions: { gap: Spacing.sm, marginTop: Spacing.sm },
+  suggestions: { gap: Spacing.sm },
   suggestion: {
     minHeight: 44,
     flexDirection: 'row',
@@ -533,7 +436,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   userText: { ...Typography.body, color: Colors.textInverse },
-  assistantRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, paddingRight: Spacing.xl },
+  assistantRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, paddingRight: Spacing.base },
   agentAvatar: {
     width: 32,
     height: 32,
@@ -542,46 +445,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.primaryTint,
   },
-  assistantBubble: {
-    flexShrink: 1,
-    maxWidth: '90%',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderTopLeftRadius: BorderRadius.xs,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    gap: Spacing.sm,
+  assistantContent: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: Spacing.xxs,
   },
-  assistantText: { ...Typography.body, color: Colors.textPrimary },
-  toolList: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  toolBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primaryTint,
-  },
-  toolBadgeText: {
-    ...Typography.caption,
-    fontFamily: FontFamily.bodySemiBold,
-    color: Colors.primary,
-  },
-  availabilityNotice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  availabilityNoticeText: { ...Typography.caption, color: Colors.textSecondary },
-  typingBubble: {
+  typingState: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
   },
   typingText: { ...Typography.bodySmall, color: Colors.textSecondary },
   safetyLink: {
@@ -598,11 +471,10 @@ const styles = StyleSheet.create({
   },
   draftNotice: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surfaceSoft,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   draftNoticeText: { ...Typography.bodySmall, color: Colors.textSecondary, flex: 1 },
   errorBanner: {

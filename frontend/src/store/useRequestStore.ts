@@ -6,6 +6,7 @@ import {
   cancelRequest,
   CreateRequestPayload,
   createRequest,
+  getRequestById,
   listenToPendingRequests,
   listenToRequest,
 } from '../repositories/RequestRepository';
@@ -16,38 +17,56 @@ import {
   submitOffer,
   SubmitOfferPayload,
 } from '../repositories/OfferRepository';
+import { ApiError } from '../services/apiClient';
+import { presentUserError } from '../utils/userFacingError';
+import {
+  saveActiveRequestId,
+  loadActiveRequestId,
+  clearActiveRequestId,
+} from '../services/persistence/activeRequestPersistence';
 
 interface RequestState {
+  sessionUserId: string | null;
   activeRequestId: string | null;
   activeRequest: ActiveRequest | null;
   incomingOffers: Offer[];
   isSearching: boolean;
+  isRehydratingActiveSearch: boolean;
   pendingRequests: ActiveRequest[];
+  isPendingRequestsLoading: boolean;
   isLoading: boolean;
   error: string | null;
   _requestUnsub: (() => void) | null;
   _offersUnsub: (() => void) | null;
   _pendingUnsub: (() => void) | null;
-  createSessionRequest: (params: CreateRequestPayload) => Promise<ActiveRequest>;
+  bindSession: (userId: string) => void;
+  clearSession: (userId?: string) => Promise<void>;
+  rehydrateActiveSearch: (userId: string) => Promise<void>;
+  createSessionRequest: (params: CreateRequestPayload, userId: string) => Promise<ActiveRequest>;
   startListeningToRequest: (requestId: string) => void;
   startListeningToOffers: (requestId: string) => void;
   startListeningToPendingRequests: () => void;
   submitCounterOffer: (params: SubmitOfferPayload) => Promise<Offer>;
-  acceptIncomingOffer: (offerId: string) => Promise<AcceptedOfferResult>;
-  cancelSearch: () => Promise<void>;
-  clearCurrentRequest: () => void;
+  acceptIncomingOffer: (offerId: string, userId: string) => Promise<AcceptedOfferResult>;
+  cancelSearch: (userId: string) => Promise<void>;
+  clearCurrentRequest: (userId: string) => Promise<void>;
   stopListeningToPendingRequests: () => void;
   clearError: () => void;
 }
 
-interface PendingCreateAttempt {
+interface IdempotentAttempt {
   readonly fingerprint: string;
   readonly idempotencyKey: string;
 }
 
+interface PendingCreateAttempt extends IdempotentAttempt {
+  readonly userId: string;
+}
+
 let pendingCreateAttempt: PendingCreateAttempt | null = null;
 const acceptanceKeys = new Map<string, string>();
-const pendingOfferAttempts = new Map<string, PendingCreateAttempt>();
+const pendingOfferAttempts = new Map<string, IdempotentAttempt>();
+let sessionGeneration = 0;
 
 function createPayloadFingerprint(payload: CreateRequestPayload): string {
   return JSON.stringify({
@@ -62,7 +81,10 @@ function createPayloadFingerprint(payload: CreateRequestPayload): string {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'No pudimos completar la operación.';
+  return presentUserError(
+    error,
+    'No pudimos completar la acción en este momento. Inténtalo nuevamente.'
+  );
 }
 
 export const useRequestStore = create<RequestState>((set, get) => {
@@ -78,28 +100,140 @@ export const useRequestStore = create<RequestState>((set, get) => {
       activeRequest: null,
       incomingOffers: [],
       isSearching: false,
+      isRehydratingActiveSearch: false,
+      isLoading: false,
+      error: null,
       _requestUnsub: null,
       _offersUnsub: null,
     });
   };
 
+  const clearAllSubscriptions = () => {
+    clearRequestSubscriptions();
+    get()._pendingUnsub?.();
+  };
+
+  const resetInMemorySession = (nextUserId: string | null) => {
+    sessionGeneration += 1;
+    clearAllSubscriptions();
+    pendingCreateAttempt = null;
+    acceptanceKeys.clear();
+    pendingOfferAttempts.clear();
+    set({
+      sessionUserId: nextUserId,
+      activeRequestId: null,
+      activeRequest: null,
+      incomingOffers: [],
+      isSearching: false,
+      isRehydratingActiveSearch: false,
+      pendingRequests: [],
+      isPendingRequestsLoading: false,
+      isLoading: false,
+      error: null,
+      _requestUnsub: null,
+      _offersUnsub: null,
+      _pendingUnsub: null,
+    });
+  };
+
+  const clearPersistedRequest = async (userId?: string) => {
+    if (!userId) return;
+    try {
+      await clearActiveRequestId(userId);
+    } catch {
+    }
+  };
+
   return {
+    sessionUserId: null,
     activeRequestId: null,
     activeRequest: null,
     incomingOffers: [],
     isSearching: false,
+    isRehydratingActiveSearch: false,
     pendingRequests: [],
+    isPendingRequestsLoading: false,
     isLoading: false,
     error: null,
     _requestUnsub: null,
     _offersUnsub: null,
     _pendingUnsub: null,
 
-    createSessionRequest: async (params) => {
+    bindSession: (userId) => {
+      if (get().sessionUserId !== userId) {
+        resetInMemorySession(userId);
+      }
+    },
+
+    clearSession: async (userId) => {
+      const ownerId = userId ?? get().sessionUserId ?? undefined;
+      resetInMemorySession(null);
+      await clearPersistedRequest(ownerId);
+    },
+
+    rehydrateActiveSearch: async (userId: string) => {
+      if (get().sessionUserId !== userId) {
+        resetInMemorySession(userId);
+      }
+      if (get().isRehydratingActiveSearch || get().activeRequest) {
+        return;
+      }
+
+      const generation = sessionGeneration;
+      set({ isRehydratingActiveSearch: true, error: null });
+
+      try {
+        const savedId = await loadActiveRequestId(userId);
+        if (generation !== sessionGeneration || get().sessionUserId !== userId) return;
+        if (!savedId) {
+          set({ isRehydratingActiveSearch: false });
+          return;
+        }
+
+        const request = await getRequestById(savedId);
+        if (generation !== sessionGeneration || get().sessionUserId !== userId) return;
+
+        if (request.status === 'pending' || request.status === 'bidding') {
+          set({
+            activeRequestId: request.id,
+            activeRequest: request,
+            isSearching: true,
+            isRehydratingActiveSearch: false,
+          });
+          get().startListeningToRequest(request.id);
+          get().startListeningToOffers(request.id);
+        } else {
+          await clearPersistedRequest(userId);
+          clearRequestState();
+          set({ isRehydratingActiveSearch: false });
+        }
+      } catch (error) {
+        if (generation !== sessionGeneration || get().sessionUserId !== userId) return;
+        if (
+          error instanceof ApiError &&
+          (error.status === 404 || error.status === 401 || error.status === 403)
+        ) {
+          await clearPersistedRequest(userId);
+          clearRequestState();
+        } else {
+          set({ error: errorMessage(error) });
+        }
+        set({ isRehydratingActiveSearch: false });
+      }
+    },
+
+    createSessionRequest: async (params, userId) => {
+      if (get().sessionUserId !== userId) {
+        resetInMemorySession(userId);
+      }
       set({ isLoading: true, error: null });
       const fingerprint = createPayloadFingerprint(params);
-      if (!pendingCreateAttempt || pendingCreateAttempt.fingerprint !== fingerprint) {
-        pendingCreateAttempt = { fingerprint, idempotencyKey: randomUUID() };
+      if (
+        !pendingCreateAttempt
+        || pendingCreateAttempt.userId !== userId
+        || pendingCreateAttempt.fingerprint !== fingerprint
+      ) {
+        pendingCreateAttempt = { userId, fingerprint, idempotencyKey: randomUUID() };
       }
 
       try {
@@ -112,40 +246,66 @@ export const useRequestStore = create<RequestState>((set, get) => {
           isSearching: true,
           isLoading: false,
         });
+        try {
+          await saveActiveRequestId(userId, request.id);
+        } catch {
+        }
         get().startListeningToRequest(request.id);
         get().startListeningToOffers(request.id);
         return request;
       } catch (error) {
-        set({ error: errorMessage(error), isLoading: false });
+        set({ isLoading: false });
         throw error;
       }
     },
 
     startListeningToRequest: (requestId) => {
       get()._requestUnsub?.();
+      const generation = sessionGeneration;
       const unsubscribe = listenToRequest(
         requestId,
-        (request) => set({ activeRequest: request }),
-        (error) => set({ error: errorMessage(error) })
+        (request) => {
+          if (generation === sessionGeneration) set({ activeRequest: request });
+        },
+        (error) => {
+          if (generation === sessionGeneration) set({ error: errorMessage(error) });
+        }
       );
       set({ _requestUnsub: unsubscribe });
     },
 
     startListeningToOffers: (requestId) => {
       get()._offersUnsub?.();
+      const generation = sessionGeneration;
       const unsubscribe = listenToOffers(
         requestId,
-        (offers) => set({ incomingOffers: offers.filter((offer) => offer.status === 'pending') }),
-        (error) => set({ error: errorMessage(error) })
+        (offers) => {
+          if (generation === sessionGeneration) {
+            set({ incomingOffers: offers.filter((offer) => offer.status === 'pending') });
+          }
+        },
+        (error) => {
+          if (generation === sessionGeneration) set({ error: errorMessage(error) });
+        }
       );
       set({ _offersUnsub: unsubscribe });
     },
 
     startListeningToPendingRequests: () => {
       get()._pendingUnsub?.();
+      const generation = sessionGeneration;
+      set({ isPendingRequestsLoading: true });
       const unsubscribe = listenToPendingRequests(
-        (requests) => set({ pendingRequests: requests }),
-        (error) => set({ error: errorMessage(error) })
+        (requests) => {
+          if (generation === sessionGeneration) {
+            set({ pendingRequests: requests, isPendingRequestsLoading: false });
+          }
+        },
+        (error) => {
+          if (generation === sessionGeneration) {
+            set({ error: errorMessage(error), isPendingRequestsLoading: false });
+          }
+        }
       );
       set({ _pendingUnsub: unsubscribe });
     },
@@ -170,12 +330,15 @@ export const useRequestStore = create<RequestState>((set, get) => {
         }));
         return offer;
       } catch (error) {
-        set({ error: errorMessage(error), isLoading: false });
+        set({ isLoading: false });
         throw error;
       }
     },
 
-    acceptIncomingOffer: async (offerId) => {
+    acceptIncomingOffer: async (offerId, userId) => {
+      if (get().sessionUserId !== userId) {
+        throw new Error('La solicitud activa no pertenece a la sesión actual.');
+      }
       const requestId = get().activeRequestId ?? get().activeRequest?.id;
       if (!requestId) throw new Error('No hay una solicitud activa para aceptar la oferta.');
 
@@ -185,25 +348,24 @@ export const useRequestStore = create<RequestState>((set, get) => {
       set({ isLoading: true, error: null });
       try {
         const result = await acceptOffer(requestId, offerId, idempotencyKey);
-        set((state) => ({
-          incomingOffers: state.incomingOffers.map((offer) => ({
-            ...offer,
-            status: offer.id === offerId ? 'accepted' : 'rejected',
-          })),
-          isSearching: false,
-          isLoading: false,
-        }));
+        acceptanceKeys.delete(operationKey);
+        clearRequestState();
+        await clearPersistedRequest(userId);
         return result;
       } catch (error) {
-        set({ error: errorMessage(error), isLoading: false });
+        set({ isLoading: false });
         throw error;
       }
     },
 
-    cancelSearch: async () => {
+    cancelSearch: async (userId) => {
+      if (get().sessionUserId !== userId) {
+        resetInMemorySession(userId);
+      }
       const requestId = get().activeRequestId ?? get().activeRequest?.id;
       if (!requestId) {
         clearRequestState();
+        await clearPersistedRequest(userId);
         return;
       }
 
@@ -211,18 +373,22 @@ export const useRequestStore = create<RequestState>((set, get) => {
       try {
         await cancelRequest(requestId);
         clearRequestState();
+        await clearPersistedRequest(userId);
         set({ isLoading: false });
       } catch (error) {
-        set({ error: errorMessage(error), isLoading: false });
+        set({ isLoading: false });
         throw error;
       }
     },
 
-    clearCurrentRequest: clearRequestState,
+    clearCurrentRequest: async (userId) => {
+      clearRequestState();
+      await clearPersistedRequest(userId);
+    },
 
     stopListeningToPendingRequests: () => {
       get()._pendingUnsub?.();
-      set({ _pendingUnsub: null });
+      set({ _pendingUnsub: null, isPendingRequestsLoading: false });
     },
 
     clearError: () => set({ error: null }),

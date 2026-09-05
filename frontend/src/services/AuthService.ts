@@ -43,6 +43,14 @@ export interface RegisterUserInput {
   };
 }
 
+export type PasswordResetDelivery = 'EMAIL' | 'LOCAL_QA' | 'UNAVAILABLE';
+
+export interface PasswordResetRequestResult {
+  readonly accepted: true;
+  readonly delivery: PasswordResetDelivery;
+  readonly localQaToken?: string;
+}
+
 type SessionInvalidHandler = () => void;
 
 const ROLE_CODES = new Set<RoleCode>([
@@ -126,6 +134,22 @@ function readAuthenticatedSession(payload: unknown): AuthenticatedSession {
   return { user: data.user, tokens: data.tokens };
 }
 
+function readPasswordResetRequest(payload: unknown): PasswordResetRequestResult {
+  const data = envelopeData(payload);
+  if (!isRecord(data) || data.accepted !== true) throw invalidResponseError();
+  if (!['EMAIL', 'LOCAL_QA', 'UNAVAILABLE'].includes(String(data.delivery))) {
+    throw invalidResponseError();
+  }
+  if (data.localQaToken !== undefined && typeof data.localQaToken !== 'string') {
+    throw invalidResponseError();
+  }
+  return {
+    accepted: true,
+    delivery: data.delivery as PasswordResetDelivery,
+    ...(typeof data.localQaToken === 'string' ? { localQaToken: data.localQaToken } : {}),
+  };
+}
+
 function invalidResponseError(): ApiError {
   return new ApiError({
     status: 502,
@@ -163,7 +187,6 @@ async function invalidateLocalSessionSafely(): Promise<void> {
   try {
     await invalidateLocalSession();
   } catch {
-    // El estado se limpia en el bloque finally aunque el sistema operativo no pueda borrar la clave.
   }
 }
 
@@ -268,6 +291,25 @@ export async function signIn(email: string, password: string): Promise<CurrentUs
     throw error;
   }
   return session.user;
+}
+
+export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
+  const payload = await apiV1Request<unknown>(
+    '/auth/password-reset/request',
+    'POST',
+    { email },
+    { authenticated: false, retryUnauthorized: false }
+  );
+  return readPasswordResetRequest(payload);
+}
+
+export async function completePasswordReset(token: string, password: string): Promise<void> {
+  await apiV1Request<void>(
+    '/auth/password-reset/complete',
+    'POST',
+    { token, password },
+    { authenticated: false, retryUnauthorized: false }
+  );
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {

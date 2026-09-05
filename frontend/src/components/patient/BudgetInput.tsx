@@ -10,7 +10,7 @@ import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
 import { IconSize, IconStroke } from '../../theme/icons';
-import { formatMoney } from '../../utils/money';
+import { formatCurrencySymbol, formatMoney } from '../../utils/money';
 
 interface BudgetInputProps {
   value: number;
@@ -40,7 +40,7 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
 
       <View style={styles.inputRow}>
         <View style={styles.currencyBadge}>
-          <Text style={styles.currencyText}>{currencyCode}</Text>
+          <Text style={styles.currencyText}>{formatCurrencySymbol(currencyCode)}</Text>
         </View>
         <TextInput
           style={styles.input}
@@ -50,7 +50,7 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
           placeholder="0"
           placeholderTextColor={Colors.textDisabled}
           maxLength={String(Math.trunc(maximumAmount)).length + 3}
-          accessibilityLabel="Budget amount input"
+          accessibilityLabel="Monto del presupuesto"
         />
         <Pencil
           size={IconSize.inline}

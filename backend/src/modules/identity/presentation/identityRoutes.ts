@@ -7,6 +7,8 @@ import { getRequestId } from '../../../shared/presentation/http/requestContext';
 import { AuthenticatedRequest, getActor, requireAuthentication } from './authMiddleware';
 import {
   parseLogin,
+  parsePasswordResetCompletion,
+  parsePasswordResetRequest,
   parsePatientRegistration,
   parsePsychologistRegistration,
   parseRefresh,
@@ -26,11 +28,20 @@ function rateLimitKey(request: AuthenticatedRequest): string {
   return createHash('sha256').update(`${request.ip}|${email}`, 'utf8').digest('hex');
 }
 
-export function createIdentityRouter(identity: IdentityService): Router {
+export function createIdentityRouter(
+  identity: IdentityService,
+  passwordRecovery: { readonly requestsPerHour: number }
+): Router {
   const router = Router();
   const registrationLimiter = createRateLimiter({ windowMs: 60 * 60_000, maximum: 5, key: rateLimitKey });
   const loginLimiter = createRateLimiter({ windowMs: 15 * 60_000, maximum: 10, key: rateLimitKey });
   const refreshLimiter = createRateLimiter({ windowMs: 60_000, maximum: 30 });
+  const passwordResetRequestLimiter = createRateLimiter({
+    windowMs: 60 * 60_000,
+    maximum: passwordRecovery.requestsPerHour,
+    key: rateLimitKey,
+  });
+  const passwordResetCompletionLimiter = createRateLimiter({ windowMs: 15 * 60_000, maximum: 10 });
   const auth = requireAuthentication(identity);
 
   router.post('/register/patient', registrationLimiter, asyncHandler(async (request, response) => {
@@ -59,6 +70,33 @@ export function createIdentityRouter(identity: IdentityService): Router {
     });
     response.json({ data: result, meta: { requestId: getRequestId(response) } });
   }));
+
+  router.post(
+    '/password-reset/request',
+    passwordResetRequestLimiter,
+    asyncHandler(async (request, response) => {
+      const body = parsePasswordResetRequest(request.body);
+      const result = await identity.requestPasswordReset(
+        body.email,
+        requestMetadata(request, getRequestId(response))
+      );
+      response.status(202).json({ data: result, meta: { requestId: getRequestId(response) } });
+    })
+  );
+
+  router.post(
+    '/password-reset/complete',
+    passwordResetCompletionLimiter,
+    asyncHandler(async (request, response) => {
+      const body = parsePasswordResetCompletion(request.body);
+      await identity.completePasswordReset(
+        body.token,
+        body.password,
+        requestMetadata(request, getRequestId(response))
+      );
+      response.status(204).end();
+    })
+  );
 
   router.post('/refresh', refreshLimiter, asyncHandler(async (request, response) => {
     const refreshToken = parseRefresh(request.body);

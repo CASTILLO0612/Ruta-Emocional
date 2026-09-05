@@ -2,9 +2,11 @@
   "expo": {
     "name": "Ruta Emocional",
     "slug": "ruta-emocional",
+    "scheme": "rutaemocional",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "backgroundColor": "#253A82",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
@@ -13,7 +15,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png"
+        "backgroundColor": "#253A82"
       },
       "package": "com.rutaemocional.app"
     },
@@ -29,12 +31,20 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/brand/ruta-emocional-logo-negative.png",
+          "imageWidth": 260,
           "resizeMode": "contain",
-          "backgroundColor": "#0A2463"
+          "backgroundColor": "#253A82"
         }
       ]
-    ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Ruta Emocional",
+      "shortName": "Ruta",
+      "lang": "es",
+      "themeColor": "#253A82",
+      "backgroundColor": "#F8FAFC"
+    }
   }
 }

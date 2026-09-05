@@ -95,6 +95,15 @@ export interface LoginBody {
   readonly deviceName?: string;
 }
 
+export interface PasswordResetRequestBody {
+  readonly email: string;
+}
+
+export interface PasswordResetCompletionBody {
+  readonly token: string;
+  readonly password: string;
+}
+
 export function parsePatientRegistration(body: unknown): PatientRegistrationBody {
   const record = asRecord(body);
   const errors = rejectUnknownFields(record, ['displayName', 'email', 'password']);
@@ -152,6 +161,28 @@ export function parseLogin(body: unknown): LoginBody {
   validatePassword(password, errors, false);
   throwIfErrors(errors);
   return { email, password, deviceName };
+}
+
+export function parsePasswordResetRequest(body: unknown): PasswordResetRequestBody {
+  const record = asRecord(body);
+  const errors = rejectUnknownFields(record, ['email']);
+  const email = requiredString(record, 'email', 3, 320, errors).toLowerCase();
+  validateEmail(email, errors);
+  throwIfErrors(errors);
+  return { email };
+}
+
+export function parsePasswordResetCompletion(body: unknown): PasswordResetCompletionBody {
+  const record = asRecord(body);
+  const errors = rejectUnknownFields(record, ['token', 'password']);
+  const token = requiredString(record, 'token', 40, 200, errors);
+  const password = typeof record.password === 'string' ? record.password : '';
+  if (typeof record.password !== 'string') {
+    errors.push({ field: 'password', code: 'REQUIRED_STRING', message: 'Este campo es obligatorio.' });
+  }
+  validatePassword(password, errors, true);
+  throwIfErrors(errors);
+  return { token, password };
 }
 
 export function parseRefresh(body: unknown): string {

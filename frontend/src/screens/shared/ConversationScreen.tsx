@@ -43,62 +43,28 @@ import type { RealtimeConnectionState } from '../../services/socketClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
+import { Layout } from '../../theme/layout';
 import { FontFamily, Typography } from '../../theme/typography';
+import {
+  chatMessageKey,
+  formatMessageTime,
+  getRealtimeConnectionLabel,
+  mergeChatMessages,
+  RenderedChatMessage,
+} from '../../utils/messagingPresentation';
+import { presentUserError } from '../../utils/userFacingError';
 
 type ConversationRoute = RouteProp<AppStackParamList, 'Consultation'>;
-type DeliveryState = 'sending' | 'sent' | 'failed';
-type RenderedMessage = ChatMessage & { readonly delivery: DeliveryState };
-
-function messageKey(message: Pick<ChatMessage, 'sender' | 'clientMessageId'>): string {
-  return `${message.sender.userId}:${message.clientMessageId}`;
-}
-
-function asDelivered(message: ChatMessage, currentUserId: string): RenderedMessage {
-  return {
-    ...message,
-    isOwn: message.sender.userId === currentUserId,
-    delivery: 'sent',
-  };
-}
-
-function mergeMessages(
-  current: readonly RenderedMessage[],
-  incoming: readonly ChatMessage[],
-  currentUserId: string
-): RenderedMessage[] {
-  const merged = new Map(current.map((message) => [messageKey(message), message]));
-  for (const message of incoming) {
-    merged.set(messageKey(message), asDelivered(message, currentUserId));
-  }
-  return [...merged.values()].sort((left, right) => {
-    const timeDifference = Date.parse(left.sentAt) - Date.parse(right.sentAt);
-    return timeDifference || left.id.localeCompare(right.id);
-  });
-}
-
-function connectionLabel(state: RealtimeConnectionState): string {
-  if (state === 'connected') return 'En tiempo real';
-  if (state === 'connecting') return 'Conectando';
-  return 'Sin conexión en tiempo real';
-}
-
-function messageTime(isoDate: string): string {
-  return new Intl.DateTimeFormat('es-NI', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(isoDate));
-}
-
 export const ConversationScreen: React.FC = () => {
   const route = useRoute<ConversationRoute>();
   const navigation = useNavigation<AppNavigation>();
   const user = useAuthStore(({ userProfile }) => userProfile);
   const conversationId = route.params.conversationId;
-  const listRef = useRef<FlatList<RenderedMessage>>(null);
+  const listRef = useRef<FlatList<RenderedChatMessage>>(null);
   const shouldScrollToEnd = useRef(true);
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<RenderedMessage[]>([]);
+  const [messages, setMessages] = useState<RenderedChatMessage[]>([]);
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
   const [maximumTextLength, setMaximumTextLength] = useState(0);
   const [draft, setDraft] = useState('');
@@ -109,7 +75,7 @@ export const ConversationScreen: React.FC = () => {
 
   const mergeFromServer = useCallback((serverMessages: readonly ChatMessage[]) => {
     if (!user) return;
-    setMessages((current) => mergeMessages(current, serverMessages, user.id));
+    setMessages((current) => mergeChatMessages(current, serverMessages, user.id));
   }, [user]);
 
   const loadLatest = useCallback(async (signal?: AbortSignal) => {
@@ -131,15 +97,16 @@ export const ConversationScreen: React.FC = () => {
       .then(([loadedConversation, policy, page]) => {
         setConversation(loadedConversation);
         setMaximumTextLength(policy.maximumTextLength);
-        setMessages(mergeMessages([], page.data, user.id));
+        setMessages(mergeChatMessages([], page.data, user.id));
         setOlderCursor(page.page.nextCursor);
         shouldScrollToEnd.current = true;
       })
       .catch((loadError: unknown) => {
         if (loadError instanceof Error && loadError.name === 'AbortError') return;
-        setError(loadError instanceof Error
-          ? loadError.message
-          : 'No pudimos abrir esta conversación.');
+        setError(presentUserError(
+          loadError,
+          'No pudimos abrir esta conversación. Inténtalo nuevamente.'
+        ));
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -179,9 +146,10 @@ export const ConversationScreen: React.FC = () => {
       mergeFromServer(page.data);
       setOlderCursor(page.page.nextCursor);
     } catch (loadError) {
-      setError(loadError instanceof Error
-        ? loadError.message
-        : 'No pudimos cargar los mensajes anteriores.');
+      setError(presentUserError(
+        loadError,
+        'No pudimos cargar los mensajes anteriores. Inténtalo nuevamente.'
+      ));
     } finally {
       setIsLoadingOlder(false);
     }
@@ -199,9 +167,10 @@ export const ConversationScreen: React.FC = () => {
           ? { ...message, delivery: 'failed' }
           : message
       )));
-      setError(sendError instanceof Error
-        ? sendError.message
-        : 'No pudimos enviar el mensaje.');
+      setError(presentUserError(
+        sendError,
+        'No pudimos enviar el mensaje. Puedes intentarlo nuevamente.'
+      ));
     }
   }, [conversationId, mergeFromServer, user]);
 
@@ -210,7 +179,7 @@ export const ConversationScreen: React.FC = () => {
     const text = draft.trim();
     if (!text || text.length > maximumTextLength) return;
     const clientMessageId = randomUUID();
-    const optimistic: RenderedMessage = {
+    const optimistic: RenderedChatMessage = {
       id: `pending:${clientMessageId}`,
       conversationId,
       clientMessageId,
@@ -229,14 +198,14 @@ export const ConversationScreen: React.FC = () => {
     setDraft('');
     setError(null);
     shouldScrollToEnd.current = true;
-    setMessages((current) => mergeMessages(current, [optimistic], user.id));
+    setMessages((current) => mergeChatMessages(current, [optimistic], user.id));
     void deliver(clientMessageId, text);
   }, [conversation, conversationId, deliver, draft, maximumTextLength, user]);
 
-  const retry = useCallback((message: RenderedMessage) => {
+  const retry = useCallback((message: RenderedChatMessage) => {
     setError(null);
     setMessages((current) => current.map((candidate) => (
-      messageKey(candidate) === messageKey(message)
+      chatMessageKey(candidate) === chatMessageKey(message)
         ? { ...candidate, delivery: 'sending' }
         : candidate
     )));
@@ -261,7 +230,12 @@ export const ConversationScreen: React.FC = () => {
           <LockKeyhole size={36} color={Colors.textTertiary} strokeWidth={1.7} />
           <Text style={styles.emptyTitle}>Conversación no disponible</Text>
           <Text style={styles.emptyText}>{error ?? 'No tienes acceso a esta conversación.'}</Text>
-          <Pressable style={styles.secondaryButton} onPress={() => navigation.goBack()}>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Volver a la pantalla anterior"
+          >
             <Text style={styles.secondaryButtonText}>Volver</Text>
           </Pressable>
         </View>
@@ -301,7 +275,7 @@ export const ConversationScreen: React.FC = () => {
                 styles.connectionDot,
                 connectionState === 'connected' && styles.connectionDotActive,
               ]} />
-              <Text style={styles.connectionText}>{connectionLabel(connectionState)}</Text>
+              <Text style={styles.connectionText}>{getRealtimeConnectionLabel(connectionState)}</Text>
             </View>
           </View>
           <View style={styles.secureBadge}>
@@ -310,7 +284,12 @@ export const ConversationScreen: React.FC = () => {
         </View>
 
         {error ? (
-          <Pressable style={styles.errorBanner} onPress={() => setError(null)}>
+          <Pressable
+            style={styles.errorBanner}
+            onPress={() => setError(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar aviso de mensajería"
+          >
             <CircleAlert size={18} color={Colors.error} strokeWidth={1.9} />
             <Text numberOfLines={2} style={styles.errorText}>{error}</Text>
             <X size={18} color={Colors.textSecondary} strokeWidth={2} />
@@ -320,9 +299,11 @@ export const ConversationScreen: React.FC = () => {
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={messageKey}
+          keyExtractor={chatMessageKey}
           contentContainerStyle={styles.messageList}
           keyboardShouldPersistTaps="handled"
+          initialNumToRender={16}
+          windowSize={9}
           onContentSizeChange={() => {
             if (shouldScrollToEnd.current) {
               listRef.current?.scrollToEnd({ animated: messages.length > 1 });
@@ -334,6 +315,8 @@ export const ConversationScreen: React.FC = () => {
               disabled={isLoadingOlder}
               onPress={() => void loadOlder()}
               style={styles.olderButton}
+              accessibilityRole="button"
+              accessibilityLabel="Cargar mensajes anteriores"
             >
               {isLoadingOlder
                 ? <ActivityIndicator color={Colors.primary} size="small" />
@@ -358,7 +341,7 @@ export const ConversationScreen: React.FC = () => {
                 </Text>
                 <View style={styles.messageMeta}>
                   <Text style={[styles.messageTime, item.isOwn && styles.messageTimeOwn]}>
-                    {messageTime(item.sentAt)}
+                    {formatMessageTime(item.sentAt)}
                   </Text>
                   {item.isOwn && item.delivery === 'sending' ? (
                     <Clock3 size={13} color={Colors.textOnBrandMuted} strokeWidth={1.9} />
@@ -369,7 +352,12 @@ export const ConversationScreen: React.FC = () => {
                 </View>
               </View>
               {item.delivery === 'failed' ? (
-                <Pressable onPress={() => retry(item)} style={styles.retryButton}>
+                <Pressable
+                  onPress={() => retry(item)}
+                  style={styles.retryButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reintentar envío del mensaje"
+                >
                   <RefreshCw size={16} color={Colors.error} strokeWidth={2} />
                   <Text style={styles.retryMessageText}>Reintentar</Text>
                 </Pressable>
@@ -400,6 +388,7 @@ export const ConversationScreen: React.FC = () => {
                 accessibilityLabel="Enviar mensaje"
                 accessibilityRole="button"
                 disabled={!draft.trim() || remainingCharacters < 0}
+                accessibilityState={{ disabled: !draft.trim() || remainingCharacters < 0 }}
                 onPress={send}
                 style={({ pressed }) => [
                   styles.sendButton,
@@ -436,7 +425,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.divider,
     backgroundColor: Colors.surface,
   },
-  iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surfaceMuted },
   avatarFallback: {
     width: 40,
@@ -471,7 +460,14 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.errorBorder,
   },
   errorText: { ...Typography.bodySmall, color: Colors.error, flex: 1 },
-  messageList: { flexGrow: 1, paddingHorizontal: Spacing.base, paddingVertical: Spacing.md },
+  messageList: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: Layout.maxReadableWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+  },
   olderButton: {
     alignSelf: 'center',
     flexDirection: 'row',
