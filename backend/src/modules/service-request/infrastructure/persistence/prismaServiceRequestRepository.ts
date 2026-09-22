@@ -71,6 +71,14 @@ interface RatingRow {
   readonly totalReviews: bigint;
 }
 
+interface InPersonDestinationRow {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
 export interface SerializableRetryPolicy {
   readonly maximumRetries: number;
   readonly baseDelayMs: number;
@@ -888,11 +896,28 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
     if (!careRelationshipId || !conversation) {
       throw AppError.conflict('ACCEPTANCE_RESULT_INCOMPLETE', 'La aceptación no está completa.');
     }
+    const destinationRows = request.modality === Modality.IN_PERSON
+      ? await transaction.$queryRaw<InPersonDestinationRow[]>(Prisma.sql`
+          SELECT "practice_name" AS "name",
+                 "practice_address" AS "address",
+                 "practice_directions" AS "directions",
+                 ST_Y("location"::geometry)::double precision AS "latitude",
+                 ST_X("location"::geometry)::double precision AS "longitude"
+            FROM "psychologist_profiles"
+           WHERE "id" = ${offer.psychologistProfileId}::uuid
+             AND "location" IS NOT NULL
+             AND "practice_name" IS NOT NULL
+             AND "practice_address" IS NOT NULL
+           LIMIT 1
+        `)
+      : [];
+    const destination = destinationRows[0];
     return {
       request: requestView(request),
       acceptedOffer: (await this.offerViews(transaction, [offer]))[0],
       careRelationshipId,
       conversationId: conversation.id,
+      inPersonDestination: destination ?? null,
       replayed,
     };
   }

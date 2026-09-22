@@ -6,6 +6,7 @@ import {
   parseDirectoryQuery,
   parseLocalQaEvidenceUpload,
   parseModalityConfiguration,
+  parsePracticeLocation,
   parseWeeklyAvailability,
 } from '../../src/modules/professional-directory/presentation/professionalDirectoryValidation';
 
@@ -87,6 +88,37 @@ test('weekly availability validates timezone and interval ordering', () => {
       rules: [{ weekday: 1, startTime: '12:00', endTime: '08:00', isActive: true }],
     }, config.maxWeeklyRules),
     AppError
+  );
+});
+
+test('practice location validation normalizes safe coordinates and rejects unknown data', () => {
+  assert.deepEqual(
+    parsePracticeLocation({
+      name: 'Consultorio Central',
+      address: 'Avenida principal, Managua',
+      directions: 'Segundo piso',
+      latitude: 12.114,
+      longitude: -86.236,
+    }),
+    {
+      name: 'Consultorio Central',
+      address: 'Avenida principal, Managua',
+      directions: 'Segundo piso',
+      latitude: 12.114,
+      longitude: -86.236,
+    }
+  );
+  assert.throws(
+    () => parsePracticeLocation({
+      name: 'Consultorio Central',
+      address: 'Avenida principal, Managua',
+      latitude: 120,
+      longitude: -86.236,
+      public: true,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.errors?.some(({ code }) => code === 'INVALID_COORDINATE') === true
+      && error.errors?.some(({ code }) => code === 'UNKNOWN_FIELD') === true
   );
 });
 

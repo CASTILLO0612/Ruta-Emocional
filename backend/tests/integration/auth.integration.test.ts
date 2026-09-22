@@ -39,6 +39,7 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       scryptP: 1,
       keyLength: 32,
     },
+    federatedAuthentication: createTestConfig(databaseUrl, 'auth-integration').federatedAuthentication,
     passwordRecovery: {
       provider: 'DISABLED',
       resendApiKey: null,

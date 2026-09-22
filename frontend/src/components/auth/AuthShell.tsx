@@ -25,7 +25,7 @@ import { Typography } from '../../theme/typography';
 
 interface AuthShellProps extends PropsWithChildren {
   readonly title: string;
-  readonly subtitle: string;
+  readonly subtitle?: string;
   readonly onBack?: () => void;
   readonly footer?: React.ReactNode;
   readonly overlay?: React.ReactNode;
@@ -67,7 +67,6 @@ export const AuthShell: React.FC<AuthShellProps> = ({
         <SafeAreaView edges={['top']}>
           <View style={styles.brandContent}>
             <BrandLogo size="compact" variant="negative" />
-            <Text style={styles.brandPromise}>Acompañamiento profesional y humano</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -100,7 +99,7 @@ export const AuthShell: React.FC<AuthShellProps> = ({
 
             <View style={styles.heading}>
               <Text style={styles.title}>{title}</Text>
-              <Text style={styles.subtitle}>{subtitle}</Text>
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
 
             {children}
@@ -117,31 +116,29 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
   brandHeader: {
-    minHeight: 144,
+    minHeight: 112,
     justifyContent: 'center',
     backgroundColor: Colors.primary,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.sm,
   },
-  brandHeaderCompact: { minHeight: 128, paddingBottom: Spacing.base },
+  brandHeaderCompact: { minHeight: 104, paddingBottom: Spacing.xs },
   brandContent: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.sm,
-    gap: Spacing.xs,
   },
-  brandPromise: { ...Typography.caption, color: Colors.textOnBrandMuted, textAlign: 'center' },
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.xxl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   content: {
     width: '100%',
     maxWidth: 520,
-    gap: Spacing.lg,
+    gap: Spacing.base,
   },
   backButton: {
     alignSelf: 'flex-start',

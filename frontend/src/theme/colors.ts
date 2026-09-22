@@ -18,6 +18,13 @@ export const NeutralColors = {
   white: '#FFFFFF',
 } as const;
 
+export const ExternalBrandColors = {
+  googleBlue: '#4285F4',
+  googleGreen: '#34A853',
+  googleYellow: '#FBBC05',
+  googleRed: '#EA4335',
+} as const;
+
 export const Colors = {
   primary: BrandColors.navy,
   primaryLight: BrandColors.periwinkle,
@@ -78,6 +85,7 @@ export const Colors = {
   radarRing: 'rgba(136, 162, 255, 0.20)',
   radarCore: BrandColors.navy,
   routeLine: BrandColors.navy,
+  mapAttributionSurface: 'rgba(255, 255, 255, 0.88)',
   callBackground: BrandColors.navy,
   callControl: 'rgba(255, 255, 255, 0.15)',
   callControlDisabled: 'rgba(194, 65, 77, 0.28)',

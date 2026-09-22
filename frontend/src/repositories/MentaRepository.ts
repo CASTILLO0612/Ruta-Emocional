@@ -1,4 +1,4 @@
-import { apiV1Request } from '../services/apiClient';
+import { ApiError, apiV1EventStream, apiV1Request } from '../services/apiClient';
 
 export type MentaScope = 'PATIENT' | 'PSYCHOLOGIST';
 export type MentaProviderOutcome = 'NOT_USED' | 'SUCCEEDED' | 'UNAVAILABLE' | 'REJECTED_OUTPUT';
@@ -40,6 +40,59 @@ export interface MentaBootstrap {
 
 interface Envelope<T> { readonly data: T }
 
+interface MentaStreamHandlers {
+  readonly onStatus?: (message: string) => void;
+  readonly onDelta: (delta: string) => void;
+}
+
+interface ServerSentEvent {
+  readonly event: string;
+  readonly data: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function parseMentaServerSentEvent(frame: string): ServerSentEvent | null {
+  const lines = frame.split(/\r?\n/);
+  const event = lines
+    .find((line) => line.startsWith('event:'))
+    ?.slice('event:'.length)
+    .trim();
+  const data = lines
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice('data:'.length).trimStart())
+    .join('\n');
+  if (!event || !data) return null;
+  try {
+    return { event, data: JSON.parse(data) as unknown };
+  } catch {
+    throw new ApiError({
+      status: 200,
+      code: 'INVALID_STREAM_EVENT',
+      message: 'La respuesta de MENTA no pudo interpretarse.',
+    });
+  }
+}
+
+function streamMessage(value: unknown, fallback: string): string {
+  return isRecord(value) && typeof value.message === 'string' && value.message.trim()
+    ? value.message.trim()
+    : fallback;
+}
+
+function streamTurn(value: unknown): MentaTurn {
+  if (!isRecord(value) || !isRecord(value.turn)) {
+    throw new ApiError({
+      status: 200,
+      code: 'INVALID_STREAM_COMPLETION',
+      message: 'MENTA no pudo completar la respuesta.',
+    });
+  }
+  return value.turn as unknown as MentaTurn;
+}
+
 export async function fetchMentaBootstrap(
   scope: MentaScope,
   signal?: AbortSignal
@@ -72,4 +125,71 @@ export async function sendMentaMessage(
     'POST',
     { clientMessageId, message }
   )).data;
+}
+
+export async function sendMentaMessageStream(
+  conversationId: string,
+  clientMessageId: string,
+  message: string,
+  handlers: MentaStreamHandlers,
+  signal?: AbortSignal
+): Promise<MentaTurn> {
+  const stream = await apiV1EventStream(
+    `/menta/conversations/${encodeURIComponent(conversationId)}/turns/stream`,
+    'POST',
+    { clientMessageId, message },
+    { signal }
+  );
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffered = '';
+  let completed: MentaTurn | null = null;
+
+  const consumeFrame = (frame: string) => {
+    const event = parseMentaServerSentEvent(frame);
+    if (!event) return;
+    if (event.event === 'status') {
+      handlers.onStatus?.(streamMessage(event.data, 'MENTA está preparando una respuesta.'));
+      return;
+    }
+    if (event.event === 'delta') {
+      const delta = streamMessage(event.data, '');
+      if (delta) handlers.onDelta(delta);
+      return;
+    }
+    if (event.event === 'completed') {
+      completed = streamTurn(event.data);
+      return;
+    }
+    if (event.event === 'error') {
+      throw new ApiError({
+        status: 500,
+        code: 'MENTA_STREAM_FAILED',
+        message: streamMessage(event.data, 'No pudimos completar la respuesta de MENTA.'),
+      });
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      buffered += decoder.decode(value, { stream: !done });
+      const frames = buffered.split(/\r?\n\r?\n/);
+      buffered = frames.pop() ?? '';
+      frames.forEach(consumeFrame);
+      if (done) break;
+    }
+    if (buffered.trim()) consumeFrame(buffered);
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!completed) {
+    throw new ApiError({
+      status: 200,
+      code: 'INCOMPLETE_STREAM',
+      message: 'MENTA no terminó la respuesta. Inténtalo nuevamente.',
+    });
+  }
+  return completed;
 }

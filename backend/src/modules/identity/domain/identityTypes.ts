@@ -6,7 +6,7 @@ export interface IdentityUser {
   readonly id: string;
   readonly email: string;
   readonly displayName: string;
-  readonly passwordHash: string;
+  readonly passwordHash: string | null;
   readonly photoUrl: string | null;
   readonly status: AccountStatus;
   readonly roles: readonly RoleCode[];

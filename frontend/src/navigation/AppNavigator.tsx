@@ -22,7 +22,6 @@ import { HomeScreen } from '../screens/patient/HomeScreen';
 import { SearchTabScreen } from '../screens/patient/SearchTabScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
 import { AcceptedOfferScreen } from '../screens/patient/AcceptedOfferScreen';
-import { MentaScreen as MentaSafetyScreen } from '../screens/patient/MentaScreen';
 import { MentaAgentScreen } from '../screens/shared/MentaAgentScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
@@ -210,7 +209,6 @@ export const AppNavigator: React.FC = () => {
           <Stack.Screen name="Consultation" component={ConversationScreen} />
           <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
           <Stack.Screen name="Inbox" component={InboxScreen} />
-          <Stack.Screen name="MentaSafety" component={MentaSafetyScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />
         </>

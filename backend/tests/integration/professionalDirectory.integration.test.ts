@@ -25,6 +25,12 @@ interface OwnProfileResponse {
   readonly data: {
     readonly id: string;
     readonly licenses: readonly { readonly id: string }[];
+    readonly practiceLocation?: {
+      readonly name: string;
+      readonly address: string;
+      readonly latitude: number;
+      readonly longitude: number;
+    } | null;
   };
 }
 
@@ -65,6 +71,10 @@ test('professional directory HTTP flow protects verification and exposes a minim
       scryptP: 1,
       keyLength: 32,
     },
+    federatedAuthentication: createTestConfig(
+      databaseUrl,
+      'directory-integration'
+    ).federatedAuthentication,
     passwordRecovery: createTestConfig(databaseUrl, 'directory-integration').passwordRecovery,
     professionalDirectory: {
       defaultPageSize: 20,
@@ -174,6 +184,22 @@ test('professional directory HTTP flow protects verification and exposes a minim
     const own = await json<OwnProfileResponse>(ownResponse);
     psychologistProfileId = own.data.id;
     const licenseId = own.data.licenses[0].id;
+
+    const practiceLocationResponse = await fetch(`${baseUrl}/psychologists/me/practice-location`, {
+      method: 'PUT',
+      headers: authorization(psychologist.data.tokens.accessToken),
+      body: JSON.stringify({
+        name: 'Consultorio de integración',
+        address: 'Dirección privada de integración',
+        directions: 'Recepción principal',
+        latitude: 12.136389,
+        longitude: -86.251389,
+      }),
+    });
+    assert.equal(practiceLocationResponse.status, 200);
+    const profileWithLocation = await json<OwnProfileResponse>(practiceLocationResponse);
+    assert.equal(profileWithLocation.data.practiceLocation?.name, 'Consultorio de integración');
+    assert.equal(profileWithLocation.data.practiceLocation?.latitude, 12.136389);
 
     const profilePatch = await fetch(`${baseUrl}/psychologists/me`, {
       method: 'PATCH',
@@ -285,6 +311,8 @@ test('professional directory HTTP flow protects verification and exposes a minim
     assert.equal(publicProfile.email, undefined);
     assert.equal(publicProfile.licenseNumber, undefined);
     assert.equal(publicProfile.location, undefined);
+    assert.equal(publicProfile.practiceLocation, undefined);
+    assert.equal(publicProfile.practiceAddress, undefined);
     assert.equal(publicProfile.evidenceObjectKey, undefined);
 
     const mismatchedModalityPrice = await json<{ data: readonly { id: string }[] }>(

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
   ArrowRight,
@@ -7,7 +7,6 @@ import {
   HeartHandshake,
   LockKeyhole,
   Mail,
-  ShieldCheck,
   UserRound,
 } from 'lucide-react-native';
 import { Eye, EyeOff } from 'lucide';
@@ -15,6 +14,7 @@ import { Eye, EyeOff } from 'lucide';
 import { AuthField } from '../../components/auth/AuthField';
 import { AuthLegalLinks } from '../../components/auth/AuthLegalLinks';
 import { AuthShell } from '../../components/auth/AuthShell';
+import { GoogleLogo } from '../../components/auth/GoogleLogo';
 import { PasswordStrength } from '../../components/auth/PasswordStrength';
 import { AppButton } from '../../components/common/AppButton';
 import { AppMorphIcon } from '../../components/common/AppMorphIcon';
@@ -36,6 +36,8 @@ import {
   validateRegistrationInput,
 } from '../../utils/authValidation';
 import { presentUserError } from '../../utils/userFacingError';
+import { ApiError } from '../../services/apiClient';
+import { requestGoogleIdToken } from '../../services/googleIdentityProvider';
 
 const AuthFooter: React.FC<{ navigation: AuthNavigation }> = ({ navigation }) => (
   <AuthLegalLinks navigation={navigation} />
@@ -63,12 +65,16 @@ const PasswordVisibilityButton: React.FC<{
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<AuthNavigation>();
   const authenticate = useAuthStore((state) => state.authenticate);
+  const authenticateWithGoogle = useAuthStore((state) => state.authenticateWithGoogle);
   const { toastConfig, showToast, hideToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<AuthValidationErrors>({});
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [googleRole, setGoogleRole] = useState<'patient' | 'psychologist'>('patient');
+  const [googleLicense, setGoogleLicense] = useState('');
 
   const handleLogin = async () => {
     if (isLoading) return;
@@ -92,10 +98,47 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      const idToken = await requestGoogleIdToken();
+      try {
+        await authenticateWithGoogle(idToken);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'REGISTRATION_ROLE_REQUIRED') {
+          setGoogleToken(idToken);
+          return;
+        }
+        throw error;
+      }
+    } catch (error) {
+      showToast(presentUserError(error, 'No pudimos completar el acceso con Google.'), 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const completeGoogleRegistration = async () => {
+    if (!googleToken || isLoading) return;
+    if (googleRole === 'psychologist' && googleLicense.trim().length < 4) {
+      showToast('Ingresa tu número de licencia profesional para continuar.', 'warning');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await authenticateWithGoogle(googleToken, googleRole, googleLicense.trim());
+      setGoogleToken(null);
+    } catch (error) {
+      showToast(presentUserError(error, 'No pudimos crear tu cuenta con Google.'), 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthShell
-      title="Bienvenido de vuelta"
-      subtitle="Continúa tu ruta de forma segura."
+      title="Inicia sesión"
       footer={<AuthFooter navigation={navigation} />}
       overlay={<Toast {...toastConfig} onHide={hideToast} />}
     >
@@ -146,7 +189,7 @@ export const LoginScreen: React.FC = () => {
             accessibilityLabel="Recuperar contraseña"
             disabled={isLoading}
           >
-            <Text style={styles.linkText}>¿Olvidaste tu contraseña?</Text>
+            <Text style={styles.linkText}>Olvidé mi contraseña</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -158,26 +201,27 @@ export const LoginScreen: React.FC = () => {
         isLoading={isLoading}
         fullWidth
         size="lg"
-        icon={(
-          <ArrowRight
-            size={IconSize.action}
-            strokeWidth={IconStroke.emphasized}
-            color={Colors.textInverse}
-          />
-        )}
       />
 
-      <View style={styles.trustRow} accessible accessibilityLabel="Acceso protegido a tu cuenta">
-        <ShieldCheck
-          size={IconSize.inline}
-          strokeWidth={IconStroke.regular}
-          color={Colors.success}
-        />
-        <Text style={styles.trustText}>Acceso protegido a tu cuenta</Text>
+      <View style={styles.authDivider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>o</Text>
+        <View style={styles.dividerLine} />
       </View>
 
+      <AppButton
+        label="Continuar con Google"
+        onPress={() => void handleGoogleLogin()}
+        variant="google"
+        fullWidth
+        size="lg"
+        disabled={isLoading}
+        icon={<GoogleLogo />}
+        accessibilityLabel="Continuar con Google"
+      />
+
       <View style={styles.accountPrompt}>
-        <Text style={styles.secondaryText}>¿Primera vez en Ruta Emocional?</Text>
+        <Text style={styles.secondaryText}>¿No tienes cuenta?</Text>
         <TouchableOpacity
           style={styles.secondaryAction}
           onPress={() => navigation.navigate('Register')}
@@ -188,6 +232,64 @@ export const LoginScreen: React.FC = () => {
           <Text style={styles.linkText}>Crear cuenta</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={googleToken !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGoogleToken(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.roleModal}>
+            <Text style={styles.roleModalTitle}>Completa tu cuenta</Text>
+            <Text style={styles.roleModalText}>Selecciona cómo utilizarás Ruta Emocional.</Text>
+            <View style={styles.roleRow}>
+              <RoleOption
+                active={googleRole === 'patient'}
+                icon={UserRound}
+                title="Paciente"
+                description="Busco apoyo"
+                onPress={() => setGoogleRole('patient')}
+              />
+              <RoleOption
+                active={googleRole === 'psychologist'}
+                icon={HeartHandshake}
+                title="Psicólogo"
+                description="Ofrezco atención"
+                onPress={() => setGoogleRole('psychologist')}
+              />
+            </View>
+            {googleRole === 'psychologist' ? (
+              <View style={styles.googleLicenseGroup}>
+                <Text style={styles.sectionLabel}>Licencia MINSA</Text>
+                <TextInput
+                  value={googleLicense}
+                  onChangeText={setGoogleLicense}
+                  placeholder="Número de licencia"
+                  placeholderTextColor={Colors.textTertiary}
+                  autoCapitalize="characters"
+                  style={styles.googleLicenseInput}
+                  accessibilityLabel="Número de licencia profesional"
+                />
+              </View>
+            ) : null}
+            <AppButton
+              label="Crear cuenta"
+              loadingLabel="Creando cuenta"
+              onPress={() => void completeGoogleRegistration()}
+              isLoading={isLoading}
+              fullWidth
+            />
+            <AppButton
+              label="Cancelar"
+              onPress={() => setGoogleToken(null)}
+              variant="ghost"
+              fullWidth
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+      </Modal>
 
     </AuthShell>
   );
@@ -443,7 +545,7 @@ const RoleOption: React.FC<RoleOptionProps> = ({
 );
 
 const styles = StyleSheet.create({
-  fields: { gap: Spacing.lg },
+  fields: { gap: Spacing.base },
   passwordGroup: { gap: Spacing.sm },
   fieldAction: {
     width: Layout.minimumTouchTarget,
@@ -461,20 +563,19 @@ const styles = StyleSheet.create({
     marginTop: -Spacing.xs,
   },
   linkText: { ...Typography.bodySmall, fontFamily: FontFamily.bodySemiBold, color: Colors.primary },
-  trustRow: {
+  accountPrompt: {
     minHeight: Layout.minimumTouchTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
   },
-  trustText: { ...Typography.caption, color: Colors.textSecondary },
-  accountPrompt: { alignItems: 'center', gap: Spacing.xxs },
   secondaryText: { ...Typography.bodySmall, color: Colors.textSecondary },
   secondaryAction: {
     minHeight: Layout.minimumTouchTarget,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.xs,
   },
   roleSection: { gap: Spacing.sm },
   sectionLabel: { ...Typography.bodySmall, fontFamily: FontFamily.bodySemiBold, color: Colors.textSecondary },
@@ -498,4 +599,36 @@ const styles = StyleSheet.create({
   roleDescription: { ...Typography.caption, color: Colors.textTertiary },
   legalNotice: { ...Typography.caption, color: Colors.textTertiary, textAlign: 'center' },
   inlineLink: { color: Colors.primary, fontFamily: FontFamily.bodySemiBold },
+  authDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.divider },
+  dividerText: { ...Typography.caption, color: Colors.textTertiary },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.xl,
+    backgroundColor: Colors.overlay,
+  },
+  roleModal: {
+    gap: Spacing.lg,
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.surface,
+  },
+  roleModalTitle: { ...Typography.h3, color: Colors.textPrimary },
+  roleModalText: { ...Typography.body, color: Colors.textSecondary },
+  googleLicenseGroup: { gap: Spacing.sm },
+  googleLicenseInput: {
+    minHeight: 52,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
+    ...Typography.body,
+    color: Colors.textPrimary,
+  },
 });

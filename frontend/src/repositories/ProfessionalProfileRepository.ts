@@ -74,6 +74,21 @@ export async function updateProfessionalBio(bio: string | null): Promise<Profess
   return response.data;
 }
 
+export async function updatePracticeLocation(input: {
+  readonly name: string;
+  readonly address: string;
+  readonly directions?: string;
+  readonly latitude: number;
+  readonly longitude: number;
+}): Promise<ProfessionalProfile> {
+  const response = await apiV1Request<Envelope<ProfessionalProfile>>(
+    '/psychologists/me/practice-location',
+    'PUT',
+    input
+  );
+  return response.data;
+}
+
 export async function replaceProfessionalSpecialties(
   specialtyCodes: readonly string[],
   primarySpecialtyCode: string

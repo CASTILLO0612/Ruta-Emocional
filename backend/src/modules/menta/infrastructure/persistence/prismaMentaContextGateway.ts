@@ -255,6 +255,7 @@ export class PrismaMentaContextGateway implements MentaContextGateway {
         latestAppointment: relationship.appointments[0]
           ? {
               startsAt: relationship.appointments[0].startsAt.toISOString(),
+              timezone: relationship.appointments[0].timezone,
               status: relationship.appointments[0].status,
             }
           : null,

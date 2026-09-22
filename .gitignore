@@ -43,3 +43,5 @@ backend/.tmp/
 
 /ios
 /android
+frontend/ios/
+frontend/android/

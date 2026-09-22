@@ -22,55 +22,71 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { AppMorphIcon } from '../../components/common/AppMorphIcon';
 import { AppButton } from '../../components/common/AppButton';
 import { MentaMessageContent } from '../../components/menta/MentaMessageContent';
 import { AppHeader } from '../../components/shared/AppHeader';
-import type { AppNavigation } from '../../navigation/navigationTypes';
+import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
 import {
   fetchMentaBootstrap,
   MentaBootstrap,
   MentaConversation,
   MentaScope,
   openMentaConversation,
-  sendMentaMessage,
+  sendMentaMessageStream,
 } from '../../repositories/MentaRepository';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
-import { FontFamily, Typography } from '../../theme/typography';
+import { Typography } from '../../theme/typography';
 import { IconSize, IconStroke } from '../../theme/icons';
 import { Layout } from '../../theme/layout';
+import { StreamingCadence } from '../../theme/motion';
+import { takeNextMentaStreamChunk } from '../../utils/mentaStreamPresentation';
 import { presentUserError } from '../../utils/userFacingError';
 
 function errorMessage(error: unknown): string {
   return presentUserError(error, 'No pudimos conectar con MENTA. Inténtalo nuevamente.');
 }
 
-function AssistantMessage({ message }: { readonly message: string }) {
+function AssistantMessage({
+  message,
+  isStreaming = false,
+}: {
+  readonly message: string;
+  readonly isStreaming?: boolean;
+}) {
   return (
     <View style={styles.assistantRow}>
       <View style={styles.agentAvatar}>
         <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
       </View>
-      <View style={styles.assistantContent}>
+      <View style={styles.assistantContent} accessibilityLiveRegion={isStreaming ? 'polite' : undefined}>
         <MentaMessageContent message={message} />
+        {isStreaming ? <View style={styles.streamCursor} accessibilityElementsHidden /> : null}
       </View>
     </View>
   );
 }
 
+interface StreamingReply {
+  readonly text: string;
+  readonly status: string;
+}
+
 export function MentaAgentScreen() {
-  const navigation = useNavigation<AppNavigation>();
   const role = useAuthStore((state) => state.role);
   const scope: MentaScope = role === 'psychologist' ? 'PSYCHOLOGIST' : 'PATIENT';
   const turnsRef = useRef<FlatList<MentaConversation['turns'][number]>>(null);
+  const streamAbortController = useRef<AbortController | null>(null);
+  const streamPresentationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduceMotion = useReducedMotionPreference();
   const [bootstrap, setBootstrap] = useState<MentaBootstrap | null>(null);
   const [conversation, setConversation] = useState<MentaConversation | null>(null);
   const [consentGranted, setConsentGranted] = useState(false);
   const [message, setMessage] = useState('');
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [streamingReply, setStreamingReply] = useState<StreamingReply | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpening, setIsOpening] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -98,6 +114,11 @@ export function MentaAgentScreen() {
     return () => controller.abort();
   }, [scope]);
 
+  useEffect(() => () => {
+    streamAbortController.current?.abort();
+    if (streamPresentationTimer.current) clearTimeout(streamPresentationTimer.current);
+  }, []);
+
   const handleOpenConversation = async () => {
     if (!consentGranted || isOpening) return;
     setIsOpening(true);
@@ -114,21 +135,103 @@ export function MentaAgentScreen() {
   const handleSend = async (suggestedMessage?: string) => {
     const selectedMessage = (suggestedMessage ?? message).trim();
     if (!conversation || !selectedMessage || isSending) return;
+    const controller = new AbortController();
+    streamAbortController.current = controller;
     setMessage('');
     setPendingMessage(selectedMessage);
+    setStreamingReply({ text: '', status: 'MENTA está preparando una respuesta.' });
     setIsSending(true);
     setError(null);
+
+    let bufferedText = '';
+    let isPresenting = false;
+    let sourceCompleted = false;
+    let presentationCompleted = false;
+    let resolvePresentation: () => void = () => undefined;
+    const presentationDone = new Promise<void>((resolve) => {
+      resolvePresentation = resolve;
+    });
+
+    const finishPresentation = () => {
+      if (!sourceCompleted || isPresenting || bufferedText) return;
+      presentationCompleted = true;
+      resolvePresentation();
+    };
+
+    const presentNextChunk = () => {
+      if (controller.signal.aborted) {
+        isPresenting = false;
+        streamPresentationTimer.current = null;
+        resolvePresentation();
+        return;
+      }
+
+      const nextChunk = takeNextMentaStreamChunk(bufferedText);
+      if (!nextChunk) {
+        isPresenting = false;
+        streamPresentationTimer.current = null;
+        finishPresentation();
+        return;
+      }
+
+      bufferedText = nextChunk.remaining;
+      setStreamingReply((current) => current
+        ? { ...current, text: `${current.text}${nextChunk.value}` }
+        : current);
+      streamPresentationTimer.current = setTimeout(
+        presentNextChunk,
+        reduceMotion ? 0 : StreamingCadence.mentaWord
+      );
+    };
+
+    const enqueueStreamDelta = (delta: string) => {
+      bufferedText += delta;
+      if (isPresenting) return;
+      isPresenting = true;
+      presentNextChunk();
+    };
+
+    const stopPresentation = () => {
+      bufferedText = '';
+      isPresenting = false;
+      if (streamPresentationTimer.current) clearTimeout(streamPresentationTimer.current);
+      streamPresentationTimer.current = null;
+      resolvePresentation();
+    };
+
     try {
-      const turn = await sendMentaMessage(conversation.id, randomUUID(), selectedMessage);
+      const turn = await sendMentaMessageStream(
+        conversation.id,
+        randomUUID(),
+        selectedMessage,
+        {
+          onStatus: (status) => setStreamingReply((current) => current
+            ? { ...current, status }
+            : current),
+          onDelta: enqueueStreamDelta,
+        },
+        controller.signal
+      );
+      sourceCompleted = true;
+      finishPresentation();
+      if (!presentationCompleted) await presentationDone;
+      if (controller.signal.aborted) return;
       setConversation((current) => current
         ? { ...current, turns: [...current.turns, turn] }
         : current);
     } catch (sendError) {
-      setMessage(selectedMessage);
-      setError(errorMessage(sendError));
+      if (!controller.signal.aborted) {
+        setMessage(selectedMessage);
+        setError(errorMessage(sendError));
+      }
     } finally {
-      setPendingMessage(null);
-      setIsSending(false);
+      stopPresentation();
+      if (streamAbortController.current === controller) {
+        streamAbortController.current = null;
+        setPendingMessage(null);
+        setStreamingReply(null);
+        setIsSending(false);
+      }
     }
   };
 
@@ -229,7 +332,9 @@ export function MentaAgentScreen() {
           keyboardShouldPersistTaps="handled"
           initialNumToRender={12}
           windowSize={7}
-          onContentSizeChange={() => turnsRef.current?.scrollToEnd({ animated: conversation.turns.length > 0 })}
+          onContentSizeChange={() => turnsRef.current?.scrollToEnd({
+            animated: !streamingReply?.text && conversation.turns.length > 0,
+          })}
           ListHeaderComponent={conversation.turns.length === 0 ? (
             <View style={styles.welcomeSection}>
               <Text style={styles.welcomeTitle}>
@@ -271,36 +376,30 @@ export function MentaAgentScreen() {
                   <Text style={styles.userText}>{pendingMessage}</Text>
                 </View>
               </View>
-              <View style={styles.assistantRow}>
-                <View style={styles.agentAvatar}>
-                  <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
+              {streamingReply?.text ? (
+                <AssistantMessage message={streamingReply.text} isStreaming />
+              ) : (
+                <View style={styles.assistantRow}>
+                  <View style={styles.agentAvatar}>
+                    <BrainCircuit size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                  </View>
+                  <View style={styles.typingState}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={styles.typingText}>{streamingReply?.status ?? 'Preparando respuesta…'}</Text>
+                  </View>
                 </View>
-                <View style={styles.typingState}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={styles.typingText}>Preparando respuesta…</Text>
-                </View>
-              </View>
+              )}
             </View>
               ) : null}
 
-              {scope === 'PATIENT' ? (
-            <TouchableOpacity
-              style={styles.safetyLink}
-              onPress={() => navigation.navigate('MentaSafety')}
-              accessibilityRole="button"
-              accessibilityLabel="Abrir orientación estructurada de seguridad"
-            >
-              <ShieldCheck size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
-              <Text style={styles.safetyLinkText}>Orientación de seguridad</Text>
-            </TouchableOpacity>
-          ) : (
+              {scope === 'PSYCHOLOGIST' ? (
             <View style={styles.draftNotice}>
               <ClipboardCheck size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textSecondary} />
               <Text style={styles.draftNoticeText}>
                 Revisa los borradores antes de guardarlos.
               </Text>
             </View>
-              )}
+              ) : null}
             </View>
           )}
         />
@@ -457,17 +556,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   typingText: { ...Typography.bodySmall, color: Colors.textSecondary },
-  safetyLink: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-  },
-  safetyLinkText: {
-    ...Typography.bodySmall,
-    fontFamily: FontFamily.bodySemiBold,
-    color: Colors.primary,
+  streamCursor: {
+    width: 2,
+    height: 18,
+    marginTop: Spacing.xs,
+    backgroundColor: Colors.primary,
   },
   draftNotice: {
     flexDirection: 'row',

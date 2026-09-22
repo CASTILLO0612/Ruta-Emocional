@@ -7,6 +7,8 @@ import {
 import {
   DirectoryFilters,
   DirectoryPage,
+  PracticeLocationInput,
+  PracticeLocationView,
   ProfessionalModality,
   ProfessionalProfileView,
   ProfessionalVerificationDecision,
@@ -72,6 +74,15 @@ interface RatingRow {
   readonly psychologist_profile_id: string;
   readonly average: string | null;
   readonly count: bigint;
+}
+
+interface PracticeLocationRow {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly updatedAt: Date;
 }
 
 function encodeCursor(id: string): string {
@@ -303,7 +314,9 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
       where: { userId },
       include: ownProfileInclude,
     });
-    return profile ? this.toOwnView(profile) : null;
+    if (!profile) return null;
+    const practiceLocation = await this.findPracticeLocation(profile.id);
+    return this.toOwnView(profile, practiceLocation);
   }
 
   async updateOwnBio(
@@ -315,6 +328,38 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
       const profile = await this.requireProfile(transaction, userId);
       await transaction.psychologistProfile.update({ where: { id: profile.id }, data: { bio } });
       await this.audit(transaction, audit, 'psychologist.profile_updated', 'psychologist_profile', profile.id);
+    });
+    return this.requireOwnView(userId);
+  }
+
+  async updateOwnPracticeLocation(
+    userId: string,
+    location: PracticeLocationInput,
+    audit: RequestAuditContext
+  ): Promise<ProfessionalProfileView> {
+    await this.prisma.$transaction(async (transaction) => {
+      const profile = await this.requireProfile(transaction, userId);
+      await transaction.$executeRaw(Prisma.sql`
+        UPDATE "psychologist_profiles"
+           SET "location" = ST_SetSRID(
+                 ST_MakePoint(${location.longitude}, ${location.latitude}),
+                 4326
+               )::geography,
+               "practice_name" = ${location.name},
+               "practice_address" = ${location.address},
+               "practice_directions" = ${location.directions ?? null},
+               "location_updated_at" = NOW(),
+               "updated_at" = NOW()
+         WHERE "id" = ${profile.id}::uuid
+      `);
+      await this.audit(
+        transaction,
+        audit,
+        'psychologist.practice_location_updated',
+        'psychologist_profile',
+        profile.id,
+        { configured: true }
+      );
     });
     return this.requireOwnView(userId);
   }
@@ -669,7 +714,10 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
     };
   }
 
-  private toOwnView(profile: OwnProfileRow): ProfessionalProfileView {
+  private toOwnView(
+    profile: OwnProfileRow,
+    practiceLocation: PracticeLocationView | null
+  ): ProfessionalProfileView {
     const timezone = profile.availabilityRules[0]?.timezone ?? null;
     return {
       id: profile.id,
@@ -679,6 +727,7 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
       photoUrl: profile.user.photoUrl,
       bio: profile.bio,
       verificationStatus: profile.verificationStatus,
+      practiceLocation,
       specialties: profile.specialties.map(({ specialty, isPrimary }) => ({ ...specialty, isPrimary })),
       modalities: profile.modalities.map((modality) => ({
         code: modality.modality as ProfessionalModality,
@@ -724,6 +773,35 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
     const profile = await this.findOwnProfile(userId);
     if (!profile) throw AppError.notFound('PSYCHOLOGIST_PROFILE_NOT_FOUND');
     return profile;
+  }
+
+  private async findPracticeLocation(profileId: string): Promise<PracticeLocationView | null> {
+    const rows = await this.prisma.$queryRaw<PracticeLocationRow[]>(Prisma.sql`
+      SELECT "practice_name" AS "name",
+             "practice_address" AS "address",
+             "practice_directions" AS "directions",
+             ST_Y("location"::geometry)::double precision AS "latitude",
+             ST_X("location"::geometry)::double precision AS "longitude",
+             "location_updated_at" AS "updatedAt"
+        FROM "psychologist_profiles"
+       WHERE "id" = ${profileId}::uuid
+         AND "location" IS NOT NULL
+         AND "practice_name" IS NOT NULL
+         AND "practice_address" IS NOT NULL
+         AND "location_updated_at" IS NOT NULL
+       LIMIT 1
+    `);
+    const location = rows[0];
+    return location
+      ? {
+          name: location.name,
+          address: location.address,
+          directions: location.directions,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          updatedAt: location.updatedAt.toISOString(),
+        }
+      : null;
   }
 
   private async requireProfile(

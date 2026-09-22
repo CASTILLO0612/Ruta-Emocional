@@ -37,6 +37,12 @@ import { generateBudgetSuggestions } from '../../utils/generateBudgetSuggestions
 import { formatMoney } from '../../utils/money';
 import type { PatientSearchNavigation } from '../../navigation/navigationTypes';
 import { presentUserError } from '../../utils/userFacingError';
+import {
+  clearRequestWizardDraft,
+  loadRequestWizardDraft,
+  saveRequestWizardDraft,
+} from '../../services/persistence/requestWizardPersistence';
+import { PersistenceCadence } from '../../theme/motion';
 
 const POPULAR_NEEDS = [
   'Ansiedad y estrés',
@@ -60,6 +66,7 @@ export const RequestWizardScreen: React.FC = () => {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isCustomNeed, setIsCustomNeed] = useState(false);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
+  const [isDraftHydrated, setIsDraftHydrated] = useState(false);
 
   const [draft, setDraft] = useState<WizardDraft>({
     primaryNeed: '',
@@ -98,6 +105,48 @@ export const RequestWizardScreen: React.FC = () => {
 
     return () => controller.abort();
   }, [loadPolicy]);
+
+  useEffect(() => {
+    if (!userProfile?.id) return;
+    let active = true;
+    setIsDraftHydrated(false);
+    void loadRequestWizardDraft(userProfile.id)
+      .then((storedDraft) => {
+        if (!active || !storedDraft) return;
+        setDraft(storedDraft);
+        setIsCustomNeed(Boolean(
+          storedDraft.primaryNeed && !POPULAR_NEEDS.includes(storedDraft.primaryNeed)
+        ));
+        setShowAdditionalDetails(Boolean(storedDraft.description));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setIsDraftHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [userProfile?.id]);
+
+  useEffect(() => {
+    if (!userProfile?.id || !isDraftHydrated) return;
+    const timer = setTimeout(() => {
+      void saveRequestWizardDraft(userProfile.id, draft).catch(() => undefined);
+    }, PersistenceCadence.requestDraft);
+    return () => clearTimeout(timer);
+  }, [draft, isDraftHydrated, userProfile?.id]);
+
+  useEffect(() => {
+    if (!policy || !isDraftHydrated) return;
+    setDraft((current) => ({
+      ...current,
+      currencyCode: current.currencyCode
+        && policy.supportedCurrencies.includes(current.currencyCode)
+        ? current.currencyCode
+        : policy.supportedCurrencies[0],
+      proposedBudgetInput: current.proposedBudgetInput || policy.minimumAmount,
+    }));
+  }, [isDraftHydrated, policy]);
 
   const handleScheduledDateChange = useCallback((scheduledFor?: Date) => {
     setDraft((previous) => {
@@ -149,6 +198,7 @@ export const RequestWizardScreen: React.FC = () => {
       }
       const payload = mapWizardDraftToPayload(draft);
       await createSessionRequest(payload, userProfile.id);
+      await clearRequestWizardDraft(userProfile.id).catch(() => undefined);
       navigation.navigate('Radar');
     } catch (error) {
       setSubmissionError(
@@ -191,7 +241,6 @@ export const RequestWizardScreen: React.FC = () => {
       isSubmitting={isSubmitting}
       continueLabel={step === 5 ? 'Publicar solicitud' : 'Continuar'}
     >
-      {/* Mensaje de error de envío si ocurrió */}
       {submissionError && (
         <View style={styles.errorBanner} accessibilityRole="alert">
           <AlertCircle size={IconSize.inline} color={Colors.error} />
@@ -201,7 +250,6 @@ export const RequestWizardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Paso 1: Necesidad principal */}
       {step === 1 && (
         <View style={styles.stepContainer}>
           <Text style={[Typography.h3, styles.stepHeader]}>
@@ -211,7 +259,6 @@ export const RequestWizardScreen: React.FC = () => {
             Elige el motivo que mejor describe lo que necesitas.
           </Text>
 
-          {/* Sugerencias populares */}
           <View style={styles.chipRow}>
             {POPULAR_NEEDS.map((need) => {
               const isSelected = draft.primaryNeed === need;
@@ -304,7 +351,6 @@ export const RequestWizardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Paso 2: Modalidad */}
       {step === 2 && (
         <View style={styles.stepContainer}>
           <Text style={[Typography.h3, styles.stepHeader]}>
@@ -330,7 +376,6 @@ export const RequestWizardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Paso 3: Horario */}
       {step === 3 && (
         <View style={styles.stepContainer}>
           <Text style={[Typography.h3, styles.stepHeader]}>
@@ -341,7 +386,6 @@ export const RequestWizardScreen: React.FC = () => {
           </Text>
 
           <View style={styles.optionCardsContainer}>
-            {/* Opción Inmediata */}
             <TouchableOpacity
               onPress={() =>
                 setDraft((prev) => ({
@@ -375,7 +419,6 @@ export const RequestWizardScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
 
-            {/* Opción Programada */}
             <TouchableOpacity
               onPress={() => {
                 setDraft((prev) => ({
@@ -431,7 +474,6 @@ export const RequestWizardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Paso 4: Presupuesto */}
       {step === 4 && (
         <View style={styles.stepContainer}>
           <Text style={[Typography.h3, styles.stepHeader]}>
@@ -511,7 +553,6 @@ export const RequestWizardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Paso 5: Revisión y confirmación */}
       {step === 5 && (
         <RequestSummary
           draft={draft}

@@ -60,8 +60,8 @@ interface ProductionReadinessConfig {
   };
   readonly menta: {
     readonly enabled: boolean;
-    readonly provider: 'DISABLED' | 'GEMINI';
-    readonly externalProviderApproved: boolean;
+    readonly provider: 'DISABLED' | 'GEMINI' | 'OLLAMA';
+    readonly providerGovernanceApproved: boolean;
     readonly retentionPolicyApproved: boolean;
     readonly conversationRetentionDays: number;
   };
@@ -162,9 +162,9 @@ function validateMentaAgent(config: ProductionReadinessConfig): void {
   if (config.menta.provider === 'DISABLED') {
     throw new ProductionReadinessError('The production MENTA agent requires an approved AI provider');
   }
-  if (!config.menta.externalProviderApproved) {
+  if (!config.menta.providerGovernanceApproved) {
     throw new ProductionReadinessError(
-      'The external MENTA provider requires explicit privacy and clinical approval'
+      'The MENTA provider requires explicit privacy and clinical approval'
     );
   }
   if (!config.menta.retentionPolicyApproved || config.menta.conversationRetentionDays < 1) {

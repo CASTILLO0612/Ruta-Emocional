@@ -101,7 +101,16 @@ export interface AcceptanceResult {
   readonly acceptedOffer: ServiceOfferView;
   readonly careRelationshipId: string;
   readonly conversationId: string;
+  readonly inPersonDestination: InPersonDestinationView | null;
   readonly replayed: boolean;
+}
+
+export interface InPersonDestinationView {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
 }
 
 export interface RequestCursor {

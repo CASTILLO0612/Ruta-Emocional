@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, {
-  PROVIDER_GOOGLE,
   PROVIDER_DEFAULT,
 } from '../../components/common/CustomMapView';
 import {
@@ -274,6 +273,9 @@ export const RadarScreen: React.FC = () => {
         ...(requestSnapshot?.scheduledFor
           ? { scheduledFor: requestSnapshot.scheduledFor.toISOString() }
           : {}),
+        ...(result.inPersonDestination
+          ? { inPersonDestination: result.inPersonDestination }
+          : {}),
       };
 
       navigation.replace('AcceptedOffer', summaryParams);
@@ -351,9 +353,7 @@ export const RadarScreen: React.FC = () => {
         {isPresential && userLocation ? (
           <MapView
             style={StyleSheet.absoluteFill}
-            provider={
-              Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT
-            }
+            provider={PROVIDER_DEFAULT}
             initialRegion={{
               latitude: userLocation.latitude,
               longitude: userLocation.longitude,
@@ -363,7 +363,6 @@ export const RadarScreen: React.FC = () => {
             showsUserLocation
             scrollEnabled={false}
             zoomEnabled={false}
-            mapType="standard"
           />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.mapUnavailable]} />
@@ -394,7 +393,6 @@ export const RadarScreen: React.FC = () => {
             <View style={styles.topBarSpacer} />
           </View>
 
-          {/* Animación del Radar */}
           <View style={styles.radarContainer}>
             <Animated.View style={ringStyle(ring1, radarWidth * 0.45)} />
             <Animated.View style={ringStyle(ring2, radarWidth * 0.65)} />
@@ -426,7 +424,6 @@ export const RadarScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Tarjeta de información */}
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               {activeRequest?.modality === 'in-person' ? (
@@ -493,7 +490,6 @@ export const RadarScreen: React.FC = () => {
           </View>
         </SafeAreaView>
 
-        {/* Modal inferior con lista de ofertas */}
         <BottomSheetModal
           ref={bottomSheetRef}
           snapPoints={['50%', '85%']}
@@ -524,7 +520,6 @@ export const RadarScreen: React.FC = () => {
           </View>
         </BottomSheetModal>
 
-        {/* Comparación y confirmación accesible de la oferta */}
         <OfferComparisonSheet
           visible={Boolean(selectedOffer)}
           offer={selectedOffer}
@@ -537,7 +532,6 @@ export const RadarScreen: React.FC = () => {
           onClose={() => setSelectedOffer(null)}
         />
 
-        {/* Diálogo de cancelación de búsqueda */}
         <CustomAlert
           visible={cancelAlertVisible}
           title="¿Cancelar búsqueda?"

@@ -9,7 +9,8 @@
 Convertir el acceso existente en una experiencia de autenticación clara,
 minimalista y coherente con la identidad de Ruta Emocional, sin debilitar las
 reglas de identidad ya implementadas. El corte agrega recuperación segura de
-contraseña y conserva el proceso real de verificación profesional.
+contraseña, acceso federado con Google y el proceso real de verificación
+profesional.
 
 ## 2. Decisiones de experiencia
 
@@ -27,6 +28,9 @@ contraseña y conserva el proceso real de verificación profesional.
 - Paciente y psicólogo son opciones de radio con propósito explícito. Elegir
   psicólogo revela el registro MINSA y anticipa la revisión profesional.
 - Los estados de carga bloquean el doble envío y mantienen el ancho de la acción.
+- El acceso con Google usa el identificador multicolor oficial sobre una
+  superficie neutra, con una etiqueta directa y sin alterar la jerarquía del
+  formulario principal.
 - Los errores se traducen a lenguaje útil. Ninguna respuesta visible presenta
   códigos HTTP, nombres de host ni mensajes internos.
 - Privacidad, términos y ayuda están disponibles desde todo el flujo público.
@@ -75,7 +79,27 @@ La migración `20260903001000_secure_password_recovery` añade la tabla,
 restricciones temporales, clave foránea e índices de ciclo de vida. El rol de
 runtime recibe sólo `SELECT`, `INSERT` y `UPDATE`; `DELETE` permanece denegado.
 
-## 6. Entrega por entorno
+`ExternalIdentity` conserva el proveedor y el identificador estable emitido por
+Google sin duplicar correo, nombre, roles o perfiles. Las restricciones únicas
+impiden que una identidad externa pertenezca a dos cuentas o que una cuenta
+registre dos identidades del mismo proveedor. El sistema nunca vincula por
+coincidencia de correo una cuenta que ya utiliza contraseña.
+
+## 6. Acceso federado con Google
+
+- Web utiliza Google Identity Services y obtiene únicamente un ID token.
+- Android utiliza el SDK nativo desde una compilación de desarrollo; Expo Go no
+  expone el módulo nativo y muestra una explicación comprensible.
+- El Client ID público se configura por entorno. Ningún secreto OAuth se
+  incorpora al paquete móvil o web.
+- El backend valida firma, emisor, audiencia, expiración y correo verificado con
+  las claves públicas de Google antes de crear una sesión propia revocable.
+- Una cuenta nueva debe elegir explícitamente paciente o psicólogo. La cuenta
+  profesional continúa pendiente hasta completar la verificación real.
+- La migración `20260919002000_google_federated_identity` permite cuentas sin
+  contraseña local y añade identidades externas normalizadas y auditables.
+
+## 7. Entrega por entorno
 
 - Desarrollo controlado: puede exponer el token únicamente cuando
   `ENABLE_LOCAL_QA` y `LOCAL_QA_EXPOSE_PASSWORD_RESET_TOKEN` están activos.
@@ -84,10 +108,10 @@ runtime recibe sólo `SELECT`, `INSERT` y `UPDATE`; `DELETE` permanece denegado.
 - El frontend nunca recibe credenciales del proveedor. El envío se ejecuta
   exclusivamente desde infraestructura backend con tiempo máximo configurable.
 
-## 7. Verificación ejecutada
+## 8. Verificación ejecutada
 
-- 36 suites y 105 pruebas de frontend aprobadas.
-- 48 pruebas unitarias de backend aprobadas.
+- 43 suites y 121 pruebas de frontend aprobadas.
+- 55 pruebas unitarias de backend aprobadas.
 - Nueve suites de integración HTTP aprobadas contra PostgreSQL, sin regresiones
   en directorio, solicitudes, mensajería, agenda, clínica, triaje ni MENTA.
 - Flujo HTTP de autenticación aprobado contra PostgreSQL: registro, consulta de
@@ -95,14 +119,17 @@ runtime recibe sólo `SELECT`, `INSERT` y `UPDATE`; `DELETE` permanece denegado.
   contraseña, invalidación del secreto anterior, consumo único y alta de
   psicólogo pendiente de verificación.
 - TypeScript de frontend y backend sin errores.
-- Esquema Prisma válido y 23 migraciones aplicadas.
+- Esquema Prisma válido y 25 migraciones aplicadas.
 - Validadores de identidad visual y configuración nativa aprobados.
-- Exportaciones de Expo Web y Android/Hermes aprobadas.
+- Exportación de Expo Web aprobada con 5.037 módulos y todos los recursos de
+  marca incluidos.
+- Liveness y readiness aprobados con PostgreSQL, outbox y solicitudes de
+  privacidad disponibles.
 - Revisión visual aprobada en escritorio y viewport móvil de 360/390 px.
 - Semántica de labels, alertas, radios, links y estado válido comprobada en el
   árbol de accesibilidad web.
 
-## 8. Gates productivos abiertos
+## 9. Gates productivos abiertos
 
 1. Configurar y verificar dominio/remitente del proveedor de correo.
 2. Definir la URL HTTPS universal/app link definitiva para recuperación.
@@ -111,6 +138,8 @@ runtime recibe sólo `SELECT`, `INSERT` y `UPDATE`; `DELETE` permanece denegado.
    dispositivo Android físico.
 5. Incorporar pruebas automatizadas de entrega de correo en un entorno de
    staging sin exponer tokens.
+6. Validar Google nativo en una compilación de desarrollo firmada; Expo Go no
+   puede cargar el módulo de autenticación nativo.
 
 Estos gates impiden declarar el flujo listo para producción, pero no bloquean
 la demostración local controlada ni el cumplimiento funcional del Hackathon.

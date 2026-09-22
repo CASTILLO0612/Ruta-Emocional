@@ -3,6 +3,8 @@ import { Clock } from '../../../shared/application/clock';
 import { AppError } from '../../../shared/domain/appError';
 import {
   AccessTokenService,
+  FederatedIdentityVerifier,
+  FederatedRegistrationRole,
   IdentityRepository,
   PasswordHasher,
   PasswordResetDelivery,
@@ -40,6 +42,13 @@ export interface LoginInput extends RequestMetadata {
   readonly password: string;
 }
 
+export interface FederatedLoginInput extends RequestMetadata {
+  readonly idToken: string;
+  readonly registrationRole?: FederatedRegistrationRole;
+  readonly licenseAuthority?: string;
+  readonly licenseNumber?: string;
+}
+
 export interface AuthenticatedActor {
   readonly user: CurrentUserView;
   readonly sessionId: string;
@@ -75,7 +84,8 @@ export class IdentityService {
     private readonly passwordResetDelivery: PasswordResetDelivery | null,
     private readonly clock: Clock,
     private readonly refreshTtlDays: number,
-    private readonly passwordRecovery: PasswordRecoveryConfig
+    private readonly passwordRecovery: PasswordRecoveryConfig,
+    private readonly federatedIdentityVerifier: FederatedIdentityVerifier | null = null
   ) {
     this.dummyPasswordHash = passwordHasher.hash('invalid-login-candidate-for-timing-equalization');
   }
@@ -145,6 +155,66 @@ export class IdentityService {
     }
 
     return this.createAuthenticatedSession(user, input);
+  }
+
+  async loginWithGoogle(input: FederatedLoginInput): Promise<AuthenticatedSession> {
+    if (!this.federatedIdentityVerifier) {
+      throw AppError.notFound('GOOGLE_AUTH_UNAVAILABLE', 'Este método de acceso no está disponible.');
+    }
+
+    const verified = await this.federatedIdentityVerifier.verify(input.idToken);
+    const linkedUser = await this.repository.findUserByFederatedIdentity(
+      verified.provider,
+      verified.subject
+    );
+    if (linkedUser) {
+      if (linkedUser.status !== 'ACTIVE') throw AppError.unauthorized('ACCOUNT_UNAVAILABLE');
+      await this.repository.touchFederatedIdentity(
+        verified.provider,
+        verified.subject,
+        this.clock.now()
+      );
+      return this.createAuthenticatedSession(linkedUser, input);
+    }
+
+    const email = this.normalizeEmail(verified.email);
+    if (await this.repository.findUserByEmail(email)) {
+      throw AppError.conflict(
+        'ACCOUNT_LINK_REQUIRED',
+        'Ya existe una cuenta con este correo. Inicia sesión con tu contraseña para vincular Google de forma segura.'
+      );
+    }
+    if (!input.registrationRole) {
+      throw AppError.conflict(
+        'REGISTRATION_ROLE_REQUIRED',
+        'Selecciona cómo utilizarás Ruta Emocional para completar tu cuenta.'
+      );
+    }
+    if (
+      input.registrationRole === 'psychologist'
+      && (!input.licenseAuthority?.trim() || !input.licenseNumber?.trim())
+    ) {
+      throw AppError.validation([{
+        field: 'license',
+        code: 'LICENSE_REQUIRED',
+        message: 'La licencia profesional es obligatoria para crear esta cuenta.',
+      }]);
+    }
+
+    const session = this.prepareSession();
+    const user = await this.repository.registerFederatedUser(
+      {
+        identity: { ...verified, email },
+        authenticatedAt: this.clock.now(),
+        registrationRole: input.registrationRole,
+        licenseAuthority: input.licenseAuthority?.trim(),
+        licenseNumber: input.licenseNumber?.trim().toUpperCase(),
+        requestId: input.requestId,
+        ipAddress: input.ipAddress,
+      },
+      this.registrationSessionData(session, input)
+    );
+    return this.authenticatedSession(user, session);
   }
 
   async requestPasswordReset(

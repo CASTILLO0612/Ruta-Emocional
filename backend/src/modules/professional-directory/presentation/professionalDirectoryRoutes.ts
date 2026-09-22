@@ -21,6 +21,7 @@ import {
   parseModality,
   parseModalityConfiguration,
   parseProfilePatch,
+  parsePracticeLocation,
   parseSpecialtyCode,
   parseSpecialtyCreate,
   parseSpecialtySelection,
@@ -143,6 +144,19 @@ export function createProfessionalDirectoryRouter(
       getActor(request),
       body.timezone,
       body.rules,
+      auditContext(request, response)
+    );
+    response.json(envelope(profile, response));
+  }));
+
+  router.put('/psychologists/me/practice-location', authenticate, onboarding, asyncHandler(async (
+    request: AuthenticatedRequest,
+    response
+  ) => {
+    const location = parsePracticeLocation(request.body);
+    const profile = await service.updateOwnPracticeLocation(
+      getActor(request),
+      location,
       auditContext(request, response)
     );
     response.json(envelope(profile, response));

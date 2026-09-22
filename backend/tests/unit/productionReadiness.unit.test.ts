@@ -171,7 +171,7 @@ test('production readiness fails closed when the contextual MENTA provider lacks
         ...ready.menta,
         enabled: true,
         provider: 'GEMINI',
-        externalProviderApproved: false,
+        providerGovernanceApproved: false,
       },
     }, NOW),
     ProductionReadinessError
@@ -183,7 +183,7 @@ test('production readiness fails closed when the contextual MENTA provider lacks
         ...ready.menta,
         enabled: true,
         provider: 'GEMINI',
-        externalProviderApproved: true,
+        providerGovernanceApproved: true,
         retentionPolicyApproved: false,
       },
     }, NOW),

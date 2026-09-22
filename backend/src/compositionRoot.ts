@@ -7,6 +7,7 @@ import { OpaqueRefreshTokenService } from './modules/identity/infrastructure/sec
 import { OpaquePasswordResetTokenService } from './modules/identity/infrastructure/security/opaquePasswordResetTokenService';
 import { ResendPasswordResetDelivery } from './modules/identity/infrastructure/delivery/resendPasswordResetDelivery';
 import { ScryptPasswordHasher } from './modules/identity/infrastructure/security/scryptPasswordHasher';
+import { GoogleIdentityTokenVerifier } from './modules/identity/infrastructure/security/googleIdentityTokenVerifier';
 import { SystemClock } from './shared/application/clock';
 import { ProfessionalDirectoryService } from './modules/professional-directory/application/professionalDirectoryService';
 import { PrismaProfessionalDirectoryRepository } from './modules/professional-directory/infrastructure/persistence/prismaProfessionalDirectoryRepository';
@@ -30,6 +31,7 @@ import { PrismaMentaConversationRepository } from './modules/menta/infrastructur
 import { PrismaMentaContextGateway } from './modules/menta/infrastructure/persistence/prismaMentaContextGateway';
 import { GeminiInteractionsMentaProvider } from './modules/menta/infrastructure/providers/geminiInteractionsMentaProvider';
 import { UnavailableMentaAgentProvider } from './modules/menta/infrastructure/providers/unavailableMentaAgentProvider';
+import { OllamaMentaAgentProvider } from './modules/menta/infrastructure/providers/ollamaMentaAgentProvider';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
@@ -72,6 +74,13 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
     config.clinical.contentEncryptionKeys,
     config.clinical.activeContentEncryptionKeyVersion
   );
+  const federatedIdentityVerifier = config.federatedAuthentication.googleEnabled
+    && config.federatedAuthentication.googleClientId
+    ? new GoogleIdentityTokenVerifier({
+        clientId: config.federatedAuthentication.googleClientId,
+        timeoutMs: config.federatedAuthentication.verificationTimeoutMs,
+      })
+    : null;
   const mentaProvider: MentaAgentProvider = config.menta.provider === 'GEMINI'
     ? new GeminiInteractionsMentaProvider({
         apiKey: config.menta.geminiApiKey!,
@@ -79,7 +88,18 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
         timeoutMs: config.menta.providerTimeoutMs,
         maximumToolRounds: config.menta.maximumToolRounds,
       })
-    : new UnavailableMentaAgentProvider();
+    : config.menta.provider === 'OLLAMA'
+      ? new OllamaMentaAgentProvider({
+          baseUrl: config.menta.ollamaBaseUrl!,
+          model: config.menta.model,
+          timeoutMs: config.menta.providerTimeoutMs,
+          maximumToolRounds: config.menta.maximumToolRounds,
+          keepAlive: config.menta.ollamaKeepAlive,
+          maximumHistoryCharacters: config.menta.ollamaMaximumHistoryCharacters,
+          maximumOutputTokens: config.menta.maximumOutputTokens,
+          toolCallingEnabled: config.menta.ollamaToolCallingEnabled,
+        })
+      : new UnavailableMentaAgentProvider();
 
   return {
     identity: new IdentityService(
@@ -91,7 +111,8 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       passwordResetDelivery,
       new SystemClock(),
       config.jwt.refreshTtlDays,
-      config.passwordRecovery
+      config.passwordRecovery,
+      federatedIdentityVerifier
     ),
     professionalDirectory: new ProfessionalDirectoryService(
       new PrismaProfessionalDirectoryRepository(prisma),

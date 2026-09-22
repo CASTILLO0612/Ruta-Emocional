@@ -10,6 +10,7 @@ import {
   Star,
   UserRound,
   ArrowRight,
+  Navigation,
 } from 'lucide-react-native';
 
 import { Colors } from '../../theme/colors';
@@ -21,6 +22,8 @@ import { ScreenContainer } from '../../components/shared/ScreenContainer';
 import { AppButton } from '../../components/common/AppButton';
 import { formatDecimalMoney } from '../../utils/formatDecimalMoney';
 import { resolveAcceptedOfferDecision } from '../../navigation/resolveAcceptedOfferDecision';
+import { openExternalNavigation } from '../../utils/externalNavigation';
+import { showAlert } from '../../utils/alert';
 import type {
   AcceptedOfferRoute,
   AppNavigation,
@@ -53,12 +56,33 @@ export const AcceptedOfferScreen: React.FC = () => {
   const modalityInfo = getModalityLabel(summary.modality);
   const ModalityIcon = modalityInfo.icon;
   const isImmediateChat = decision.type === 'IMMEDIATE_CHAT';
+  const isInPerson = summary.modality === 'in-person';
+  const hasScheduledTime = Boolean(summary.scheduledFor);
+
+  const openConversation = () => navigation.navigate('Consultation', {
+    conversationId: summary.conversationId,
+  });
+
+  const openAppointments = () => navigation.navigate('PatientMain', {
+    screen: 'Appointments',
+  });
+
+  const handleNavigation = async (provider: 'GOOGLE_MAPS' | 'WAZE') => {
+    if (!summary.inPersonDestination) return;
+    try {
+      await openExternalNavigation(provider, summary.inPersonDestination);
+    } catch {
+      showAlert(
+        'No pudimos abrir la navegación',
+        'Verifica que el servicio de mapas esté disponible e inténtalo nuevamente.'
+      );
+    }
+  };
 
   return (
     <View style={styles.container}>
       <AppHeader title="Confirmación" showBrand={false} />
       <ScreenContainer edges={['bottom', 'left', 'right']} contentStyle={styles.content}>
-        {/* Icono de éxito principal */}
         <View style={styles.successIconContainer}>
           <CheckCircle2
             size={IconSize.state}
@@ -67,14 +91,15 @@ export const AcceptedOfferScreen: React.FC = () => {
           />
         </View>
 
-        <Text style={[Typography.h2, styles.title]}>
-          ¡Conexión establecida!
-        </Text>
+        <Text style={[Typography.h2, styles.title]}>Propuesta aceptada</Text>
         <Text style={[Typography.body, styles.subtitle]}>
-          Has aceptado la propuesta de atención profesional.
+          {isImmediateChat
+            ? 'El canal de conversación ya está disponible.'
+            : isInPerson
+              ? 'Ahora puedes coordinar la cita y consultar la ubicación.'
+              : 'Revisa los detalles y coordina la atención con el profesional.'}
         </Text>
 
-        {/* Tarjeta del profesional seleccionado */}
         <View style={styles.summaryCard}>
           <View style={styles.profileRow}>
             {summary.psychologistPhotoURL ? (
@@ -113,7 +138,6 @@ export const AcceptedOfferScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Detalles de la sesión pactada */}
           <View style={styles.detailsBox}>
             <View style={styles.detailItem}>
               <Text style={[Typography.caption, styles.detailLabel]}>
@@ -149,19 +173,38 @@ export const AcceptedOfferScreen: React.FC = () => {
                 </View>
               </View>
             )}
+
+            {isInPerson && summary.inPersonDestination ? (
+              <View style={styles.locationDetail}>
+                <Text style={[Typography.caption, styles.detailLabel]}>UBICACIÓN</Text>
+                <View style={styles.detailValueRow}>
+                  <MapPin size={14} color={Colors.primary} />
+                  <View style={styles.locationCopy}>
+                    <Text style={[Typography.bodySmall, styles.detailValue]}>
+                      {summary.inPersonDestination.name}
+                    </Text>
+                    <Text style={[Typography.caption, styles.locationAddress]}>
+                      {summary.inPersonDestination.address}
+                    </Text>
+                    {summary.inPersonDestination.directions ? (
+                      <Text style={[Typography.caption, styles.locationDirections]}>
+                        {summary.inPersonDestination.directions}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* Acciones principales por modalidad */}
         <View style={styles.actionsContainer}>
           {isImmediateChat && (
             <AppButton
               label="Iniciar conversación ahora"
-              onPress={() =>
-                navigation.replace('Consultation', {
-                  conversationId: summary.conversationId,
-                })
-              }
+              onPress={() => navigation.replace('Consultation', {
+                conversationId: summary.conversationId,
+              })}
               variant="primary"
               size="lg"
               fullWidth
@@ -169,10 +212,36 @@ export const AcceptedOfferScreen: React.FC = () => {
             />
           )}
 
-          {!isImmediateChat && (
+          {isInPerson && summary.inPersonDestination ? (
+            <>
+              <AppButton
+                label="Cómo llegar"
+                onPress={() => void handleNavigation('GOOGLE_MAPS')}
+                variant="primary"
+                size="lg"
+                fullWidth
+                icon={<Navigation size={18} color={Colors.textInverse} />}
+              />
+              <AppButton
+                label="Abrir en Waze"
+                onPress={() => void handleNavigation('WAZE')}
+                variant="outline"
+                size="md"
+                fullWidth
+              />
+            </>
+          ) : null}
+
+          {!isImmediateChat && !(isInPerson && summary.inPersonDestination) && (
             <AppButton
-              label="Ir al Inicio"
-              onPress={() => navigation.navigate('PatientMain')}
+              label={isInPerson
+                ? 'Coordinar ubicación'
+                : hasScheduledTime
+                  ? 'Ver mis citas'
+                  : 'Coordinar llamada'}
+              onPress={() => hasScheduledTime && !isInPerson
+                ? openAppointments()
+                : openConversation()}
               variant="primary"
               size="lg"
               fullWidth
@@ -180,14 +249,12 @@ export const AcceptedOfferScreen: React.FC = () => {
           )}
 
           <AppButton
-            label={isImmediateChat ? 'Ir al Inicio' : 'Coordinar por chat'}
-            onPress={() =>
-              isImmediateChat
-                ? navigation.navigate('PatientMain')
-                : navigation.navigate('Consultation', {
-                    conversationId: summary.conversationId,
-                  })
-            }
+            label={isImmediateChat || (isInPerson && !summary.inPersonDestination)
+              ? 'Volver al inicio'
+              : 'Coordinar detalles'}
+            onPress={() => isImmediateChat || (isInPerson && !summary.inPersonDestination)
+              ? navigation.navigate('PatientMain')
+              : openConversation()}
             variant="outline"
             size="md"
             fullWidth
@@ -296,6 +363,19 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: Colors.textPrimary,
+  },
+  locationDetail: {
+    paddingTop: Spacing.xs,
+  },
+  locationCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  locationAddress: {
+    color: Colors.textSecondary,
+  },
+  locationDirections: {
+    color: Colors.textTertiary,
   },
   amountValue: {
     color: Colors.primary,

@@ -37,17 +37,19 @@ describe('Auth screens', () => {
     completePasswordResetMock.mockReset();
   });
 
-  it('presenta un acceso compacto con recuperación, confianza y enlaces informativos', async () => {
+  it('presenta un acceso mínimo con recuperación y enlaces informativos', async () => {
     const view = await renderWithStackNavigation({
       screens: authScreens,
       initialRouteName: 'Login',
     });
 
     expect(view.getByRole('image', { name: 'Ruta Emocional' })).toBeTruthy();
-    expect(view.getByText('Bienvenido de vuelta')).toBeTruthy();
-    expect(view.getByText('Continúa tu ruta de forma segura.')).toBeTruthy();
-    expect(view.getByText('Acceso protegido a tu cuenta')).toBeTruthy();
-    expect(view.getByText('¿Olvidaste tu contraseña?')).toBeTruthy();
+    expect(view.getByText('Inicia sesión')).toBeTruthy();
+    expect(view.getByText('Continuar con Google')).toBeTruthy();
+    expect(view.getByText('Olvidé mi contraseña')).toBeTruthy();
+    expect(view.getByText('¿No tienes cuenta?')).toBeTruthy();
+    expect(view.queryByText('Acompañamiento profesional y humano')).toBeNull();
+    expect(view.queryByText('Acceso protegido a tu cuenta')).toBeNull();
     expect(view.getByText('Privacidad')).toBeTruthy();
     expect(view.getByText('Términos')).toBeTruthy();
     expect(view.getByText('Ayuda')).toBeTruthy();

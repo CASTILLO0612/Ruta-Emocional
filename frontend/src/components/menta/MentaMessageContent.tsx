@@ -12,24 +12,46 @@ type MessageBlock =
   | { readonly type: 'paragraph'; readonly text: string };
 
 function parseMessage(message: string): readonly MessageBlock[] {
-  return message
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const heading = line.match(/^#{1,3}\s+(.+)$/);
-      if (heading) return { type: 'heading', text: heading[1] } as const;
+  const blocks: MessageBlock[] = [];
+  let paragraph: string[] = [];
+  const commitParagraph = () => {
+    const text = paragraph.join(' ').trim();
+    if (text) blocks.push({ type: 'paragraph', text });
+    paragraph = [];
+  };
 
-      const bullet = line.match(/^[-*]\s+(.+)$/);
-      if (bullet) return { type: 'bullet', text: bullet[1] } as const;
+  for (const rawLine of message.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
+      commitParagraph();
+      continue;
+    }
 
-      const numbered = line.match(/^(\d+[.)])\s+(.+)$/);
-      if (numbered) {
-        return { type: 'numbered', marker: numbered[1], text: numbered[2] } as const;
-      }
+    const heading = line.match(/^#{1,3}(?:\s+(.+))?$/);
+    if (heading) {
+      commitParagraph();
+      if (heading[1]) blocks.push({ type: 'heading', text: heading[1] });
+      continue;
+    }
 
-      return { type: 'paragraph', text: line } as const;
-    });
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    if (bullet) {
+      commitParagraph();
+      blocks.push({ type: 'bullet', text: bullet[1] });
+      continue;
+    }
+
+    const numbered = line.match(/^(\d+[.)])\s+(.+)$/);
+    if (numbered) {
+      commitParagraph();
+      blocks.push({ type: 'numbered', marker: numbered[1], text: numbered[2] });
+      continue;
+    }
+
+    paragraph.push(line);
+  }
+  commitParagraph();
+  return blocks;
 }
 
 function InlineContent({ text }: { readonly text: string }) {
@@ -93,7 +115,7 @@ const styles = StyleSheet.create({
     ...Typography.body,
     flex: 1,
     color: Colors.textPrimary,
-    lineHeight: 23,
+    lineHeight: 24,
   },
   listItem: {
     flexDirection: 'row',

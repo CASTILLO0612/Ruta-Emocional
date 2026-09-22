@@ -1,4 +1,5 @@
 import { File, UploadType } from 'expo-file-system';
+import { fetch as expoFetch } from 'expo/fetch';
 import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -48,6 +49,10 @@ export interface ApiRequestOptions {
   readonly retryUnauthorized?: boolean;
   readonly signal?: AbortSignal;
   readonly idempotencyKey?: string;
+}
+
+export interface ApiEventStreamOptions extends ApiRequestOptions {
+  readonly accept?: string;
 }
 
 type RefreshAccessToken = () => Promise<string | null>;
@@ -231,6 +236,68 @@ async function executeFileUpload<T>(
   return payload as T;
 }
 
+async function executeEventStream(
+  endpoint: string,
+  method: Extract<HttpMethod, 'POST'>,
+  body: PreparedRequestBody,
+  options: ApiEventStreamOptions
+): Promise<ReadableStream<Uint8Array>> {
+  validateEndpoint(endpoint);
+
+  const authenticated = options.authenticated !== false;
+  const headers: Record<string, string> = {
+    Accept: options.accept ?? 'text/event-stream',
+    ...body.headers,
+  };
+  if (body.contentType) headers['Content-Type'] = body.contentType;
+  if (authenticated && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  let response;
+  try {
+    response = await expoFetch(`${getVersionOneApiBaseUrl()}${endpoint}`, {
+      method,
+      headers,
+      body: body.value,
+      signal: options.signal,
+    });
+  } catch (cause) {
+    throw new ApiError({
+      status: 0,
+      code: 'NETWORK_ERROR',
+      message: 'No pudimos conectarnos con Ruta Emocional. Revisa tu conexión.',
+      cause,
+    });
+  }
+
+  if (
+    response.status === 401
+    && authenticated
+    && options.retryUnauthorized !== false
+    && refreshAccessToken
+  ) {
+    const nextAccessToken = await refreshAccessToken();
+    if (nextAccessToken) {
+      return executeEventStream(endpoint, method, body, {
+        ...options,
+        retryUnauthorized: false,
+      });
+    }
+  }
+
+  if (!response.ok) {
+    const payload = parseResponsePayload(response.status, await response.text());
+    throw toApiError(response.status, payload);
+  }
+  if (!response.body) {
+    throw new ApiError({
+      status: response.status,
+      code: 'STREAM_UNAVAILABLE',
+      message: 'No pudimos iniciar la respuesta de MENTA.',
+    });
+  }
+  return response.body;
+}
+
 export function apiRequest<T>(
   endpoint: string,
   method: HttpMethod = 'GET',
@@ -274,4 +341,18 @@ export function apiV1FileRequest<T>(
   }
 ): Promise<T> {
   return executeFileUpload<T>(endpoint, file, options);
+}
+
+export function apiV1EventStream(
+  endpoint: string,
+  method: Extract<HttpMethod, 'POST'>,
+  body: unknown,
+  options: ApiEventStreamOptions = {}
+): Promise<ReadableStream<Uint8Array>> {
+  return executeEventStream(
+    endpoint,
+    method,
+    { value: JSON.stringify(body), contentType: 'application/json' },
+    options
+  );
 }

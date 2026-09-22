@@ -7,6 +7,7 @@ import { getRequestId } from '../../../shared/presentation/http/requestContext';
 import { AuthenticatedRequest, getActor, requireAuthentication } from './authMiddleware';
 import {
   parseLogin,
+  parseGoogleLogin,
   parsePasswordResetCompletion,
   parsePasswordResetRequest,
   parsePatientRegistration,
@@ -65,6 +66,15 @@ export function createIdentityRouter(
   router.post('/login', loginLimiter, asyncHandler(async (request, response) => {
     const body = parseLogin(request.body);
     const result = await identity.login({
+      ...body,
+      ...requestMetadata(request, getRequestId(response), body.deviceName),
+    });
+    response.json({ data: result, meta: { requestId: getRequestId(response) } });
+  }));
+
+  router.post('/google', loginLimiter, asyncHandler(async (request, response) => {
+    const body = parseGoogleLogin(request.body);
+    const result = await identity.loginWithGoogle({
       ...body,
       ...requestMetadata(request, getRequestId(response), body.deviceName),
     });

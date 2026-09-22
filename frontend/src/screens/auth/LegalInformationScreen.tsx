@@ -80,7 +80,7 @@ const CONTENT: Readonly<Record<LegalSection, LegalContent>> = {
       {
         title: 'Recupera tu contraseña',
         paragraphs: [
-          'Desde el acceso, selecciona “¿Olvidaste tu contraseña?”. La respuesta no confirma si un correo está registrado, para proteger la privacidad de las cuentas.',
+          'Desde el acceso, selecciona “Olvidé mi contraseña”. La respuesta no confirma si un correo está registrado, para proteger la privacidad de las cuentas.',
         ],
       },
       {

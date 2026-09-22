@@ -5,6 +5,7 @@ import {
   LOCAL_QA_EVIDENCE_CONTENT_TYPES,
   LocalQaEvidenceContentType,
   MODALITIES,
+  PracticeLocationInput,
   ProfessionalModality,
   ProfessionalVerificationDecision,
   VERIFICATION_DECISIONS,
@@ -282,6 +283,28 @@ export function parseProfilePatch(body: unknown): { bio: string | null } {
   }
   throwIfErrors(errors);
   return { bio };
+}
+
+export function parsePracticeLocation(body: unknown): PracticeLocationInput {
+  const record = asRecord(body);
+  const errors = rejectUnknown(record, ['name', 'address', 'directions', 'latitude', 'longitude']);
+  const name = stringValue(record, 'name', 2, 120, errors) ?? '';
+  const address = stringValue(record, 'address', 5, 300, errors) ?? '';
+  const directions = stringValue(record, 'directions', 2, 500, errors, true);
+  const latitude = typeof record.latitude === 'number' && Number.isFinite(record.latitude)
+    ? record.latitude
+    : Number.NaN;
+  const longitude = typeof record.longitude === 'number' && Number.isFinite(record.longitude)
+    ? record.longitude
+    : Number.NaN;
+  if (latitude < -90 || latitude > 90 || !Number.isFinite(latitude)) {
+    errors.push({ field: 'latitude', code: 'INVALID_COORDINATE', message: 'La latitud no es válida.' });
+  }
+  if (longitude < -180 || longitude > 180 || !Number.isFinite(longitude)) {
+    errors.push({ field: 'longitude', code: 'INVALID_COORDINATE', message: 'La longitud no es válida.' });
+  }
+  throwIfErrors(errors);
+  return { name, address, ...(directions ? { directions } : {}), latitude, longitude };
 }
 
 export function parseSpecialtySelection(body: unknown): {

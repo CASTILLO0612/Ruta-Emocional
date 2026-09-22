@@ -95,6 +95,14 @@ export interface LoginBody {
   readonly deviceName?: string;
 }
 
+export interface GoogleLoginBody {
+  readonly idToken: string;
+  readonly registrationRole?: 'patient' | 'psychologist';
+  readonly licenseAuthority?: string;
+  readonly licenseNumber?: string;
+  readonly deviceName?: string;
+}
+
 export interface PasswordResetRequestBody {
   readonly email: string;
 }
@@ -161,6 +169,61 @@ export function parseLogin(body: unknown): LoginBody {
   validatePassword(password, errors, false);
   throwIfErrors(errors);
   return { email, password, deviceName };
+}
+
+export function parseGoogleLogin(body: unknown): GoogleLoginBody {
+  const record = asRecord(body);
+  const errors = rejectUnknownFields(record, [
+    'idToken',
+    'registrationRole',
+    'license',
+    'deviceName',
+  ]);
+  const idToken = requiredString(record, 'idToken', 100, 16_384, errors);
+  const deviceName = optionalString(record, 'deviceName', 160, errors);
+  const registrationRole = record.registrationRole === 'patient' || record.registrationRole === 'psychologist'
+    ? record.registrationRole
+    : undefined;
+  if (
+    record.registrationRole !== undefined
+    && record.registrationRole !== 'patient'
+    && record.registrationRole !== 'psychologist'
+  ) {
+    errors.push({
+      field: 'registrationRole',
+      code: 'INVALID_ROLE',
+      message: 'Selecciona un tipo de cuenta válido.',
+    });
+  }
+
+  const license = record.license && typeof record.license === 'object' && !Array.isArray(record.license)
+    ? record.license as Record<string, unknown>
+    : undefined;
+  let licenseAuthority: string | undefined;
+  let licenseNumber: string | undefined;
+  if (license) {
+    errors.push(...rejectUnknownFields(license, ['authority', 'number']).map((error) => ({
+      ...error,
+      field: `license.${error.field}`,
+    })));
+    licenseAuthority = requiredString(license, 'authority', 2, 120, errors);
+    licenseNumber = requiredString(license, 'number', 4, 80, errors);
+  }
+  if (registrationRole === 'psychologist' && !license) {
+    errors.push({
+      field: 'license',
+      code: 'LICENSE_REQUIRED',
+      message: 'La licencia profesional es obligatoria para crear esta cuenta.',
+    });
+  }
+  throwIfErrors(errors);
+  return {
+    idToken,
+    registrationRole,
+    licenseAuthority,
+    licenseNumber,
+    deviceName,
+  };
 }
 
 export function parsePasswordResetRequest(body: unknown): PasswordResetRequestBody {

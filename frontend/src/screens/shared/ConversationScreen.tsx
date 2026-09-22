@@ -40,11 +40,17 @@ import {
   sendChatMessage,
 } from '../../repositories/ChatRepository';
 import type { RealtimeConnectionState } from '../../services/socketClient';
+import {
+  clearMessageDraft,
+  loadMessageDraft,
+  saveMessageDraft,
+} from '../../services/persistence/messageDraftPersistence';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { Layout } from '../../theme/layout';
 import { FontFamily, Typography } from '../../theme/typography';
+import { PersistenceCadence } from '../../theme/motion';
 import {
   chatMessageKey,
   formatMessageTime,
@@ -68,6 +74,7 @@ export const ConversationScreen: React.FC = () => {
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
   const [maximumTextLength, setMaximumTextLength] = useState(0);
   const [draft, setDraft] = useState('');
+  const [isDraftHydrated, setIsDraftHydrated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>('connecting');
@@ -113,6 +120,35 @@ export const ConversationScreen: React.FC = () => {
       });
     return () => controller.abort();
   }, [conversationId, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    setIsDraftHydrated(false);
+    setDraft('');
+    void loadMessageDraft(user.id, conversationId)
+      .then((storedDraft) => {
+        if (active && storedDraft) setDraft(storedDraft);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setIsDraftHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [conversationId, user]);
+
+  useEffect(() => {
+    if (!user || !isDraftHydrated) return;
+    const timer = setTimeout(() => {
+      const operation = draft
+        ? saveMessageDraft(user.id, conversationId, draft)
+        : clearMessageDraft(user.id, conversationId);
+      void operation.catch(() => undefined);
+    }, PersistenceCadence.messageDraft);
+    return () => clearTimeout(timer);
+  }, [conversationId, draft, isDraftHydrated, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -196,6 +232,7 @@ export const ConversationScreen: React.FC = () => {
       delivery: 'sending',
     };
     setDraft('');
+    void clearMessageDraft(user.id, conversationId).catch(() => undefined);
     setError(null);
     shouldScrollToEnd.current = true;
     setMessages((current) => mergeChatMessages(current, [optimistic], user.id));

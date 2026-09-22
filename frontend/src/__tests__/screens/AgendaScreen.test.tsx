@@ -81,6 +81,7 @@ describe('AgendaScreen', () => {
         email: 'ana@example.test',
         bio: null,
         verificationStatus: 'VERIFIED',
+        practiceLocation: null,
         specialties: [],
         modalities: [],
         licenses: [],

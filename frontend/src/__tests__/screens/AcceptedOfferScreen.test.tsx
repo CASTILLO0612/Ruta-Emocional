@@ -50,7 +50,7 @@ describe('AcceptedOfferScreen', () => {
     expect(await findByText('Consultation Room Content')).toBeTruthy();
   });
 
-  it('prioriza volver al inicio y deja el chat como coordinación en atención presencial', async () => {
+  it('prioriza coordinar la ubicación cuando el consultorio aún no está configurado', async () => {
     const { getByText } = await renderWithStackNavigation({
       screens: [
         {
@@ -66,8 +66,37 @@ describe('AcceptedOfferScreen', () => {
     });
 
     expect(getByText('Atención presencial')).toBeTruthy();
-    expect(getByText('Ir al Inicio')).toBeTruthy();
-    expect(getByText('Coordinar por chat')).toBeTruthy();
+    expect(getByText('Coordinar ubicación')).toBeTruthy();
+    expect(getByText('Volver al inicio')).toBeTruthy();
+  });
+
+  it('muestra el destino y opciones de navegación para atención presencial', async () => {
+    const { getByText } = await renderWithStackNavigation({
+      screens: [
+        {
+          name: 'AcceptedOffer',
+          component: AcceptedOfferScreen,
+          initialParams: {
+            ...baseSnapshot,
+            modality: 'in-person' as const,
+            inPersonDestination: {
+              name: 'Consultorio Central',
+              address: 'Avenida principal, Managua',
+              directions: 'Segundo piso',
+              latitude: 12.114,
+              longitude: -86.236,
+            },
+          },
+        },
+      ],
+      initialRouteName: 'AcceptedOffer',
+    });
+
+    expect(getByText('Consultorio Central')).toBeTruthy();
+    expect(getByText('Avenida principal, Managua')).toBeTruthy();
+    expect(getByText('Segundo piso')).toBeTruthy();
+    expect(getByText('Cómo llegar')).toBeTruthy();
+    expect(getByText('Abrir en Waze')).toBeTruthy();
   });
 
   it('no presenta una sala de espera ficticia para llamada inmediata', async () => {
@@ -82,8 +111,8 @@ describe('AcceptedOfferScreen', () => {
       initialRouteName: 'AcceptedOffer',
     });
 
-    expect(getByText('Ir al Inicio')).toBeTruthy();
-    expect(getByText('Coordinar por chat')).toBeTruthy();
+    expect(getByText('Coordinar llamada')).toBeTruthy();
+    expect(getByText('Coordinar detalles')).toBeTruthy();
     expect(queryByText('Entrar a sala de espera')).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import {
   DirectoryFilters,
   EvidenceUploadPolicy,
   LOCAL_QA_EVIDENCE_CONTENT_TYPES,
+  PracticeLocationInput,
   ProfessionalModality,
   ProfessionalVerificationDecision,
   WeeklyAvailabilityInput,
@@ -62,6 +63,15 @@ export class ProfessionalDirectoryService {
   updateOwnBio(actor: AuthenticatedActor, bio: string | null, audit: RequestAuditContext) {
     this.assertCapability(actor, 'psychologist_onboarding:update:self');
     return this.repository.updateOwnBio(actor.user.id, bio, audit);
+  }
+
+  updateOwnPracticeLocation(
+    actor: AuthenticatedActor,
+    location: PracticeLocationInput,
+    audit: RequestAuditContext
+  ) {
+    this.assertCapability(actor, 'psychologist_onboarding:update:self');
+    return this.repository.updateOwnPracticeLocation(actor.user.id, location, audit);
   }
 
   replaceOwnSpecialties(

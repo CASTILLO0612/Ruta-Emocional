@@ -9,6 +9,7 @@ let cachedApiOrigin: string | null = null;
 let cachedDirectoryMapConfig: DirectoryMapConfig | null = null;
 let cachedRequestPollingConfig: RequestPollingConfig | null = null;
 let cachedTriageCountryCode: string | null = null;
+let cachedGoogleWebClientId: string | null = null;
 
 export interface DirectoryMapConfig {
   readonly radiusKm: number;
@@ -119,4 +120,16 @@ export function getTriageCountryCode(): string {
   }
   cachedTriageCountryCode = countryCode;
   return countryCode;
+}
+
+export function getGoogleWebClientId(): string {
+  if (cachedGoogleWebClientId) return cachedGoogleWebClientId;
+  const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+  if (!clientId || !/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(clientId)) {
+    throw new RuntimeConfigurationError(
+      'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID debe contener un cliente web OAuth válido.'
+    );
+  }
+  cachedGoogleWebClientId = clientId;
+  return clientId;
 }

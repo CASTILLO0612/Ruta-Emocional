@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { type NavigationProp, type ParamListBase, useNavigation } from '@react-navigation/native';
 import { ChevronLeft, MessageCircle, BrainCircuit } from 'lucide-react-native';
 
 import { Colors } from '../../theme/colors';
@@ -49,7 +49,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   contextualAction,
 }) => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { width } = useWindowDimensions();
   const compact = width <= Layout.compactWidth;
   const shouldShowSubtitle = Boolean(subtitle) && width >= HEADER_SUBTITLE_MIN_WIDTH;
@@ -64,7 +64,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     rightActions.push({
       label: 'Abrir MENTA',
       icon: BrainCircuit,
-      onPress: () => (navigation as any).navigate('MentaAgent'),
+      onPress: () => navigation.navigate('MentaAgent'),
     });
   }
 
@@ -72,7 +72,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     rightActions.push({
       label: 'Abrir mensajes',
       icon: MessageCircle,
-      onPress: () => (navigation as any).navigate('Inbox'),
+      onPress: () => navigation.navigate('Inbox'),
     });
   }
 
@@ -81,7 +81,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       style={[styles.container, { paddingTop: insets.top + Spacing.sm }]}
       accessibilityRole="header"
     >
-      {/* Izquierda */}
       <View style={styles.side}>
         {showBack && (
           <TouchableOpacity
@@ -105,7 +104,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         ) : null}
       </View>
 
-      {/* Centro */}
       <View style={styles.center}>
         {showBrand ? (
           <BrandLogo size={compact ? 'header' : 'compact'} variant="positive" />
@@ -133,7 +131,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         ) : null}
       </View>
 
-      {/* Derecha — máximo dos acciones; la acción contextual tiene prioridad. */}
       <View style={[styles.side, styles.rightSide]}>
         {rightActions.slice(0, 2).map((action) => (
           <TouchableOpacity

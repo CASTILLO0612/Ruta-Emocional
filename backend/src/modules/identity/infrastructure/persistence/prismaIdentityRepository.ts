@@ -4,6 +4,7 @@ import {
   CreateSessionData,
   CreatePasswordResetData,
   CompletePasswordResetData,
+  FederatedAuthenticationData,
   IdentityRepository,
   RegisterPatientData,
   RegisterPsychologistData,
@@ -70,6 +71,116 @@ export class PrismaIdentityRepository implements IdentityRepository {
   async findUserById(id: string): Promise<IdentityUser | null> {
     const row = await this.prisma.user.findUnique({ where: { id }, include: identityUserInclude });
     return row ? mapUser(row) : null;
+  }
+
+  async findUserByFederatedIdentity(provider: string, subject: string): Promise<IdentityUser | null> {
+    const identity = await this.prisma.externalIdentity.findUnique({
+      where: {
+        provider_providerSubject: { provider, providerSubject: subject },
+      },
+      select: { user: { include: identityUserInclude } },
+    });
+    return identity ? mapUser(identity.user) : null;
+  }
+
+  async touchFederatedIdentity(provider: string, subject: string, authenticatedAt: Date): Promise<void> {
+    await this.prisma.externalIdentity.update({
+      where: { provider_providerSubject: { provider, providerSubject: subject } },
+      data: { lastAuthenticatedAt: authenticatedAt },
+    });
+  }
+
+  async registerFederatedUser(
+    data: FederatedAuthenticationData,
+    session: RegistrationSessionData
+  ): Promise<IdentityUser> {
+    const roleCode = data.registrationRole;
+    if (!roleCode) {
+      throw AppError.badRequest(
+        'REGISTRATION_ROLE_REQUIRED',
+        'Selecciona cómo utilizarás Ruta Emocional.'
+      );
+    }
+
+    try {
+      const row = await this.prisma.$transaction(async (transaction) => {
+        const role = await transaction.role.findUnique({ where: { code: roleCode } });
+        if (!role) throw this.missingRole(roleCode);
+
+        const profile = roleCode === 'patient'
+          ? { patientProfile: { create: {} } }
+          : {
+              psychologistProfile: {
+                create: {
+                  licenses: {
+                    create: {
+                      authority: data.licenseAuthority!,
+                      licenseNumber: data.licenseNumber!,
+                    },
+                  },
+                },
+              },
+            };
+        const user = await transaction.user.create({
+          data: {
+            email: data.identity.email,
+            displayName: data.identity.displayName,
+            photoUrl: data.identity.photoUrl,
+            roles: { create: { roleId: role.id } },
+            externalIdentities: {
+              create: {
+                provider: data.identity.provider,
+                providerSubject: data.identity.subject,
+                lastAuthenticatedAt: data.authenticatedAt,
+              },
+            },
+            ...profile,
+          },
+          include: identityUserInclude,
+        });
+
+        await transaction.authSession.create({
+          data: {
+            id: session.id,
+            userId: user.id,
+            refreshTokenHash: session.refreshTokenHash,
+            deviceName: session.deviceName,
+            ipAddress: session.ipAddress,
+            userAgent: session.userAgent,
+            expiresAt: session.expiresAt,
+          },
+        });
+        await transaction.auditEvent.create({
+          data: {
+            actorUserId: user.id,
+            action: roleCode === 'patient'
+              ? 'identity.patient_registered_with_google'
+              : 'identity.psychologist_registered_with_google',
+            resourceType: 'user',
+            resourceId: user.id,
+            requestId: data.requestId,
+            ipAddress: data.ipAddress,
+          },
+        });
+        await transaction.auditEvent.create({
+          data: {
+            actorUserId: user.id,
+            action: 'identity.session_created',
+            resourceType: 'auth_session',
+            resourceId: session.id,
+            requestId: session.requestId,
+            ipAddress: session.ipAddress,
+          },
+        });
+        return user;
+      });
+      return mapUser(row);
+    } catch (error) {
+      if (isUniqueConstraint(error)) {
+        throw AppError.conflict('ACCOUNT_ALREADY_EXISTS', 'No fue posible crear la cuenta con esos datos.');
+      }
+      throw error;
+    }
   }
 
   async registerPatient(data: RegisterPatientData, session: RegistrationSessionData): Promise<IdentityUser> {

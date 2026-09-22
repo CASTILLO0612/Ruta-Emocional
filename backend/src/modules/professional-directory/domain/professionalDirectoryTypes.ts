@@ -84,6 +84,23 @@ export interface WeeklyAvailabilityInput {
   readonly isActive: boolean;
 }
 
+export interface PracticeLocationInput {
+  readonly name: string;
+  readonly address: string;
+  readonly directions?: string;
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+export interface PracticeLocationView {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly updatedAt: string;
+}
+
 export interface ProfessionalProfileView {
   readonly id: string;
   readonly userId: string;
@@ -92,6 +109,7 @@ export interface ProfessionalProfileView {
   readonly photoUrl: string | null;
   readonly bio: string | null;
   readonly verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  readonly practiceLocation: PracticeLocationView | null;
   readonly specialties: readonly (SpecialtyView & { readonly isPrimary: boolean })[];
   readonly modalities: readonly (ProfessionalModalityView & { readonly isEnabled: boolean })[];
   readonly licenses: readonly {

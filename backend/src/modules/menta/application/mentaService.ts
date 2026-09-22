@@ -18,6 +18,10 @@ import {
   validateAssistantReply,
 } from '../domain/mentaTypes';
 import { toolsForScope } from '../domain/mentaToolCatalog';
+import {
+  formatDeterministicReply,
+  resolveDeterministicIntent,
+} from '../domain/deterministicMentaResponder';
 
 const DISCLOSURES: Readonly<Record<MentaScope, string>> = {
   PATIENT:
@@ -147,6 +151,22 @@ export class MentaService {
     message: string,
     audit: MentaAuditContext
   ): Promise<MentaAgentReply> {
+    const deterministicIntent = resolveDeterministicIntent(scope, message);
+    if (deterministicIntent) {
+      const execution = await this.executeTool(
+        actor,
+        scope,
+        turnId,
+        deterministicIntent.toolCode,
+        deterministicIntent.argumentsValue,
+        audit
+      );
+      const deterministicReply = formatDeterministicReply(
+        deterministicIntent.toolCode,
+        execution
+      );
+      if (deterministicReply) return deterministicReply;
+    }
     try {
       const generated = await this.provider.generateReply({
         systemInstruction: this.systemInstruction(scope),
@@ -257,6 +277,8 @@ export class MentaService {
       'Eres MENTA, la inteligencia artificial integrada de Ruta Emocional.',
       'Responde en español claro y cálido, salvo que la persona pida otro idioma.',
       'Responde primero lo esencial. Usa frases breves, párrafos cortos y listas Markdown solo cuando mejoren la lectura.',
+      'En consultas generales, responde en un máximo de 50 palabras y ofrece ampliar sólo si la persona lo necesita.',
+      'Cuando la respuesta contenga varios datos o acciones, utiliza un título Markdown breve y hasta tres viñetas; evita bloques extensos y frases de relleno.',
       'Evita introducciones repetitivas, lenguaje técnico interno y etiquetas sobre herramientas, permisos o contexto.',
       'Cuando enumeres datos o acciones, usa viñetas concisas y títulos cortos. No repitas la pregunta.',
       'Usa herramientas cuando la respuesta dependa de datos de la plataforma. Nunca inventes citas, pacientes, profesionales, mensajes ni datos clínicos.',

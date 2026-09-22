@@ -52,6 +52,13 @@ interface AcceptanceResponse {
     readonly acceptedOffer: OfferResponse['data'];
     readonly careRelationshipId: string;
     readonly conversationId: string;
+    readonly inPersonDestination: {
+      readonly name: string;
+      readonly address: string;
+      readonly directions: string | null;
+      readonly latitude: number;
+      readonly longitude: number;
+    } | null;
     readonly replayed: boolean;
   };
 }
@@ -144,7 +151,7 @@ test('service request HTTP flow enforces ownership, idempotency, one winner and 
 
     const verifiedProfiles = await prisma.psychologistProfile.findMany({
       where: { userId: { in: [firstProfessional.userId, secondProfessional.userId] } },
-      select: { id: true },
+      select: { id: true, userId: true },
     });
     assert.equal(verifiedProfiles.length, 2);
     await prisma.$transaction([
@@ -166,6 +173,29 @@ test('service request HTTP flow enforces ownership, idempotency, one winner and 
         },
       })),
     ]);
+    const firstProfessionalProfile = verifiedProfiles.find(({ userId }) => userId === firstProfessional.userId);
+    assert.ok(firstProfessionalProfile);
+    await prisma.psychologistModality.create({
+      data: {
+        psychologistProfileId: firstProfessionalProfile.id,
+        modality: Modality.IN_PERSON,
+        pricePerHour: '550.00',
+        currencyCode: 'NIO',
+        isEnabled: true,
+      },
+    });
+    const practiceLocation = await fetch(`${baseUrl}/psychologists/me/practice-location`, {
+      method: 'PUT',
+      headers: authenticatedHeaders(firstProfessional.accessToken),
+      body: JSON.stringify({
+        name: 'Consultorio Central',
+        address: 'Dirección compartida tras aceptar',
+        directions: 'Entrada norte',
+        latitude: 12.136389,
+        longitude: -86.251389,
+      }),
+    });
+    assert.equal(practiceLocation.status, 200);
 
     const pendingEligibility = await fetch(`${baseUrl}/service-requests/eligible`, {
       headers: authenticatedHeaders(pendingProfessional.accessToken),
@@ -352,6 +382,7 @@ test('service request HTTP flow enforces ownership, idempotency, one winner and 
     const winnerIndex = concurrentAcceptances.findIndex(({ status }) => status === 200);
     assert.notEqual(winnerIndex, -1);
     const winner = await readJson<AcceptanceResponse>(concurrentAcceptances[winnerIndex]);
+    assert.equal(winner.data.inPersonDestination, null);
     assert.equal(winner.data.request.status, 'ACCEPTED');
     assert.equal(winner.data.acceptedOffer.id, offerIds[winnerIndex]);
     assert.equal(
@@ -563,6 +594,46 @@ test('service request HTTP flow enforces ownership, idempotency, one winner and 
     assert.equal(followUpReplayResponse.status, 200);
     const followUpReplay = await readJson<AcceptanceResponse>(followUpReplayResponse);
     assert.equal(followUpReplay.data.replayed, true);
+
+    const inPersonRequestResponse = await fetch(`${baseUrl}/service-requests`, {
+      method: 'POST',
+      headers: authenticatedHeaders(patient.accessToken, randomUUID()),
+      body: JSON.stringify({
+        ...creationBody,
+        modality: 'IN_PERSON',
+        proposedBudget: { amount: '550.00', currency: 'NIO' },
+      }),
+    });
+    assert.equal(inPersonRequestResponse.status, 201);
+    const inPersonRequest = await readJson<RequestResponse>(inPersonRequestResponse);
+    requestIds.push(inPersonRequest.data.id);
+    const inPersonOfferResponse = await fetch(
+      `${baseUrl}/service-requests/${inPersonRequest.data.id}/offers`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(firstProfessional.accessToken, randomUUID()),
+        body: JSON.stringify({ price: { amount: '550.00' } }),
+      }
+    );
+    assert.equal(inPersonOfferResponse.status, 201);
+    const inPersonOffer = await readJson<OfferResponse>(inPersonOfferResponse);
+    const inPersonAcceptanceResponse = await fetch(
+      `${baseUrl}/service-requests/${inPersonRequest.data.id}/offers/${inPersonOffer.data.id}/accept`,
+      {
+        method: 'POST',
+        headers: authenticatedHeaders(patient.accessToken, randomUUID()),
+        body: JSON.stringify({}),
+      }
+    );
+    assert.equal(inPersonAcceptanceResponse.status, 200);
+    const inPersonAcceptance = await readJson<AcceptanceResponse>(inPersonAcceptanceResponse);
+    assert.deepEqual(inPersonAcceptance.data.inPersonDestination, {
+      name: 'Consultorio Central',
+      address: 'Dirección compartida tras aceptar',
+      directions: 'Entrada norte',
+      latitude: 12.136389,
+      longitude: -86.251389,
+    });
     assert.equal(followUpReplay.data.careRelationshipId, winner.data.careRelationshipId);
     assert.equal(followUpReplay.data.conversationId, winner.data.conversationId);
   } finally {

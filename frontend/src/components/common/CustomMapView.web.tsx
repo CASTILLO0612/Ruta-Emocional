@@ -1,10 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { Colors } from '../../theme/colors';
 import { Shadow } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
+import { OPEN_STREET_MAP_ATTRIBUTION } from '../../config/mapProvider';
 
-export const PROVIDER_GOOGLE = 'google';
 export const PROVIDER_DEFAULT = 'default';
 
 interface MarkerProps {
@@ -15,6 +22,21 @@ interface MarkerProps {
   children?: React.ReactNode;
   mapCenter?: { latitude: number; longitude: number };
   mapDelta?: { latitudeDelta: number; longitudeDelta: number };
+}
+
+interface MapCoordinate {
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+interface MapDelta {
+  readonly latitudeDelta: number;
+  readonly longitudeDelta: number;
+}
+
+interface MapAwareProps {
+  readonly mapCenter?: MapCoordinate;
+  readonly mapDelta?: MapDelta;
 }
 
 export const Marker: React.FC<MarkerProps> = ({
@@ -122,9 +144,9 @@ export const Polyline: React.FC<PolylineProps> = () => {
 
 interface MapViewProps {
   children?: React.ReactNode;
-  style?: any;
-  initialRegion?: any;
-  provider?: any;
+  style?: StyleProp<ViewStyle>;
+  initialRegion?: MapCoordinate & MapDelta;
+  provider?: string;
   showsUserLocation?: boolean;
   showsMyLocationButton?: boolean;
   scrollEnabled?: boolean;
@@ -137,23 +159,36 @@ interface MapViewProps {
 const CustomMapView: React.FC<MapViewProps> = (props) => {
   const lat = props.initialRegion?.latitude ?? 12.1328;
   const lng = props.initialRegion?.longitude ?? -86.2904;
-
-  let mapUrl: string;
-  if (
-    props.routeStart && props.routeEnd &&
-    typeof props.routeStart.latitude === 'number' &&
-    typeof props.routeEnd.latitude === 'number'
-  ) {
-    const s = props.routeStart;
-    const e = props.routeEnd;
-    mapUrl = `https://maps.google.com/maps?saddr=${s.latitude},${s.longitude}&daddr=${e.latitude},${e.longitude}&z=13&t=m&iwloc=none&output=embed`;
-  } else {
-    mapUrl = `https://maps.google.com/maps?q=${lat},${lng}&z=14&t=m&iwloc=none&output=embed`;
-  }
+  const latitudeDelta = props.initialRegion?.latitudeDelta ?? 0.04;
+  const longitudeDelta = props.initialRegion?.longitudeDelta ?? 0.04;
+  const routeCoordinates = props.routeStart && props.routeEnd
+    ? [props.routeStart, props.routeEnd]
+    : null;
+  const minimumLatitude = routeCoordinates
+    ? Math.min(...routeCoordinates.map(({ latitude }) => latitude))
+    : lat - latitudeDelta / 2;
+  const maximumLatitude = routeCoordinates
+    ? Math.max(...routeCoordinates.map(({ latitude }) => latitude))
+    : lat + latitudeDelta / 2;
+  const minimumLongitude = routeCoordinates
+    ? Math.min(...routeCoordinates.map(({ longitude }) => longitude))
+    : lng - longitudeDelta / 2;
+  const maximumLongitude = routeCoordinates
+    ? Math.max(...routeCoordinates.map(({ longitude }) => longitude))
+    : lng + longitudeDelta / 2;
+  const padding = routeCoordinates ? 0.01 : 0;
+  const boundingBox = [
+    minimumLongitude - padding,
+    minimumLatitude - padding,
+    maximumLongitude + padding,
+    maximumLatitude + padding,
+  ].join(',');
+  const marker = encodeURIComponent(`${lat},${lng}`);
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(boundingBox)}&layer=mapnik&marker=${marker}`;
 
   const childrenWithCoords = React.Children.map(props.children, (child) => {
-    if (React.isValidElement(child)) {
-      return React.cloneElement(child as React.ReactElement<any>, {
+    if (React.isValidElement<MapAwareProps>(child)) {
+      return React.cloneElement(child, {
         mapCenter: { latitude: lat, longitude: lng },
         mapDelta: {
           latitudeDelta: props.initialRegion?.latitudeDelta ?? 0.04,
@@ -171,18 +206,21 @@ const CustomMapView: React.FC<MapViewProps> = (props) => {
           src: mapUrl,
           style: {
             width: '100%',
-            height: 'calc(100% + 65px)',
-            marginTop: '-65px',
+            height: '100%',
             border: 'none',
             opacity: 1,
           },
-          title: 'Google Map Real'
+          title: 'Mapa de OpenStreetMap'
         })}
       </View>
 
       <View style={styles.overlay} />
 
       {childrenWithCoords}
+
+      <View pointerEvents="none" style={styles.attribution}>
+        <Text style={styles.attributionText}>{OPEN_STREET_MAP_ATTRIBUTION}</Text>
+      </View>
     </View>
   );
 };
@@ -201,6 +239,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: Colors.primarySubtle,
     pointerEvents: 'none',
+  },
+  attribution: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: Colors.mapAttributionSurface,
+  },
+  attributionText: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.textSecondary,
   },
 });
 

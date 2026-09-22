@@ -9,11 +9,13 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import {
   BriefcaseMedical,
   ChevronRight,
   HeartHandshake,
   LogOut,
+  MapPin,
   RefreshCw,
   UserRound,
 } from 'lucide-react-native';
@@ -21,12 +23,15 @@ import {
 import { AppButton } from '../../components/common/AppButton';
 import { CustomAlert } from '../../components/common/CustomAlert';
 import { ProfessionalProfileSheet } from '../../components/profile/ProfessionalProfileSheet';
+import { PracticeLocationSheet } from '../../components/profile/PracticeLocationSheet';
 import { AppHeader } from '../../components/shared/AppHeader';
 import type { AppNavigation } from '../../navigation/navigationTypes';
 import {
   getOwnProfessionalProfile,
+  updatePracticeLocation,
   updateProfessionalBio,
 } from '../../repositories/ProfessionalProfileRepository';
+import type { PracticeLocation } from '../../models/ProfessionalProfile';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { IconSize, IconStroke } from '../../theme/icons';
@@ -46,11 +51,21 @@ export const ProfileScreen: React.FC = () => {
   const [logoutAlertVisible, setLogoutAlertVisible] = useState(false);
   const [saveSuccessAlertVisible, setSaveSuccessAlertVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
+  const [locationEditorVisible, setLocationEditorVisible] = useState(false);
   const [specialty, setSpecialty] = useState(userProfile?.specialty ?? '');
   const [bio, setBio] = useState(userProfile?.bio ?? '');
   const [isLoadingProfessional, setIsLoadingProfessional] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [professionalLoadFailed, setProfessionalLoadFailed] = useState(false);
+  const [practiceLocation, setPracticeLocation] = useState<PracticeLocation | null>(null);
+  const [practiceName, setPracticeName] = useState('');
+  const [practiceAddress, setPracticeAddress] = useState('');
+  const [practiceDirections, setPracticeDirections] = useState('');
+  const [practiceCoordinates, setPracticeCoordinates] = useState<{
+    readonly latitude: number;
+    readonly longitude: number;
+  } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   const loadProfessionalProfile = useCallback(async (signal?: AbortSignal) => {
     if (!isPsychologist) return;
@@ -60,6 +75,7 @@ export const ProfileScreen: React.FC = () => {
       const profile = await getOwnProfessionalProfile(signal);
       setSpecialty(profile.specialties.find(({ isPrimary }) => isPrimary)?.name ?? '');
       setBio(profile.bio ?? '');
+      setPracticeLocation(profile.practiceLocation);
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return;
       setProfessionalLoadFailed(true);
@@ -97,6 +113,69 @@ export const ProfileScreen: React.FC = () => {
       showAlert(
         'No pudimos actualizar el perfil',
         presentUserError(error, 'Tus cambios no se guardaron. Inténtalo nuevamente.')
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenLocationEditor = () => {
+    setPracticeName(practiceLocation?.name ?? '');
+    setPracticeAddress(practiceLocation?.address ?? '');
+    setPracticeDirections(practiceLocation?.directions ?? '');
+    setPracticeCoordinates(practiceLocation
+      ? { latitude: practiceLocation.latitude, longitude: practiceLocation.longitude }
+      : null);
+    setLocationEditorVisible(true);
+  };
+
+  const handleLocatePractice = async () => {
+    setIsLocating(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== Location.PermissionStatus.GRANTED) {
+        showAlert(
+          'Ubicación no disponible',
+          'Activa el permiso de ubicación mientras estés en el consultorio e inténtalo nuevamente.'
+        );
+        return;
+      }
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setPracticeCoordinates({
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+      });
+    } catch (error) {
+      showAlert(
+        'No pudimos obtener la ubicación',
+        presentUserError(error, 'Verifica que la ubicación del dispositivo esté activa e inténtalo nuevamente.')
+      );
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleSavePracticeLocation = async () => {
+    if (!practiceCoordinates) {
+      showAlert('Ubicación pendiente', 'Registra la ubicación del consultorio antes de guardar.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const updated = await updatePracticeLocation({
+        name: practiceName.trim(),
+        address: practiceAddress.trim(),
+        ...(practiceDirections.trim() ? { directions: practiceDirections.trim() } : {}),
+        latitude: practiceCoordinates.latitude,
+        longitude: practiceCoordinates.longitude,
+      });
+      setPracticeLocation(updated.practiceLocation);
+      setLocationEditorVisible(false);
+      setSaveSuccessAlertVisible(true);
+    } catch (error) {
+      showAlert(
+        'No pudimos guardar la ubicación',
+        presentUserError(error, 'La ubicación no fue modificada. Inténtalo nuevamente.')
       );
     } finally {
       setIsSaving(false);
@@ -160,25 +239,46 @@ export const ProfileScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity
-                  style={styles.menuRow}
-                  onPress={() => setEditorVisible(true)}
-                  activeOpacity={0.76}
-                  accessibilityRole="button"
-                  accessibilityLabel="Editar presentación profesional"
-                  accessibilityHint={specialty ? `Especialidad principal: ${specialty}` : 'Especialidad aún no configurada'}
-                >
-                  <View style={styles.menuIcon}>
-                    <BriefcaseMedical size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
-                  </View>
-                  <View style={styles.menuCopy}>
-                    <Text style={styles.menuLabel}>Presentación profesional</Text>
-                    <Text style={styles.menuDetail} numberOfLines={1}>
-                      {specialty || 'Completa tu especialidad principal'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={styles.menuRow}
+                    onPress={() => setEditorVisible(true)}
+                    activeOpacity={0.76}
+                    accessibilityRole="button"
+                    accessibilityLabel="Editar presentación profesional"
+                    accessibilityHint={specialty ? `Especialidad principal: ${specialty}` : 'Especialidad aún no configurada'}
+                  >
+                    <View style={styles.menuIcon}>
+                      <BriefcaseMedical size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                    </View>
+                    <View style={styles.menuCopy}>
+                      <Text style={styles.menuLabel}>Presentación profesional</Text>
+                      <Text style={styles.menuDetail} numberOfLines={1}>
+                        {specialty || 'Completa tu especialidad principal'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.menuRow}
+                    onPress={handleOpenLocationEditor}
+                    activeOpacity={0.76}
+                    accessibilityRole="button"
+                    accessibilityLabel="Configurar ubicación del consultorio"
+                  >
+                    <View style={styles.menuIcon}>
+                      <MapPin size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.primary} />
+                    </View>
+                    <View style={styles.menuCopy}>
+                      <Text style={styles.menuLabel}>Consultorio</Text>
+                      <Text style={styles.menuDetail} numberOfLines={1}>
+                        {practiceLocation?.address ?? 'Configura la ubicación presencial'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textTertiary} />
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           ) : null}
@@ -194,15 +294,32 @@ export const ProfileScreen: React.FC = () => {
       </ScrollView>
 
       {isPsychologist ? (
-        <ProfessionalProfileSheet
-          visible={editorVisible}
-          specialty={specialty}
-          bio={bio}
-          isSaving={isSaving}
-          onBioChange={setBio}
-          onSave={() => void handleSaveProfessional()}
-          onClose={() => setEditorVisible(false)}
-        />
+        <>
+          <ProfessionalProfileSheet
+            visible={editorVisible}
+            specialty={specialty}
+            bio={bio}
+            isSaving={isSaving}
+            onBioChange={setBio}
+            onSave={() => void handleSaveProfessional()}
+            onClose={() => setEditorVisible(false)}
+          />
+          <PracticeLocationSheet
+            visible={locationEditorVisible}
+            name={practiceName}
+            address={practiceAddress}
+            directions={practiceDirections}
+            coordinates={practiceCoordinates}
+            isLocating={isLocating}
+            isSaving={isSaving}
+            onNameChange={setPracticeName}
+            onAddressChange={setPracticeAddress}
+            onDirectionsChange={setPracticeDirections}
+            onLocate={() => void handleLocatePractice()}
+            onSave={() => void handleSavePracticeLocation()}
+            onClose={() => setLocationEditorVisible(false)}
+          />
+        </>
       ) : null}
 
       <CustomAlert

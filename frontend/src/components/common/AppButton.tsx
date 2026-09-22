@@ -13,7 +13,7 @@ import { Typography } from '../../theme/typography';
 import { BorderRadius, Spacing, Shadow } from '../../theme/spacing';
 import { Layout } from '../../theme/layout';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'dangerGhost';
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'google' | 'danger' | 'dangerGhost';
 type Size = 'sm' | 'md' | 'lg';
 
 interface AppButtonProps {
@@ -70,7 +70,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
           <ActivityIndicator
             color={variant === 'dangerGhost'
               ? Colors.error
-              : ['secondary', 'outline', 'ghost'].includes(variant)
+              : ['secondary', 'outline', 'ghost', 'google'].includes(variant)
                 ? Colors.primary
                 : Colors.textInverse}
             size="small"
@@ -112,7 +112,8 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   iconWrapper: {
-    marginRight: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fullWidth: {
     width: '100%',
@@ -154,6 +155,11 @@ const styles = StyleSheet.create({
   variant_ghost: {
     backgroundColor: 'transparent',
   },
+  variant_google: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+  },
   variant_danger: {
     backgroundColor: Colors.error,
   },
@@ -169,6 +175,7 @@ const styles = StyleSheet.create({
   labelVariant_secondary: { color: Colors.primary },
   labelVariant_outline: { color: Colors.primary },
   labelVariant_ghost: { color: Colors.primary },
+  labelVariant_google: { color: Colors.textPrimary },
   labelVariant_danger: { color: Colors.textInverse },
   labelVariant_dangerGhost: { color: Colors.error },
 

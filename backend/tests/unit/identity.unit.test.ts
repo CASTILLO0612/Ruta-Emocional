@@ -10,6 +10,8 @@ import {
   CompletePasswordResetData,
   CreatePasswordResetData,
   CreateSessionData,
+  FederatedAuthenticationData,
+  FederatedIdentityVerifier,
   IdentityRepository,
   PasswordHasher,
   PasswordResetTokenService,
@@ -71,6 +73,7 @@ class InMemoryIdentityRepository implements IdentityRepository {
   readonly users = new Map<string, IdentityUser>();
   readonly sessions = new Map<string, IdentitySession>();
   readonly passwordResets = new Map<string, InMemoryPasswordReset>();
+  readonly federatedIdentities = new Map<string, string>();
 
   async findUserByEmail(email: string): Promise<IdentityUser | null> {
     return [...this.users.values()].find((user) => user.email === email) ?? null;
@@ -78,6 +81,34 @@ class InMemoryIdentityRepository implements IdentityRepository {
   async findUserById(id: string): Promise<IdentityUser | null> {
     return this.users.get(id) ?? null;
   }
+  async findUserByFederatedIdentity(provider: string, subject: string): Promise<IdentityUser | null> {
+    const userId = this.federatedIdentities.get(`${provider}:${subject}`);
+    return userId ? this.findUserById(userId) : null;
+  }
+  async registerFederatedUser(
+    data: FederatedAuthenticationData,
+    session: RegistrationSessionData
+  ): Promise<IdentityUser> {
+    const role = data.registrationRole ?? 'patient';
+    const id = `00000000-0000-4000-8000-${String(this.users.size + 1).padStart(12, '0')}`;
+    const user: IdentityUser = {
+      id,
+      email: data.identity.email,
+      displayName: data.identity.displayName,
+      passwordHash: null,
+      photoUrl: data.identity.photoUrl,
+      status: 'ACTIVE',
+      roles: [role],
+      patientProfileId: role === 'patient' ? id : null,
+      psychologistProfileId: role === 'psychologist' ? id : null,
+      psychologistVerificationStatus: role === 'psychologist' ? 'PENDING' : null,
+    };
+    this.users.set(id, user);
+    this.federatedIdentities.set(`${data.identity.provider}:${data.identity.subject}`, id);
+    this.addRegistrationSession(user, session);
+    return user;
+  }
+  async touchFederatedIdentity(): Promise<void> {}
   async registerPatient(data: RegisterPatientData, session: RegistrationSessionData): Promise<IdentityUser> {
     const user = this.user(data, ['patient'], null);
     this.users.set(user.id, user);
@@ -190,7 +221,7 @@ class InMemoryIdentityRepository implements IdentityRepository {
   }
 }
 
-function buildIdentity() {
+function buildIdentity(federatedIdentityVerifier: FederatedIdentityVerifier | null = null) {
   const repository = new InMemoryIdentityRepository();
   const clock = new FixedClock();
   const service = new IdentityService(
@@ -202,10 +233,65 @@ function buildIdentity() {
     null,
     clock,
     30,
-    { tokenTtlMinutes: 30, exposeTokenForLocalQa: true }
+    { tokenTtlMinutes: 30, exposeTokenForLocalQa: true },
+    federatedIdentityVerifier
   );
   return { repository, clock, service };
 }
+
+const verifiedGoogleIdentity = {
+  provider: 'GOOGLE' as const,
+  subject: 'google-subject-1',
+  email: 'persona@example.com',
+  emailVerified: true as const,
+  displayName: 'Persona Google',
+  photoUrl: 'https://example.com/photo.jpg',
+};
+
+test('Google authentication requires an explicit role before creating a new account', async () => {
+  const { service } = buildIdentity({
+    verify: async () => verifiedGoogleIdentity,
+  });
+
+  await assert.rejects(
+    service.loginWithGoogle({ idToken: 'valid-google-id-token' }),
+    (error: unknown) => error instanceof AppError && error.code === 'REGISTRATION_ROLE_REQUIRED'
+  );
+});
+
+test('Google authentication creates and reuses a federated patient identity', async () => {
+  const { repository, service } = buildIdentity({
+    verify: async () => verifiedGoogleIdentity,
+  });
+
+  const created = await service.loginWithGoogle({
+    idToken: 'valid-google-id-token',
+    registrationRole: 'patient',
+  });
+  const returned = await service.loginWithGoogle({ idToken: 'valid-google-id-token' });
+
+  assert.deepEqual(created.user.roles, ['patient']);
+  assert.equal(created.user.email, verifiedGoogleIdentity.email);
+  assert.equal(returned.user.id, created.user.id);
+  assert.equal(repository.users.size, 1);
+  assert.notEqual(returned.tokens.refreshToken, created.tokens.refreshToken);
+});
+
+test('Google authentication never links an existing password account by email alone', async () => {
+  const { service } = buildIdentity({
+    verify: async () => verifiedGoogleIdentity,
+  });
+  await service.registerPatient({
+    email: verifiedGoogleIdentity.email,
+    displayName: 'Cuenta existente',
+    password: 'a-strong-password',
+  });
+
+  await assert.rejects(
+    service.loginWithGoogle({ idToken: 'valid-google-id-token' }),
+    (error: unknown) => error instanceof AppError && error.code === 'ACCOUNT_LINK_REQUIRED'
+  );
+});
 
 test('patient registration normalizes identity and creates a revocable session', async () => {
   const { repository, service } = buildIdentity();

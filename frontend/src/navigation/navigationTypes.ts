@@ -36,6 +36,13 @@ export type AcceptedOfferSummaryParams = {
   readonly currencyCode: string;
   readonly modality: Modality;
   readonly scheduledFor?: string;
+  readonly inPersonDestination?: {
+    readonly name: string;
+    readonly address: string;
+    readonly directions: string | null;
+    readonly latitude: number;
+    readonly longitude: number;
+  };
 };
 
 export type LegalSection = 'privacy' | 'terms' | 'help';
@@ -53,7 +60,6 @@ export type AppStackParamList = {
   PsychologistMain: NavigatorScreenParams<PsychologistTabParamList> | undefined;
   PsychologistVerification: undefined;
   AdminVerification: undefined;
-  MentaSafety: undefined;
   Radar: undefined;
   AcceptedOffer: AcceptedOfferSummaryParams;
   Consultation: { readonly conversationId: string };

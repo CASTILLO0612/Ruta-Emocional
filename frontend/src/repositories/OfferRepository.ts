@@ -33,7 +33,16 @@ interface AcceptanceResponse {
   readonly acceptedOffer: ApiServiceOffer;
   readonly careRelationshipId: string;
   readonly conversationId: string;
+  readonly inPersonDestination: InPersonDestination | null;
   readonly replayed: boolean;
+}
+
+export interface InPersonDestination {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
 }
 
 interface Envelope<T> {
@@ -50,6 +59,7 @@ export interface AcceptedOfferResult {
   readonly offer: Offer;
   readonly careRelationshipId: string;
   readonly conversationId: string;
+  readonly inPersonDestination: InPersonDestination | null;
   readonly replayed: boolean;
 }
 
@@ -123,6 +133,7 @@ export async function acceptOffer(
     offer: toOffer(response.data.acceptedOffer),
     careRelationshipId: response.data.careRelationshipId,
     conversationId: response.data.conversationId,
+    inPersonDestination: response.data.inPersonDestination,
     replayed: response.data.replayed,
   };
 }

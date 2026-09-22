@@ -2,6 +2,7 @@ import {
   DirectoryFilters,
   DirectoryPage,
   LocalQaEvidenceContentType,
+  PracticeLocationInput,
   ProfessionalModality,
   ProfessionalProfileView,
   ProfessionalVerificationDecision,
@@ -38,6 +39,11 @@ export interface ProfessionalDirectoryRepository {
   findPublicById(profileId: string): Promise<PublicProfessionalView | null>;
   findOwnProfile(userId: string): Promise<ProfessionalProfileView | null>;
   updateOwnBio(userId: string, bio: string | null, audit: RequestAuditContext): Promise<ProfessionalProfileView>;
+  updateOwnPracticeLocation(
+    userId: string,
+    location: PracticeLocationInput,
+    audit: RequestAuditContext
+  ): Promise<ProfessionalProfileView>;
   replaceOwnSpecialties(
     userId: string,
     specialtyCodes: readonly string[],

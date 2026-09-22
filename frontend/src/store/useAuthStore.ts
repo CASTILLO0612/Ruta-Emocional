@@ -2,12 +2,14 @@ import { create } from 'zustand';
 import {
   CurrentUser,
   getCurrentUser,
+  PSYCHOLOGIST_LICENSE_AUTHORITY,
   RegisterUserInput,
   UserRole,
   registerUser as registerUserRequest,
   restoreSession,
   setSessionInvalidHandler,
   signIn as signInRequest,
+  signInWithGoogle as signInWithGoogleRequest,
   signOutAllSessions,
   signOutUser,
 } from '../services/AuthService';
@@ -31,6 +33,11 @@ interface AuthState {
   readonly initializationError: string | null;
   initializeSession: () => Promise<void>;
   authenticate: (email: string, password: string) => Promise<void>;
+  authenticateWithGoogle: (
+    idToken: string,
+    registrationRole?: UserRole,
+    licenseNumber?: string
+  ) => Promise<void>;
   registerAccount: (input: RegisterUserInput) => Promise<void>;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -134,6 +141,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   authenticate: async (email, password) => {
     const user = await signInRequest(email, password);
+    const profile = await adoptAuthenticatedUser(user);
+    useRequestStore.getState().bindSession(profile.id);
+    set({
+      userProfile: profile,
+      isAuthenticated: true,
+      role: profile.role,
+      initializationError: null,
+    });
+  },
+
+  authenticateWithGoogle: async (idToken, registrationRole, licenseNumber) => {
+    const user = await signInWithGoogleRequest({
+      idToken,
+      registrationRole,
+      ...(registrationRole === 'psychologist' && licenseNumber
+        ? {
+            license: {
+              authority: PSYCHOLOGIST_LICENSE_AUTHORITY,
+              number: licenseNumber,
+            },
+          }
+        : {}),
+    });
     const profile = await adoptAuthenticatedUser(user);
     useRequestStore.getState().bindSession(profile.id);
     set({

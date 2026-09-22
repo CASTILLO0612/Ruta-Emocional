@@ -11,6 +11,7 @@ export interface ProfessionalProfile {
   readonly email: string;
   readonly bio: string | null;
   readonly verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  readonly practiceLocation: PracticeLocation | null;
   readonly specialties: readonly (SpecialtyCatalogItem & { readonly isPrimary: boolean })[];
   readonly modalities: readonly {
     readonly code: DirectoryModality;
@@ -29,6 +30,15 @@ export interface ProfessionalProfile {
     readonly timezone: string | null;
     readonly weeklyRules: readonly WeeklyAvailabilityRule[];
   };
+}
+
+export interface PracticeLocation {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly updatedAt: string;
 }
 
 export interface WeeklyAvailabilityRule {

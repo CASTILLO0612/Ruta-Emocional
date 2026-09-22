@@ -24,6 +24,8 @@ import type {
 } from '../../src/modules/menta/domain/mentaTypes';
 import { AppError } from '../../src/shared/domain/appError';
 import { GeminiInteractionsMentaProvider } from '../../src/modules/menta/infrastructure/providers/geminiInteractionsMentaProvider';
+import { OllamaMentaAgentProvider } from '../../src/modules/menta/infrastructure/providers/ollamaMentaAgentProvider';
+import { splitMentaStreamText } from '../../src/modules/menta/presentation/mentaStream';
 import { createTestConfig } from '../support/testConfig';
 
 const userId = randomUUID();
@@ -162,13 +164,13 @@ function enabledConfig(): { menta: AppConfig['menta']; triage: AppConfig['triage
       ...config.menta,
       enabled: true,
       provider: 'GEMINI',
-      externalProviderApproved: true,
+      providerGovernanceApproved: true,
       geminiApiKey: 'test-api-key-with-at-least-thirty-two-characters',
     },
   };
 }
 
-test('MENTA opens a consented conversation and executes only a patient tool', async () => {
+test('MENTA resolves an agenda request without waiting for an external provider', async () => {
   const conversations = new MemoryConversationRepository();
   const context = new RecordingContextGateway();
   const provider = new ToolCallingProvider();
@@ -184,7 +186,9 @@ test('MENTA opens a consented conversation and executes only a patient tool', as
     audit
   );
 
-  assert.equal(turn.providerOutcome, 'SUCCEEDED');
+  assert.equal(turn.providerOutcome, 'NOT_USED');
+  assert.equal(provider.calls, 0);
+  assert.match(turn.assistantMessage, /No tienes citas próximas/i);
   assert.deepEqual(context.calls, ['get_my_agenda']);
   assert.deepEqual(conversations.toolInvocations, [{ code: 'get_my_agenda', outcome: 'SUCCEEDED' }]);
 });
@@ -289,4 +293,110 @@ test('Gemini adapter executes a no-argument tool in stateless mode without leaki
   assert.equal(payloads.every((payload) => payload.store === false), true);
   const providerTools = payloads[0].tools as { parameters: { properties: Record<string, unknown> } }[];
   assert.ok(providerTools[0].parameters.properties._request_context);
+});
+
+test('Ollama adapter executes an authorized tool and returns the final local response', async () => {
+  const payloads: Record<string, unknown>[] = [];
+  let call = 0;
+  let toolArguments: Readonly<Record<string, unknown>> | null = null;
+  const fetchImplementation: typeof fetch = async (_input, init) => {
+    payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    call += 1;
+    return new Response(JSON.stringify(call === 1
+      ? {
+          model: 'local-test',
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{ function: { name: 'get_my_agenda', arguments: {} } }],
+          },
+        }
+      : {
+          model: 'local-test',
+          message: { role: 'assistant', content: 'No tienes citas próximas.' },
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const provider = new OllamaMentaAgentProvider({
+    baseUrl: 'http://127.0.0.1:11434',
+    model: 'local-test',
+    timeoutMs: 1_000,
+    maximumToolRounds: 2,
+    keepAlive: '10m',
+    maximumHistoryCharacters: 6_000,
+    maximumOutputTokens: 128,
+    toolCallingEnabled: true,
+    fetchImplementation,
+  });
+
+  const response = await provider.generateReply({
+    systemInstruction: 'Usa herramientas cuando sean necesarias.',
+    history: [],
+    message: 'Consulta mi agenda.',
+    tools: [{
+      type: 'function',
+      name: 'get_my_agenda',
+      description: 'Consulta la agenda propia.',
+      parameters: { type: 'object', properties: {} },
+    }],
+    executeTool: async (_code, argumentsValue) => {
+      toolArguments = argumentsValue;
+      return { data: { appointments: [] }, resourceType: 'appointment', resourceCount: 0 };
+    },
+  });
+
+  assert.equal(response.outcome, 'SUCCEEDED');
+  assert.equal(response.modelName, 'local-test');
+  assert.deepEqual(response.toolsUsed, ['get_my_agenda']);
+  assert.deepEqual(toolArguments, {});
+  assert.equal(payloads.length, 2);
+  assert.equal(payloads.every((payload) => payload.stream === false), true);
+  assert.deepEqual(payloads[0].options, { temperature: 0.2, num_predict: 128 });
+});
+
+test('Ollama adapter confines conversation history to its configured local context budget', async () => {
+  const payloads: Record<string, unknown>[] = [];
+  const fetchImplementation: typeof fetch = async (_input, init) => {
+    payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return new Response(JSON.stringify({
+      model: 'local-test',
+      message: { role: 'assistant', content: 'Respuesta breve.' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const provider = new OllamaMentaAgentProvider({
+    baseUrl: 'http://127.0.0.1:11434',
+    model: 'local-test',
+    timeoutMs: 1_000,
+    maximumToolRounds: 1,
+    keepAlive: '10m',
+    maximumHistoryCharacters: 40,
+    maximumOutputTokens: 96,
+    toolCallingEnabled: false,
+    fetchImplementation,
+  });
+
+  await provider.generateReply({
+    systemInstruction: 'Responde de forma breve.',
+    history: [
+      { userMessage: 'a'.repeat(50), assistantMessage: 'A'.repeat(50) },
+      { userMessage: 'b'.repeat(50), assistantMessage: 'B'.repeat(50) },
+    ],
+    message: 'Hola.',
+    tools: [],
+    executeTool: async () => ({ data: {}, resourceType: 'none', resourceCount: 0 }),
+  });
+
+  const messages = payloads[0].messages as { role: string; content: string }[];
+  const history = messages.slice(1, -1);
+  assert.ok(history.reduce((total, message) => total + message.content.length, 0) <= 40);
+  assert.equal(history.some((message) => message.content.includes('b')), true);
+  assert.equal(history.some((message) => message.content.includes('a')), false);
+});
+
+test('MENTA streaming preserves the validated response while separating readable tokens', () => {
+  const message = '### Próxima cita\n- **Martes:** 10:00 a. m.\n- Modalidad: Chat';
+  const chunks = splitMentaStreamText(message);
+
+  assert.equal(chunks.join(''), message);
+  assert.ok(chunks.length > 1);
+  assert.equal(chunks[0], '### ');
 });

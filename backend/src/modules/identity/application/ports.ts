@@ -44,9 +44,40 @@ export interface CompletePasswordResetData {
 
 export type RegistrationSessionData = Omit<CreateSessionData, 'userId'>;
 
+export type FederatedRegistrationRole = 'patient' | 'psychologist';
+
+export interface VerifiedFederatedIdentity {
+  readonly provider: 'GOOGLE';
+  readonly subject: string;
+  readonly email: string;
+  readonly emailVerified: true;
+  readonly displayName: string;
+  readonly photoUrl: string | null;
+}
+
+export interface FederatedIdentityVerifier {
+  verify(idToken: string): Promise<VerifiedFederatedIdentity>;
+}
+
+export interface FederatedAuthenticationData extends RequestMetadataData {
+  readonly identity: VerifiedFederatedIdentity;
+  readonly authenticatedAt: Date;
+  readonly registrationRole?: FederatedRegistrationRole;
+  readonly licenseAuthority?: string;
+  readonly licenseNumber?: string;
+}
+
+export interface RequestMetadataData {
+  readonly requestId?: string;
+  readonly ipAddress?: string;
+}
+
 export interface IdentityRepository {
   findUserByEmail(email: string): Promise<IdentityUser | null>;
   findUserById(id: string): Promise<IdentityUser | null>;
+  findUserByFederatedIdentity(provider: string, subject: string): Promise<IdentityUser | null>;
+  registerFederatedUser(data: FederatedAuthenticationData, session: RegistrationSessionData): Promise<IdentityUser>;
+  touchFederatedIdentity(provider: string, subject: string, authenticatedAt: Date): Promise<void>;
   registerPatient(data: RegisterPatientData, session: RegistrationSessionData): Promise<IdentityUser>;
   registerPsychologist(data: RegisterPsychologistData, session: RegistrationSessionData): Promise<IdentityUser>;
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;

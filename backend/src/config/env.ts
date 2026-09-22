@@ -61,6 +61,11 @@ export interface AppConfig {
     readonly scryptP: number;
     readonly keyLength: number;
   };
+  readonly federatedAuthentication: {
+    readonly googleEnabled: boolean;
+    readonly googleClientId: string | null;
+    readonly verificationTimeoutMs: number;
+  };
   readonly passwordRecovery: {
     readonly provider: 'DISABLED' | 'RESEND';
     readonly resendApiKey: string | null;
@@ -179,9 +184,14 @@ export interface AppConfig {
   };
   readonly menta: {
     readonly enabled: boolean;
-    readonly provider: 'DISABLED' | 'GEMINI';
-    readonly externalProviderApproved: boolean;
+    readonly provider: 'DISABLED' | 'GEMINI' | 'OLLAMA';
+    readonly providerGovernanceApproved: boolean;
     readonly geminiApiKey: string | null;
+    readonly ollamaBaseUrl: string | null;
+    readonly ollamaKeepAlive: string;
+    readonly ollamaMaximumHistoryCharacters: number;
+    readonly ollamaToolCallingEnabled: boolean;
+    readonly maximumOutputTokens: number;
     readonly model: string;
     readonly consentVersion: string;
     readonly maximumMessageLength: number;
@@ -189,6 +199,7 @@ export interface AppConfig {
     readonly historyTurnLimit: number;
     readonly maximumToolRounds: number;
     readonly providerTimeoutMs: number;
+    readonly streamingChunkIntervalMs: number;
     readonly requestsPerMinute: number;
     readonly retentionPolicyApproved: boolean;
     readonly conversationRetentionDays: number;
@@ -270,10 +281,32 @@ function readEnvironment(source: NodeJS.ProcessEnv): RuntimeEnvironment {
   return value;
 }
 
-function readMentaProvider(source: NodeJS.ProcessEnv): 'DISABLED' | 'GEMINI' {
+function readMentaProvider(source: NodeJS.ProcessEnv): 'DISABLED' | 'GEMINI' | 'OLLAMA' {
   const value = source.MENTA_AI_PROVIDER?.trim().toUpperCase() || 'DISABLED';
-  if (value !== 'DISABLED' && value !== 'GEMINI') {
-    throw new ConfigurationError('MENTA_AI_PROVIDER must be DISABLED or GEMINI');
+  if (value !== 'DISABLED' && value !== 'GEMINI' && value !== 'OLLAMA') {
+    throw new ConfigurationError('MENTA_AI_PROVIDER must be DISABLED, GEMINI or OLLAMA');
+  }
+  return value;
+}
+
+function readOllamaBaseUrl(source: NodeJS.ProcessEnv, provider: AppConfig['menta']['provider']): string | null {
+  const value = source.MENTA_OLLAMA_BASE_URL?.trim() || null;
+  if (provider !== 'OLLAMA') return null;
+  if (!value) throw new ConfigurationError('MENTA_OLLAMA_BASE_URL is required when MENTA_AI_PROVIDER is OLLAMA');
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error();
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error();
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    throw new ConfigurationError('MENTA_OLLAMA_BASE_URL must be a valid HTTP origin without credentials');
+  }
+}
+
+function readOllamaKeepAlive(source: NodeJS.ProcessEnv): string {
+  const value = source.MENTA_OLLAMA_KEEP_ALIVE?.trim() || '10m';
+  if (!/^(?:0|[1-9][0-9]{0,3}[smh])$/.test(value)) {
+    throw new ConfigurationError('MENTA_OLLAMA_KEEP_ALIVE must be 0 or a duration in seconds, minutes or hours');
   }
   return value;
 }
@@ -661,6 +694,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (mentaProvider === 'GEMINI' && !geminiApiKey) {
     throw new ConfigurationError('GEMINI_API_KEY is required when MENTA_AI_PROVIDER is GEMINI');
   }
+  const ollamaBaseUrl = readOllamaBaseUrl(source, mentaProvider);
+  const mentaModel = mentaProvider === 'OLLAMA'
+    ? readRequired(source, 'MENTA_OLLAMA_MODEL')
+    : source.MENTA_GEMINI_MODEL?.trim() || 'gemini-3.6-flash';
   const minimumRequestAmount = readRequiredMoney(source, 'REQUEST_MINIMUM_AMOUNT');
   const maximumRequestAmount = readRequiredMoney(source, 'REQUEST_MAXIMUM_AMOUNT');
   if (Number(minimumRequestAmount) <= 0 || Number(maximumRequestAmount) <= Number(minimumRequestAmount)) {
@@ -709,6 +746,17 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       scryptR: readInteger(source, 'PASSWORD_SCRYPT_R', 8, 1, 32),
       scryptP: readInteger(source, 'PASSWORD_SCRYPT_P', 3, 1, 16),
       keyLength: readInteger(source, 'PASSWORD_SCRYPT_KEY_LENGTH', 64, 32, 128),
+    },
+    federatedAuthentication: {
+      googleEnabled: readBoolean(source, 'GOOGLE_AUTH_ENABLED', false),
+      googleClientId: source.GOOGLE_WEB_CLIENT_ID?.trim() || null,
+      verificationTimeoutMs: readInteger(
+        source,
+        'GOOGLE_TOKEN_VERIFICATION_TIMEOUT_MS',
+        5_000,
+        1_000,
+        15_000
+      ),
     },
     passwordRecovery: {
       provider: passwordResetProvider,
@@ -1062,15 +1110,35 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     menta: {
       enabled: readBoolean(source, 'MENTA_AGENT_ENABLED', false),
       provider: mentaProvider,
-      externalProviderApproved: readBoolean(source, 'MENTA_EXTERNAL_PROVIDER_APPROVED', false),
-      geminiApiKey: geminiApiKey ? assertSecret('GEMINI_API_KEY', geminiApiKey) : null,
-      model: source.MENTA_GEMINI_MODEL?.trim() || 'gemini-3.6-flash',
+      providerGovernanceApproved: readBoolean(source, 'MENTA_PROVIDER_GOVERNANCE_APPROVED', false),
+      geminiApiKey: mentaProvider === 'GEMINI'
+        ? assertSecret('GEMINI_API_KEY', geminiApiKey!)
+        : null,
+      ollamaBaseUrl,
+      ollamaKeepAlive: readOllamaKeepAlive(source),
+      ollamaMaximumHistoryCharacters: readInteger(
+        source,
+        'MENTA_OLLAMA_MAXIMUM_HISTORY_CHARACTERS',
+        600,
+        500,
+        40_000
+      ),
+      ollamaToolCallingEnabled: readBoolean(source, 'MENTA_OLLAMA_TOOL_CALLING_ENABLED', false),
+      maximumOutputTokens: readInteger(source, 'MENTA_AGENT_MAXIMUM_OUTPUT_TOKENS', 256, 32, 2_048),
+      model: mentaModel,
       consentVersion: source.MENTA_AGENT_CONSENT_VERSION?.trim() || '1.0.0',
       maximumMessageLength: readInteger(source, 'MENTA_AGENT_MAXIMUM_MESSAGE_LENGTH', 2_000, 100, 8_000),
       maximumReplyLength: readInteger(source, 'MENTA_AGENT_MAXIMUM_REPLY_LENGTH', 6_000, 500, 20_000),
       historyTurnLimit: readInteger(source, 'MENTA_AGENT_HISTORY_TURN_LIMIT', 12, 1, 50),
       maximumToolRounds: readInteger(source, 'MENTA_AGENT_MAXIMUM_TOOL_ROUNDS', 4, 1, 8),
       providerTimeoutMs: readInteger(source, 'MENTA_AGENT_PROVIDER_TIMEOUT_MS', 45_000, 1_000, 60_000),
+      streamingChunkIntervalMs: readInteger(
+        source,
+        'MENTA_AGENT_STREAMING_CHUNK_INTERVAL_MS',
+        32,
+        10,
+        200
+      ),
       requestsPerMinute: readInteger(source, 'MENTA_AGENT_REQUESTS_PER_MINUTE', 20, 1, 120),
       retentionPolicyApproved: readBoolean(source, 'MENTA_AGENT_RETENTION_POLICY_APPROVED', false),
       conversationRetentionDays: readInteger(
@@ -1087,6 +1155,20 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigurationError(
       'REQUEST_SCHEDULED_OFFER_CUTOFF_MINUTES must be lower than REQUEST_SCHEDULED_LEAD_MINUTES'
     );
+  }
+  if (
+    config.federatedAuthentication.googleEnabled
+    && !config.federatedAuthentication.googleClientId
+  ) {
+    throw new ConfigurationError('GOOGLE_WEB_CLIENT_ID is required when GOOGLE_AUTH_ENABLED is true');
+  }
+  if (
+    config.federatedAuthentication.googleClientId
+    && !/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(
+      config.federatedAuthentication.googleClientId
+    )
+  ) {
+    throw new ConfigurationError('GOOGLE_WEB_CLIENT_ID must be a valid Google web client ID');
   }
   if (config.requestFlow.defaultPageSize > config.requestFlow.maximumPageSize) {
     throw new ConfigurationError(

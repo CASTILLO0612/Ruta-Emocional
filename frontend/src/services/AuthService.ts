@@ -43,6 +43,15 @@ export interface RegisterUserInput {
   };
 }
 
+export interface GoogleAuthenticationInput {
+  readonly idToken: string;
+  readonly registrationRole?: UserRole;
+  readonly license?: {
+    readonly authority: string;
+    readonly number: string;
+  };
+}
+
 export type PasswordResetDelivery = 'EMAIL' | 'LOCAL_QA' | 'UNAVAILABLE';
 
 export interface PasswordResetRequestResult {
@@ -281,6 +290,23 @@ export async function signIn(email: string, password: string): Promise<CurrentUs
     '/auth/login',
     'POST',
     { email, password },
+    { authenticated: false, retryUnauthorized: false }
+  );
+  const session = readAuthenticatedSession(payload);
+  try {
+    await persistTokenPair(session.tokens);
+  } catch (error) {
+    await invalidateLocalSessionSafely();
+    throw error;
+  }
+  return session.user;
+}
+
+export async function signInWithGoogle(input: GoogleAuthenticationInput): Promise<CurrentUser> {
+  const payload = await apiV1Request<unknown>(
+    '/auth/google',
+    'POST',
+    input,
     { authenticated: false, retryUnauthorized: false }
   );
   const session = readAuthenticatedSession(payload);

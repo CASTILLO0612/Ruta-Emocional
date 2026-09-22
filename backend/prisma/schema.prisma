@@ -244,7 +244,7 @@ model User {
   legacyId                      String?                            @unique @map("legacy_id")
   email                         String                             @unique @db.VarChar(320)
   displayName                   String                             @map("display_name") @db.VarChar(160)
-  passwordHash                  String                             @map("password_hash") @db.VarChar(255)
+  passwordHash                  String?                            @map("password_hash") @db.VarChar(255)
   photoUrl                      String?                            @map("photo_url") @db.Text
   phone                         String?                            @db.VarChar(32)
   status                        AccountStatus                      @default(ACTIVE)
@@ -254,6 +254,7 @@ model User {
   psychologistProfile           PsychologistProfile?
   roles                         UserRole[]
   authSessions                  AuthSession[]
+  externalIdentities            ExternalIdentity[]
   passwordResetTokens           PasswordResetToken[]
   conversationMembers           ConversationParticipant[]
   clinicalNoteVersions          ClinicalNoteVersion[]              @relation("ClinicalNoteVersionAuthor")
@@ -266,6 +267,22 @@ model User {
   mentaConversations            MentaConversation[]
 
   @@map("users")
+}
+
+model ExternalIdentity {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  provider            String   @db.VarChar(32)
+  providerSubject     String   @map("provider_subject") @db.VarChar(255)
+  lastAuthenticatedAt DateTime @map("last_authenticated_at") @db.Timestamptz(3)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("external_identities")
 }
 
 model Role {
@@ -350,6 +367,10 @@ model PsychologistProfile {
   verificationStatus     VerificationStatus                     @default(PENDING) @map("verification_status")
   bio                    String?                                @db.Text
   location               Unsupported("geography(Point, 4326)")?
+  practiceName           String?                                @map("practice_name") @db.VarChar(120)
+  practiceAddress        String?                                @map("practice_address") @db.VarChar(300)
+  practiceDirections     String?                                @map("practice_directions") @db.VarChar(500)
+  locationUpdatedAt      DateTime?                              @map("location_updated_at") @db.Timestamptz(3)
   createdAt              DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime                               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   user                   User                                   @relation(fields: [userId], references: [id], onDelete: Restrict)
