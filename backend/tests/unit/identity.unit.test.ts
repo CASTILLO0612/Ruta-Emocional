@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import bcrypt from 'bcryptjs';
-import { AppConfig, ConfigurationError, loadConfig } from '../../src/config/env';
+import {
+  AppConfig,
+  ConfigurationError,
+  isValidEmailSender,
+  loadConfig,
+} from '../../src/config/env';
 import { Clock } from '../../src/shared/application/clock';
 import { AppError } from '../../src/shared/domain/appError';
 import { IdentityService } from '../../src/modules/identity/application/identityService';
@@ -19,6 +24,8 @@ import {
   RegisterPatientData,
   RegisterPsychologistData,
   RegistrationSessionData,
+  UpdateOwnPhotoData,
+  UpdateOwnProfileData,
 } from '../../src/modules/identity/application/ports';
 import {
   AccessTokenClaims,
@@ -28,7 +35,11 @@ import {
 import { JwtAccessTokenService } from '../../src/modules/identity/infrastructure/security/jwtAccessTokenService';
 import { OpaqueRefreshTokenService } from '../../src/modules/identity/infrastructure/security/opaqueRefreshTokenService';
 import { ScryptPasswordHasher } from '../../src/modules/identity/infrastructure/security/scryptPasswordHasher';
-import { parsePatientRegistration } from '../../src/modules/identity/presentation/identityValidation';
+import {
+  parsePatientRegistration,
+  parseProfilePhotoUpload,
+  parseUpdateOwnProfile,
+} from '../../src/modules/identity/presentation/identityValidation';
 
 class FixedClock implements Clock {
   constructor(public current = new Date('2026-08-25T12:00:00.000Z')) {}
@@ -97,6 +108,7 @@ class InMemoryIdentityRepository implements IdentityRepository {
       displayName: data.identity.displayName,
       passwordHash: null,
       photoUrl: data.identity.photoUrl,
+      phone: null,
       status: 'ACTIVE',
       roles: [role],
       patientProfileId: role === 'patient' ? id : null,
@@ -127,6 +139,21 @@ class InMemoryIdentityRepository implements IdentityRepository {
   async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
     const user = this.users.get(userId);
     if (user) this.users.set(userId, { ...user, passwordHash });
+  }
+  async updateOwnProfile(userId: string, data: UpdateOwnProfileData): Promise<IdentityUser> {
+    const user = this.users.get(userId)!;
+    const updated = { ...user, displayName: data.displayName, phone: data.phone };
+    this.users.set(userId, updated);
+    return updated;
+  }
+  async updateOwnPhoto(
+    userId: string,
+    data: UpdateOwnPhotoData
+  ): Promise<{ readonly user: IdentityUser; readonly previousPhotoUrl: string | null }> {
+    const user = this.users.get(userId)!;
+    const updated = { ...user, photoUrl: data.photoUrl };
+    this.users.set(userId, updated);
+    return { user: updated, previousPhotoUrl: user.photoUrl };
   }
   async createSession(data: CreateSessionData): Promise<void> {
     const user = this.users.get(data.userId)!;
@@ -201,6 +228,7 @@ class InMemoryIdentityRepository implements IdentityRepository {
       displayName: data.displayName,
       passwordHash: data.passwordHash,
       photoUrl: null,
+      phone: null,
       status: 'ACTIVE',
       roles,
       patientProfileId: roles.includes('patient') ? id : null,
@@ -398,6 +426,31 @@ test('registration validation rejects weak passwords and extra authority fields'
   );
 });
 
+test('profile validation normalizes phone and validates image signatures', () => {
+  assert.deepEqual(parseUpdateOwnProfile({
+    displayName: '  Ana Pérez  ',
+    phone: '+505 8888-8888',
+  }), {
+    displayName: 'Ana Pérez',
+    phone: '+50588888888',
+  });
+  assert.throws(() => parseUpdateOwnProfile({ displayName: 'A', phone: '123' }), AppError);
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00]);
+  assert.deepEqual(parseProfilePhotoUpload({
+    body: jpeg,
+    contentType: 'image/jpeg',
+    maximumBytes: 1024,
+  }), {
+    contentType: 'image/jpeg',
+    bytes: jpeg,
+  });
+  assert.throws(() => parseProfilePhotoUpload({
+    body: Buffer.from('not-an-image'),
+    contentType: 'image/jpeg',
+    maximumBytes: 1024,
+  }), AppError);
+});
+
 test('configuration fails closed for placeholders and wildcard origins', () => {
   const base: NodeJS.ProcessEnv = {
     NODE_ENV: 'production',
@@ -420,6 +473,28 @@ test('configuration fails closed for placeholders and wildcard origins', () => {
     }),
     ConfigurationError
   );
+});
+
+test('Resend configuration accepts a named sender and rejects header injection', () => {
+  assert.equal(isValidEmailSender('acceso@example.com'), true);
+  assert.equal(isValidEmailSender('Ruta Emocional <acceso@example.com>'), true);
+  assert.equal(
+    isValidEmailSender('Ruta Emocional <acceso@example.com>\r\nBcc: attacker@example.com'),
+    false
+  );
+  assert.equal(isValidEmailSender('Ruta Emocional <correo-invalido>'), false);
+
+  const resendEnvironment: NodeJS.ProcessEnv = {
+    NODE_ENV: 'development',
+    DATABASE_URL: 'postgresql://app:password@localhost:5432/ruta_emocional',
+    JWT_ACCESS_SECRET: 'a'.repeat(40),
+    PASSWORD_PEPPER: 'b'.repeat(40),
+    PASSWORD_RESET_PROVIDER: 'RESEND',
+    PASSWORD_RESET_RESEND_API_KEY: `re_${'c'.repeat(40)}`,
+    PASSWORD_RESET_SENDER: 'Ruta Emocional <acceso@example.com>',
+    PASSWORD_RESET_URL: 'rutaemocional://restablecer-contrasena',
+  };
+  assert.throws(() => loadConfig(resendEnvironment), ConfigurationError);
 });
 
 test('scrypt hashes passwords and upgrades a valid legacy bcrypt hash', async () => {

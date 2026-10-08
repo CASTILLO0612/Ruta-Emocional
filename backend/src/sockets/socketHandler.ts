@@ -36,6 +36,19 @@ export interface RealtimePublisher {
     readonly minutesBefore: number;
     readonly userIds: readonly string[];
   }): Promise<void>;
+  publishCallIncoming(event: {
+    readonly callId: string;
+    readonly conversationId: string;
+    readonly mediaType: 'AUDIO' | 'VIDEO';
+    readonly initiatorUserId: string;
+    readonly recipientUserId: string;
+  }): Promise<void>;
+  publishCallUpdated(event: {
+    readonly callId: string;
+    readonly conversationId: string;
+    readonly status: 'ACTIVE' | 'ENDED' | 'DECLINED' | 'MISSED';
+    readonly userIds: readonly string[];
+  }): Promise<void>;
 }
 
 function roomName(conversationId: string): string {
@@ -188,6 +201,23 @@ export function setupSockets(
           appointmentId: event.appointmentId,
           startsAt: event.startsAt,
           minutesBefore: event.minutesBefore,
+        });
+      }
+    },
+    async publishCallIncoming(event): Promise<void> {
+      io.to(userRoomName(event.recipientUserId)).emit('call.incoming', {
+        callId: event.callId,
+        conversationId: event.conversationId,
+        mediaType: event.mediaType,
+        initiatorUserId: event.initiatorUserId,
+      });
+    },
+    async publishCallUpdated(event): Promise<void> {
+      for (const userId of event.userIds) {
+        io.to(userRoomName(userId)).emit('call.updated', {
+          callId: event.callId,
+          conversationId: event.conversationId,
+          status: event.status,
         });
       }
     },

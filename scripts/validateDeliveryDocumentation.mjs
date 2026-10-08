@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +12,12 @@ const readRepositoryFile = (path) =>
 
 const fail = (message) => {
   throw new Error(`Documentación de entrega inconsistente: ${message}`);
+};
+
+const assertIncludes = (document, statement, label) => {
+  if (!document.includes(statement)) {
+    fail(`${label} no declara ${statement}`);
+  }
 };
 
 const assertSameSet = (actual, expected, label) => {
@@ -78,6 +85,13 @@ const conceptualDocument = readRepositoryFile(
 const deliveryMatrix = readRepositoryFile(
   'docs/Hackathon/desarrollo/Entregable/matriz-cumplimiento-entrega.md',
 );
+const repositoryReadme = readRepositoryFile('README.md');
+const deliveryReadme = readRepositoryFile(
+  'docs/Hackathon/desarrollo/Entregable/README.md',
+);
+const visualEvidenceDocument = readRepositoryFile(
+  'docs/Hackathon/desarrollo/Entregable/evidencia-refactor-visual-final.md',
+);
 const declaredFacts = [
   [modelBlocks.length, 'Modelos Prisma'],
   [enumCount, 'Dominios enumerados'],
@@ -93,12 +107,68 @@ for (const [value, label] of declaredFacts) {
   }
 }
 
+assertIncludes(
+  normalizationDocument,
+  `**${modelBlocks.length} relaciones** declaradas por los ${modelBlocks.length} modelos Prisma`,
+  'la evidencia 3FN',
+);
+assertIncludes(
+  traceabilityDocument,
+  `**${modelBlocks.length} modelos Prisma**`,
+  'la trazabilidad conceptual',
+);
+assertIncludes(
+  deliveryReadme,
+  `${modelBlocks.length} modelos Prisma vigentes`,
+  'el README del entregable',
+);
+assertIncludes(
+  repositoryReadme,
+  `${migrationCount} migraciones versionadas`,
+  'el README principal',
+);
+
 for (const statement of [
   '**43 tipos de entidad conceptual**',
   '**72 asociaciones semánticas**',
 ]) {
   if (!conceptualDocument.includes(statement)) {
     fail(`falta la declaración conceptual ${statement}`);
+  }
+}
+
+const visualEvidenceDirectory = join(
+  repositoryRoot,
+  'docs/Hackathon/desarrollo/Entregable/evidencias-visuales',
+);
+const documentedImages = [
+  ...visualEvidenceDocument.matchAll(
+    /^\| `(?<name>[^`]+\.png)` \| (?<width>\d+) × (?<height>\d+) \| `(?<hash>[A-F\d]{64})` \|$/gm,
+  ),
+];
+const documentedImageNames = documentedImages.map((match) => match.groups.name);
+const evidenceImageNames = readdirSync(visualEvidenceDirectory)
+  .filter((name) => name.toLowerCase().endsWith('.png'));
+assertSameSet(
+  documentedImageNames,
+  evidenceImageNames,
+  'la tabla de integridad visual no cubre exactamente las capturas PNG',
+);
+
+for (const match of documentedImages) {
+  const imagePath = join(visualEvidenceDirectory, match.groups.name);
+  const image = readFileSync(imagePath);
+  if (image.subarray(1, 4).toString('ascii') !== 'PNG') {
+    fail(`${match.groups.name} no es un PNG válido`);
+  }
+  const width = image.readUInt32BE(16);
+  const height = image.readUInt32BE(20);
+  const hash = createHash('sha256').update(image).digest('hex').toUpperCase();
+  if (width !== Number(match.groups.width) || height !== Number(match.groups.height)) {
+    fail(`${match.groups.name} no coincide con la resolución documentada`);
+  }
+  if (hash !== match.groups.hash) {
+    fail(`${match.groups.name} no coincide con la huella SHA-256 documentada`);
   }
 }
 
@@ -140,6 +210,7 @@ console.log(
     `Modelos con trazabilidad conceptual: ${tracedModels.length}.`,
     `Enumeraciones: ${enumCount}.`,
     `Migraciones: ${migrationCount}.`,
+    `Capturas verificadas: ${documentedImages.length}.`,
     'DER PDF: válido.',
     'Documentos privados rastreados: 0.',
   ].join(' '),

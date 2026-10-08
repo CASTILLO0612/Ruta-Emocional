@@ -29,7 +29,7 @@ export const AsyncState: React.FC<AsyncStateProps> = ({
   error = null,
   isEmpty = false,
   onRetry,
-  loadingMessage = 'Cargando información...',
+  loadingMessage = 'Cargando información',
   errorTitle = 'Ocurrió un inconveniente',
   emptyTitle = 'No hay datos disponibles',
   emptyMessage = 'Por el momento no hay información para mostrar.',

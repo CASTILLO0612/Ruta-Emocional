@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Private media quarantine and GuardDuty Malware Protection for Ruta Emocional
+
+Parameters:
+  MediaBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$'
+
+Resources:
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref MediaBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt MediaBucket.Arn
+              - !Sub '${MediaBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  GuardDutyMalwareProtectionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-guardduty-media-scan'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: malware-protection-plan.guardduty.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: GuardDutyMediaScan
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AllowManagedRuleToSendS3EventsToGuardDuty
+                Effect: Allow
+                Action:
+                  - 'events:PutRule'
+                  - 'events:DeleteRule'
+                  - 'events:PutTargets'
+                  - 'events:RemoveTargets'
+                Resource: !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*'
+                Condition:
+                  StringLike:
+                    events:ManagedBy: malware-protection-plan.guardduty.amazonaws.com
+              - Sid: AllowGuardDutyToMonitorEventBridgeManagedRule
+                Effect: Allow
+                Action:
+                  - 'events:DescribeRule'
+                  - 'events:ListTargetsByRule'
+                Resource: !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*'
+              - Sid: AllowPostScanTag
+                Effect: Allow
+                Action:
+                  - 's3:PutObjectTagging'
+                  - 's3:GetObjectTagging'
+                  - 's3:PutObjectVersionTagging'
+                  - 's3:GetObjectVersionTagging'
+                Resource: !Sub '${MediaBucket.Arn}/quarantine/*'
+              - Sid: AllowEnableS3EventBridgeEvents
+                Effect: Allow
+                Action:
+                  - 's3:PutBucketNotification'
+                  - 's3:GetBucketNotification'
+                Resource: !GetAtt MediaBucket.Arn
+              - Sid: AllowPutValidationObject
+                Effect: Allow
+                Action: 's3:PutObject'
+                Resource: !Sub '${MediaBucket.Arn}/malware-protection-resource-validation-object'
+              - Sid: AllowCheckBucketOwnership
+                Effect: Allow
+                Action: 's3:ListBucket'
+                Resource: !GetAtt MediaBucket.Arn
+              - Sid: AllowMalwareScan
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                Resource: !Sub '${MediaBucket.Arn}/quarantine/*'
+
+  MalwareProtectionPlan:
+    Type: AWS::GuardDuty::MalwareProtectionPlan
+    DependsOn:
+      - MediaBucketPolicy
+      - GuardDutyMalwareProtectionRole
+    Properties:
+      Actions:
+        Tagging:
+          Status: ENABLED
+      ProtectedResource:
+        S3Bucket:
+          BucketName: !Ref MediaBucket
+          ObjectPrefixes:
+            - quarantine/
+      Role: !GetAtt GuardDutyMalwareProtectionRole.Arn
+      Tags:
+        - Key: application
+          Value: ruta-emocional
+        - Key: environment
+          Value: qa
+
+Outputs:
+  MediaBucket:
+    Value: !Ref MediaBucket
+  MediaBucketArn:
+    Value: !GetAtt MediaBucket.Arn
+  MalwareProtectionPlanId:
+    Value: !GetAtt MalwareProtectionPlan.MalwareProtectionPlanId
+  MalwareProtectionPlanStatus:
+    Value: !GetAtt MalwareProtectionPlan.Status

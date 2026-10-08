@@ -35,7 +35,6 @@ export const WizardScaffold: React.FC<WizardScaffoldProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Encabezado con retroceso */}
       <AppHeader
         title="Solicitud"
         showBack
@@ -43,10 +42,8 @@ export const WizardScaffold: React.FC<WizardScaffoldProps> = ({
         showInbox={false}
       />
 
-      {/* Indicador de progreso */}
       <StepProgress currentStep={currentStep} stepTitle={stepTitle} />
 
-      {/* Contenido con soporte de teclado */}
       <KeyboardScreenContainer
         edges={['bottom', 'left', 'right']}
         contentStyle={styles.content}
@@ -54,7 +51,6 @@ export const WizardScaffold: React.FC<WizardScaffoldProps> = ({
         {children}
       </KeyboardScreenContainer>
 
-      {/* Barra de acciones inferior fija */}
       <View
         style={[
           styles.bottomBar,

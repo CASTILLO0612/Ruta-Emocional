@@ -3,7 +3,7 @@
 **Proyecto:** Ruta Emocional<br>
 **Categoría y área:** Aficionado / Desarrollo<br>
 **Corte técnico:** RV-7C a RV-8D<br>
-**Fecha de verificación:** 5 de septiembre de 2026<br>
+**Fecha de verificación:** 28 de septiembre de 2026<br>
 **Rama verificada:** `postgresql-migration`
 
 ## 1. Objetivo y alcance
@@ -48,9 +48,9 @@ La variante profesional reutiliza el mismo formulario y revela la colegiatura so
 
 | Archivo | Resolución | SHA-256 |
 |---|---:|---|
-| `01-login-web-escritorio.png` | 1440 × 1024 | `A3167B0724F9DCB4F06A25B604886AB6749734590755C322965A54FDC45055A0` |
+| `01-login-web-escritorio.png` | 1440 × 1024 | `278994A16C3BCE1865D646B8624CF0B4BA79C48C82524B8914EB1721AFC9DD62` |
 | `02-registro-validacion-web-movil.png` | 390 × 844 | `609DDB6A0E08EE20B2ACFDC52B9F1D642FE58B52178C866AA496318108C63819` |
-| `03-registro-profesional-web.png` | 390 × 843 | `AF6EBFFBBC8FDE8E3FFDDC0298DFBE32985F62F52CCDFB0205A5308D6113C035` |
+| `03-registro-profesional-web.png` | 390 × 843 | `55A514564B0328615D9C57FE45A196F75CC02B980E6D87BFC3021763C7B442E7` |
 
 ## 4. Validación visual y accesible ejecutada
 
@@ -81,18 +81,23 @@ Durante la aceptación web se detectó que React Native Web no trasladaba el est
 | Validador del sistema visual | Aprobado |
 | Validador de configuración nativa | Aprobado |
 | Compatibilidad Expo SDK 57 | Dependencias actualizadas y compatibles |
-| Pruebas frontend | 36 suites, 105 pruebas aprobadas |
-| Pruebas unitarias backend | 48 pruebas aprobadas |
+| Pruebas frontend | 57 suites, 148 pruebas aprobadas sin advertencias de React |
+| Pruebas unitarias backend | 57 pruebas aprobadas |
 | Integración HTTP de autenticación | Aprobada contra PostgreSQL, incluida recuperación de un solo uso |
 | Integración HTTP transversal | 9 suites aprobadas, sin regresiones de módulos existentes |
-| Migraciones PostgreSQL | 23 aplicadas desde una base aislada vacía; esquema de desarrollo actualizado |
-| Consistencia documental | 58/58 relaciones con cobertura 3FN, 58/58 modelos trazados y documentos privados fuera de Git |
+| Migraciones PostgreSQL | 25 aplicadas desde una base aislada vacía; esquema de desarrollo actualizado |
+| Consistencia documental | 62/62 relaciones con cobertura 3FN, 62/62 modelos trazados y documentos privados fuera de Git |
 | Salud del backend | `live=ok` y `ready=ok` |
 | PostgreSQL en readiness | `database=ok` |
 | Outbox en readiness | `messagingOutbox=ok` después de recuperación automática |
 | Privacidad en readiness | `privacyRequests=ok` |
-| Exportación web | Aprobada, 4 936 módulos |
-| Exportación Android/Hermes | Aprobada, 3 550 módulos |
+| Carga de readiness local | 200 solicitudes, concurrencia 20, cero fallos, p95 279.77 ms |
+| Streaming Ollama local | 17 fragmentos nativos; 8.96 s al primer fragmento en arranque frío |
+| Exportación web | Aprobada, 5 038 módulos |
+| Exportación Android/Hermes | Aprobada, 3 555 módulos |
+| Development build Android | APK generado, instalado y ejecutado en Android 16 emulado |
+| Accesibilidad de acceso | Etiquetas y objetivos táctiles inspeccionados; fuente al 200 % sin recortes |
+| Google nativo | Flujo entregado correctamente a Google Play Services; cuenta externa no incorporada al emulador |
 
 Comandos equivalentes:
 
@@ -103,15 +108,26 @@ npx --prefix frontend expo export --platform web
 npx --prefix frontend expo export --platform android
 ```
 
-Los bundles se generaron en directorios temporales ignorados y se retiraron al
-terminar la verificación para evitar versionar compilados. Los secretos, archivos
+Los bundles y el APK de QA se generaron fuera del repositorio, por lo que no
+pueden incorporarse accidentalmente a Git. Los secretos, archivos
 `.env`, tokens, evidencias profesionales y datos clínicos no forman parte de las
 capturas ni de este documento.
 
-La integración del 5 de septiembre se ejecutó sobre una base exclusiva creada
-vacía para QA. Las 23 migraciones se aplicaron en orden, las 9 suites finalizaron
+La integración del 28 de septiembre se ejecutó sobre una base exclusiva creada
+vacía para QA. Las 27 migraciones se aplicaron en orden, las 9 suites finalizaron
 en verde y la base temporal se eliminó después de comprobar que no mantenía
 conexiones. La base de desarrollo no se usó como destino destructivo.
+
+El mismo corte verificó el reinicio de MENTA de extremo a extremo: la
+conversación anterior se cierra, la nueva comienza sin turnos heredados y el
+historial cifrado permanece disponible únicamente para auditoría autorizada.
+
+La compilación nativa se ejecutó desde una copia temporal de QA con ruta corta.
+La ubicación habitual del repositorio supera el límite de rutas de CMake/Ninja
+en Windows; el código y las dependencias compilan correctamente al retirar esa
+restricción ambiental. El APK resultante arrancó sin módulos ausentes ni
+excepciones fatales, mostró el acceso completo, conservó su jerarquía con fuente
+al 200 % y abrió el flujo nativo de Google Play Services.
 
 El DER final se regeneró con 43 entidades, 72 relaciones y 7 N:N. Sus 16 páginas
 se renderizaron a PNG y se inspeccionaron individualmente para descartar texto
@@ -125,10 +141,10 @@ En una jornada de QA prolongada el dispatcher registró tres ciclos fallidos tra
 |---|---|
 | RV-7C Pacientes e historia clínica | Implementada y automatizada; aceptación clínica física pendiente |
 | RV-7D Login, registro, perfil y verificación | Implementada y automatizada; acceso minimalista, recuperación segura y recorrido público web aprobados |
-| RV-7E Inbox, conversación y MENTA | Implementada y automatizada; prueba multidispositivo pendiente |
+| RV-7E Inbox, conversación y MENTA | Implementada y automatizada, incluido streaming y reinicio seguro; prueba multidispositivo pendiente |
 | RV-8A Estados, responsive y accesibilidad | Implementada; regresión ARIA encontrada y corregida |
 | RV-8B Iconos, splash y marca | Firma horizontal oficial en encabezados y acceso; isotipo reservado para iconos, splash compacto y activos de plataforma |
-| RV-8C Android y web | Bundles aprobados y web inspeccionada; Android físico pendiente |
+| RV-8C Android y web | Bundles aprobados, web inspeccionada y Android 16 emulado ejecutado; dispositivo físico pendiente |
 | RV-8D Evidencia final | Paquete técnico y capturas públicas completos; video fuera de alcance |
 
 ## 7. Gates manuales que no deben presentarse como aprobados

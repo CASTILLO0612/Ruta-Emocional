@@ -7,6 +7,8 @@ import {
   AppointmentModality,
   AppointmentPageQuery,
   AppointmentTransition,
+  ReviewCursor,
+  ReviewPageQuery,
 } from '../domain/appointmentTypes';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -204,4 +206,71 @@ export function parseReschedule(body: unknown): { startsAt: Date } {
   const startsAt = parseDate(record.startsAt, 'startsAt', errors);
   if (errors.length) throw AppError.validation(errors);
   return { startsAt };
+}
+
+export function parseCreateReview(body: unknown): { rating: number; comment: string | null } {
+  const errors: FieldError[] = [];
+  const record = recordValue(body, errors);
+  rejectUnknown(record, ['rating', 'comment'], errors);
+  const rating = Number(record.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    errors.push({ field: 'rating', code: 'INVALID_RATING', message: 'Selecciona una calificación del 1 al 5.' });
+  }
+  let comment: string | null = null;
+  if (record.comment !== undefined && record.comment !== null && record.comment !== '') {
+    if (typeof record.comment !== 'string') {
+      errors.push({ field: 'comment', code: 'INVALID_COMMENT', message: 'El comentario debe ser texto.' });
+    } else {
+      const normalized = record.comment.trim();
+      if (normalized.length > 1000 || /[\u0000-\u001F\u007F]/.test(normalized)) {
+        errors.push({
+          field: 'comment',
+          code: 'INVALID_COMMENT',
+          message: 'El comentario debe contener hasta 1000 caracteres válidos.',
+        });
+      } else {
+        comment = normalized || null;
+      }
+    }
+  }
+  if (errors.length) throw AppError.validation(errors);
+  return { rating, comment };
+}
+
+function parseReviewCursor(value: unknown): ReviewCursor | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.length > 500) {
+    throw AppError.validation([{ field: 'cursor', code: 'INVALID_CURSOR', message: 'Cursor no válido.' }]);
+  }
+  try {
+    const decoded = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const errors: FieldError[] = [];
+    const createdAt = parseDate(decoded.createdAt, 'cursor', errors);
+    if (errors.length || typeof decoded.id !== 'string' || !UUID_PATTERN.test(decoded.id)) throw new Error();
+    return { createdAt, id: decoded.id.toLowerCase() };
+  } catch {
+    throw AppError.validation([{ field: 'cursor', code: 'INVALID_CURSOR', message: 'Cursor no válido.' }]);
+  }
+}
+
+export function parseReviewPageQuery(
+  query: Record<string, unknown>,
+  policy: AppConfig['appointments']
+): ReviewPageQuery {
+  const unknown = Object.keys(query).filter((field) => !['cursor', 'limit'].includes(field));
+  if (unknown.length) {
+    throw AppError.validation(unknown.map((field) => ({
+      field,
+      code: 'UNKNOWN_FIELD',
+      message: 'Este parámetro no está permitido.',
+    })));
+  }
+  const single = (value: unknown) => Array.isArray(value) ? value[0] : value;
+  const rawLimit = single(query.limit);
+  const limit = rawLimit === undefined ? policy.defaultPageSize : Number(rawLimit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > policy.maximumPageSize) {
+    throw AppError.validation([{ field: 'limit', code: 'INVALID_LIMIT', message: 'Límite no válido.' }]);
+  }
+  const cursor = parseReviewCursor(single(query.cursor));
+  return { limit, ...(cursor ? { cursor } : {}) };
 }

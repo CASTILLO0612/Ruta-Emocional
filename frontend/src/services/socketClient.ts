@@ -12,6 +12,8 @@ interface ServerEvents {
   'psychologist.verification.updated': (event: PsychologistVerificationUpdatedEvent) => void;
   'appointment.updated': (event: AppointmentUpdatedEvent) => void;
   'appointment.reminder': (event: AppointmentReminderEvent) => void;
+  'call.incoming': (event: IncomingCallEvent) => void;
+  'call.updated': (event: CallUpdatedEvent) => void;
 }
 
 export interface PsychologistVerificationUpdatedEvent {
@@ -27,6 +29,19 @@ export interface AppointmentReminderEvent {
   readonly appointmentId: string;
   readonly startsAt: string;
   readonly minutesBefore: number;
+}
+
+export interface IncomingCallEvent {
+  readonly callId: string;
+  readonly conversationId: string;
+  readonly mediaType: 'AUDIO' | 'VIDEO';
+  readonly initiatorUserId: string;
+}
+
+export interface CallUpdatedEvent {
+  readonly callId: string;
+  readonly conversationId: string;
+  readonly status: 'ACTIVE' | 'ENDED' | 'DECLINED' | 'MISSED';
 }
 
 interface SubscriptionAck {
@@ -175,6 +190,24 @@ export function subscribeToAppointmentReminders(
   const socket = getSocket();
   socket.on('appointment.reminder', onReminder);
   return () => socket.off('appointment.reminder', onReminder);
+}
+
+export function subscribeToIncomingCalls(onIncoming: (event: IncomingCallEvent) => void): () => void {
+  const socket = getSocket();
+  socket.on('call.incoming', onIncoming);
+  return () => socket.off('call.incoming', onIncoming);
+}
+
+export function subscribeToCallUpdates(
+  callId: string,
+  onUpdate: (event: CallUpdatedEvent) => void
+): () => void {
+  const socket = getSocket();
+  const handleUpdate = (event: CallUpdatedEvent) => {
+    if (event.callId === callId) onUpdate(event);
+  };
+  socket.on('call.updated', handleUpdate);
+  return () => socket.off('call.updated', handleUpdate);
 }
 
 export function disconnectSocket(): void {

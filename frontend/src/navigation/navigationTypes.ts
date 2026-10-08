@@ -22,6 +22,14 @@ export type PsychologistTabParamList = {
   Profile: undefined;
 };
 
+export type InPersonDestination = {
+  readonly name: string;
+  readonly address: string;
+  readonly directions: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
+};
+
 export type AcceptedOfferSummaryParams = {
   readonly requestId: string;
   readonly offerId: string;
@@ -36,13 +44,7 @@ export type AcceptedOfferSummaryParams = {
   readonly currencyCode: string;
   readonly modality: Modality;
   readonly scheduledFor?: string;
-  readonly inPersonDestination?: {
-    readonly name: string;
-    readonly address: string;
-    readonly directions: string | null;
-    readonly latitude: number;
-    readonly longitude: number;
-  };
+  readonly inPersonDestination?: InPersonDestination;
 };
 
 export type LegalSection = 'privacy' | 'terms' | 'help';
@@ -62,13 +64,22 @@ export type AppStackParamList = {
   AdminVerification: undefined;
   Radar: undefined;
   AcceptedOffer: AcceptedOfferSummaryParams;
+  TurnByTurnNavigation: { readonly destination: InPersonDestination };
   Consultation: { readonly conversationId: string };
+  CallSession: {
+    readonly conversationId: string;
+    readonly mediaType: 'AUDIO' | 'VIDEO';
+    readonly direction: 'OUTGOING' | 'INCOMING';
+    readonly callId?: string;
+  };
   MentaAgent: undefined;
   Inbox: undefined;
   Profile: undefined;
+  LegalNotices: undefined;
   PsychologistProfile: {
     readonly psychologistId: string;
   };
+  ProfessionalDirectory: undefined;
 };
 
 export type AppNavigation = NativeStackNavigationProp<AppStackParamList>;
@@ -92,4 +103,9 @@ export type PsychologistProfileRoute = RouteProp<
 export type AcceptedOfferRoute = RouteProp<
   AppStackParamList,
   'AcceptedOffer'
+>;
+
+export type TurnByTurnNavigationRoute = RouteProp<
+  AppStackParamList,
+  'TurnByTurnNavigation'
 >;

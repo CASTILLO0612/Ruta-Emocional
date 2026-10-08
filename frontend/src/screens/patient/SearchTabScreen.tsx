@@ -1,11 +1,9 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useRequestStore } from '../../store/useRequestStore';
 import { Colors } from '../../theme/colors';
-import { AppHeader } from '../../components/shared/AppHeader';
-import { ActiveSearchSummary } from '../../components/patient/ActiveSearchSummary';
 import { RequestWizardScreen } from './RequestWizardScreen';
 import type { PatientSearchNavigation } from '../../navigation/navigationTypes';
 
@@ -17,14 +15,21 @@ export const SearchTabScreen: React.FC = () => {
   const hasActiveSearch =
     activeRequest?.status === 'pending' || activeRequest?.status === 'bidding';
 
-  if (hasActiveSearch && activeRequest) {
+  useEffect(() => {
+    if (hasActiveSearch) navigation.navigate('Radar');
+  }, [hasActiveSearch, navigation]);
+
+  if (hasActiveSearch) {
     return (
-      <View style={styles.container}>
-        <AppHeader title="Buscar" showBrandMark showMenta showInbox />
-        <ActiveSearchSummary
-          request={activeRequest}
-          incomingOfferCount={incomingOffers.length}
-          onOpenRadar={() => navigation.navigate('Radar')}
+      <View
+        style={styles.transition}
+        accessibilityLabel={incomingOffers.length > 0
+          ? 'Abriendo propuestas recibidas'
+          : 'Abriendo búsqueda activa'}
+      >
+        <ActivityIndicator
+          size="small"
+          color={Colors.primary}
         />
       </View>
     );
@@ -34,8 +39,10 @@ export const SearchTabScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  transition: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.background,
   },
 });

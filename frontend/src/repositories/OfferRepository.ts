@@ -1,5 +1,6 @@
-import { getRequestPollingConfig } from '../config/runtimeConfig';
+import { getRequestPollingConfig, resolveApiAssetUrl } from '../config/runtimeConfig';
 import { Offer, OfferStatus } from '../models/Offer';
+import type { Modality } from '../models/Psychologist';
 import { apiV1Request } from '../services/apiClient';
 import { createPollingSubscription } from '../services/pollingSubscription';
 
@@ -49,6 +50,36 @@ interface Envelope<T> {
   readonly data: T;
 }
 
+interface OwnOfferDto {
+  readonly offer: ApiServiceOffer;
+  readonly request: {
+    readonly modality: 'CHAT' | 'CALL' | 'IN_PERSON';
+    readonly primaryNeed: string | null;
+    readonly proposedBudget: ApiMoney;
+    readonly status: 'PENDING' | 'BIDDING' | 'ACCEPTED' | 'IN_SESSION' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+    readonly scheduledFor: string | null;
+    readonly expiresAt: string;
+  };
+}
+
+interface PageEnvelope<T> {
+  readonly data: readonly T[];
+  readonly meta: { readonly nextCursor: string | null };
+}
+
+export interface OwnOffer {
+  readonly offer: Offer;
+  readonly request: {
+    readonly modality: Modality;
+    readonly primaryNeed: string | null;
+    readonly proposedBudget: number;
+    readonly currencyCode: string;
+    readonly status: OwnOfferDto['request']['status'];
+    readonly scheduledFor: Date | null;
+    readonly expiresAt: Date;
+  };
+}
+
 export interface SubmitOfferPayload {
   readonly requestId: string;
   readonly amount: number;
@@ -70,13 +101,21 @@ const STATUS_FROM_API: Record<ApiOfferStatus, OfferStatus> = {
   WITHDRAWN: 'withdrawn',
 };
 
+const MODALITY_FROM_API: Record<OwnOfferDto['request']['modality'], Modality> = {
+  CHAT: 'chat',
+  CALL: 'call',
+  IN_PERSON: 'in-person',
+};
+
 function toOffer(offer: ApiServiceOffer): Offer {
   return {
     id: offer.id,
     requestId: offer.requestId,
     psychologistId: offer.professional.profileId,
     psychologistName: offer.professional.displayName,
-    ...(offer.professional.photoUrl ? { psychologistPhotoURL: offer.professional.photoUrl } : {}),
+    ...(offer.professional.photoUrl
+      ? { psychologistPhotoURL: resolveApiAssetUrl(offer.professional.photoUrl) ?? undefined }
+      : {}),
     psychologistRating: offer.professional.rating,
     ...(offer.professional.primarySpecialty
       ? { psychologistSpecialty: offer.professional.primarySpecialty }
@@ -87,6 +126,44 @@ function toOffer(offer: ApiServiceOffer): Offer {
     status: STATUS_FROM_API[offer.status],
     createdAt: new Date(offer.createdAt),
   };
+}
+
+function toOwnOffer(item: OwnOfferDto): OwnOffer {
+  return {
+    offer: toOffer(item.offer),
+    request: {
+      modality: MODALITY_FROM_API[item.request.modality],
+      primaryNeed: item.request.primaryNeed,
+      proposedBudget: Number(item.request.proposedBudget.amount),
+      currencyCode: item.request.proposedBudget.currency,
+      status: item.request.status,
+      scheduledFor: item.request.scheduledFor ? new Date(item.request.scheduledFor) : null,
+      expiresAt: new Date(item.request.expiresAt),
+    },
+  };
+}
+
+export async function getOwnOffers(
+  cursor?: string,
+  signal?: AbortSignal
+): Promise<{ readonly items: readonly OwnOffer[]; readonly nextCursor: string | null }> {
+  const query = new URLSearchParams({ limit: '20' });
+  if (cursor) query.set('cursor', cursor);
+  const response = await apiV1Request<PageEnvelope<OwnOfferDto>>(
+    `/offers/me?${query.toString()}`,
+    'GET',
+    undefined,
+    { signal }
+  );
+  return { items: response.data.map(toOwnOffer), nextCursor: response.meta.nextCursor };
+}
+
+export async function withdrawOffer(requestId: string, offerId: string): Promise<Offer> {
+  const response = await apiV1Request<Envelope<ApiServiceOffer>>(
+    `/service-requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/withdraw`,
+    'POST'
+  );
+  return toOffer(response.data);
 }
 
 export async function submitOffer(

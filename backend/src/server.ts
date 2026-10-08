@@ -9,6 +9,12 @@ import { createLogger } from './shared/infrastructure/logging/logger';
 import { setupSockets } from './sockets/socketHandler';
 import { MessageOutboxDispatcher } from './modules/messaging/infrastructure/outbox/messageOutboxDispatcher';
 import { assertTriageProtocolEvidence } from './modules/triage/infrastructure/triageProtocolEvidence';
+import { NotificationFanout } from './modules/notification/infrastructure/outbox/notificationFanout';
+import { PushNotificationDispatcher } from './modules/notification/infrastructure/outbox/pushNotificationDispatcher';
+import { ExpoPushProvider } from './modules/notification/infrastructure/providers/expoPushProvider';
+import { S3Client } from '@aws-sdk/client-s3';
+import { S3QuarantineObjectStore } from './shared/infrastructure/storage/s3QuarantineObjectStore';
+import { MediaScanProcessor } from './shared/infrastructure/storage/mediaScanProcessor';
 
 export async function startServer(): Promise<void> {
   loadEnvironmentFile();
@@ -48,15 +54,44 @@ export async function startServer(): Promise<void> {
     prisma,
     services.messaging,
     realtimePublisher,
+    new NotificationFanout(prisma),
     logger,
     config.messaging
   );
+  const pushNotifications = config.pushNotifications.enabled
+    ? new PushNotificationDispatcher(
+        prisma,
+        new ExpoPushProvider({
+          accessToken: config.pushNotifications.expoAccessToken,
+          timeoutMs: config.pushNotifications.providerTimeoutMs,
+        }),
+        logger,
+        config.pushNotifications
+      )
+    : null;
+  const mediaScanProcessor = config.media.storageProvider === 'S3'
+    ? new MediaScanProcessor(
+        prisma,
+        new S3QuarantineObjectStore(
+          new S3Client({
+            region: config.media.s3Region!,
+            ...(config.media.s3Endpoint ? { endpoint: config.media.s3Endpoint } : {}),
+            forcePathStyle: config.media.s3ForcePathStyle,
+          }),
+          config.media.s3Bucket!
+        ),
+        logger,
+        config.media
+      )
+    : null;
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
     server.listen(config.port, () => resolve());
   });
   messageOutbox.start();
+  pushNotifications?.start();
+  mediaScanProcessor?.start();
   logger.info('server.started', { port: config.port });
 
   let shuttingDown = false;
@@ -65,6 +100,8 @@ export async function startServer(): Promise<void> {
     shuttingDown = true;
     logger.info('server.shutdown_started', { signal });
     messageOutbox.stop();
+    pushNotifications?.stop();
+    mediaScanProcessor?.stop();
 
     const forceExit = setTimeout(() => {
       logger.error('server.shutdown_timed_out');

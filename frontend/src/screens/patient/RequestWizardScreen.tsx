@@ -33,8 +33,6 @@ import {
   BudgetLimits,
 } from '../../utils/validateWizardStep';
 import { mapWizardDraftToPayload } from '../../utils/mapWizardDraftToPayload';
-import { generateBudgetSuggestions } from '../../utils/generateBudgetSuggestions';
-import { formatMoney } from '../../utils/money';
 import type { PatientSearchNavigation } from '../../navigation/navigationTypes';
 import { presentUserError } from '../../utils/userFacingError';
 import {
@@ -43,15 +41,6 @@ import {
   saveRequestWizardDraft,
 } from '../../services/persistence/requestWizardPersistence';
 import { PersistenceCadence } from '../../theme/motion';
-
-const POPULAR_NEEDS = [
-  'Ansiedad y estrés',
-  'Depresión y tristeza',
-  'Autoestima',
-  'Duelo o pérdida',
-  'Terapia de pareja',
-  'Crecimiento personal',
-];
 
 export const RequestWizardScreen: React.FC = () => {
   const navigation = useNavigation<PatientSearchNavigation>();
@@ -64,8 +53,7 @@ export const RequestWizardScreen: React.FC = () => {
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [isCustomNeed, setIsCustomNeed] = useState(false);
-  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
+  const [showContextInput, setShowContextInput] = useState(false);
   const [isDraftHydrated, setIsDraftHydrated] = useState(false);
 
   const [draft, setDraft] = useState<WizardDraft>({
@@ -88,7 +76,6 @@ export const RequestWizardScreen: React.FC = () => {
       setDraft((previous) => ({
         ...previous,
         currencyCode: nextPolicy.supportedCurrencies[0],
-        proposedBudgetInput: previous.proposedBudgetInput || nextPolicy.minimumAmount,
       }));
     } catch {
       if (signal?.aborted) return;
@@ -114,10 +101,7 @@ export const RequestWizardScreen: React.FC = () => {
       .then((storedDraft) => {
         if (!active || !storedDraft) return;
         setDraft(storedDraft);
-        setIsCustomNeed(Boolean(
-          storedDraft.primaryNeed && !POPULAR_NEEDS.includes(storedDraft.primaryNeed)
-        ));
-        setShowAdditionalDetails(Boolean(storedDraft.description));
+        setShowContextInput(Boolean(storedDraft.primaryNeed));
       })
       .catch(() => undefined)
       .finally(() => {
@@ -144,7 +128,6 @@ export const RequestWizardScreen: React.FC = () => {
         && policy.supportedCurrencies.includes(current.currencyCode)
         ? current.currencyCode
         : policy.supportedCurrencies[0],
-      proposedBudgetInput: current.proposedBudgetInput || policy.minimumAmount,
     }));
   }, [isDraftHydrated, policy]);
 
@@ -199,7 +182,6 @@ export const RequestWizardScreen: React.FC = () => {
       const payload = mapWizardDraftToPayload(draft);
       await createSessionRequest(payload, userProfile.id);
       await clearRequestWizardDraft(userProfile.id).catch(() => undefined);
-      navigation.navigate('Radar');
     } catch (error) {
       setSubmissionError(
         presentUserError(error, 'No pudimos publicar la solicitud. Inténtalo nuevamente.')
@@ -208,13 +190,6 @@ export const RequestWizardScreen: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
-  const budgetSuggestions = policy
-    ? generateBudgetSuggestions({
-        minimumAmount: Number(policy.minimumAmount),
-        maximumAmount: Number(policy.maximumAmount),
-      })
-    : [];
 
   const getStepTitle = () => {
     switch (step) {
@@ -256,96 +231,38 @@ export const RequestWizardScreen: React.FC = () => {
             ¿Cómo podemos ayudarte?
           </Text>
           <Text style={[Typography.body, styles.stepSubheader]}>
-            Elige el motivo que mejor describe lo que necesitas.
+            Añade una breve descripción para orientar al profesional.
           </Text>
-
-          <View style={styles.chipRow}>
-            {POPULAR_NEEDS.map((need) => {
-              const isSelected = draft.primaryNeed === need;
-              return (
-                <TouchableOpacity
-                  key={need}
-                  onPress={() => {
-                    setIsCustomNeed(false);
-                    setDraft((prev) => ({ ...prev, primaryNeed: need }));
-                  }}
-                  style={[styles.suggestedChip, isSelected && styles.suggestedChipSelected]}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: isSelected }}
-                  aria-checked={isSelected}
-                >
-                  <Text
-                    style={[
-                      Typography.bodySmall,
-                      styles.suggestedChipText,
-                      isSelected && styles.suggestedChipTextSelected,
-                    ]}
-                  >
-                    {need}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            <TouchableOpacity
-              onPress={() => {
-                setIsCustomNeed(true);
-                if (POPULAR_NEEDS.includes(draft.primaryNeed ?? '')) {
-                  setDraft((prev) => ({ ...prev, primaryNeed: '' }));
-                }
-              }}
-              style={[styles.suggestedChip, isCustomNeed && styles.suggestedChipSelected]}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: isCustomNeed }}
-              aria-checked={isCustomNeed}
-            >
-              <Text style={[
-                Typography.bodySmall,
-                styles.suggestedChipText,
-                isCustomNeed && styles.suggestedChipTextSelected,
-              ]}>
-                Otro motivo
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {isCustomNeed ? (
-            <TextInput
-              style={styles.textInput}
-              value={draft.primaryNeed}
-              onChangeText={(text) => setDraft((prev) => ({ ...prev, primaryNeed: text }))}
-              placeholder="Cuéntanos brevemente qué necesitas"
-              placeholderTextColor={Colors.textDisabled}
-              maxLength={policy?.maximumPrimaryNeedLength}
-              autoFocus
-              accessibilityLabel="Motivo de consulta"
-            />
-          ) : null}
 
           <TouchableOpacity
             style={styles.optionalAction}
-            onPress={() => setShowAdditionalDetails((current) => !current)}
+            onPress={() => setShowContextInput((current) => !current)}
             accessibilityRole="button"
-            accessibilityState={{ expanded: showAdditionalDetails }}
+            accessibilityLabel={showContextInput ? 'Ocultar contexto' : 'Añadir contexto'}
+            accessibilityState={{ expanded: showContextInput }}
           >
-            {showAdditionalDetails ? (
+            {showContextInput ? (
               <Minus size={IconSize.inline} color={Colors.primary} />
             ) : (
               <Plus size={IconSize.inline} color={Colors.primary} />
             )}
-            <Text style={styles.optionalActionText}>Añadir contexto</Text>
+            <Text style={styles.optionalActionText}>
+              {showContextInput ? 'Ocultar contexto' : 'Añadir contexto'}
+            </Text>
           </TouchableOpacity>
 
-          {showAdditionalDetails ? (
+          {showContextInput ? (
             <TextInput
               style={[styles.textInput, styles.textArea]}
-              value={draft.description}
-              onChangeText={(text) => setDraft((prev) => ({ ...prev, description: text }))}
-              placeholder="Información que ayude al profesional (opcional)"
+              value={draft.primaryNeed}
+              onChangeText={(text) => setDraft((prev) => ({ ...prev, primaryNeed: text }))}
+              placeholder="Describe brevemente lo que necesitas"
               placeholderTextColor={Colors.textDisabled}
               multiline
-              numberOfLines={3}
-              maxLength={policy?.maximumDescriptionLength}
-              accessibilityLabel="Contexto adicional opcional"
+              numberOfLines={4}
+              maxLength={policy?.maximumPrimaryNeedLength}
+              autoFocus
+              accessibilityLabel="Contexto de la solicitud"
             />
           ) : null}
         </View>
@@ -502,53 +419,18 @@ export const RequestWizardScreen: React.FC = () => {
               />
             </View>
           ) : (
-            <>
-              <Text style={[Typography.label, styles.inputLabel]}>MONTOS SUGERIDOS</Text>
-              <View style={styles.chipRow}>
-                {budgetSuggestions.map((amount) => {
-                  const isSelected = draft.proposedBudgetInput === String(amount);
-                  return (
-                    <TouchableOpacity
-                      key={amount}
-                      onPress={() =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          proposedBudgetInput: String(amount),
-                        }))
-                      }
-                      style={[styles.budgetChip, isSelected && styles.budgetChipSelected]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: isSelected }}
-                      aria-checked={isSelected}
-                      accessibilityLabel={`Presupuesto sugerido ${formatMoney(amount, currencyCode)}`}
-                    >
-                      <Text
-                        style={[
-                          Typography.body,
-                          styles.budgetChipText,
-                          isSelected && styles.budgetChipTextSelected,
-                        ]}
-                      >
-                        {formatMoney(amount, currencyCode)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <BudgetInput
-                value={Number(draft.proposedBudgetInput) || 0}
-                onChange={(val) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    proposedBudgetInput: String(val),
-                  }))
-                }
-                currencyCode={currencyCode}
-                minimumAmount={budgetLimits.minimumAmount}
-                maximumAmount={budgetLimits.maximumAmount}
-              />
-            </>
+            <BudgetInput
+              value={Number(draft.proposedBudgetInput) || 0}
+              onChange={(val) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  proposedBudgetInput: String(val),
+                }))
+              }
+              currencyCode={currencyCode}
+              minimumAmount={budgetLimits.minimumAmount}
+              maximumAmount={budgetLimits.maximumAmount}
+            />
           )}
         </View>
       )}
@@ -576,11 +458,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     lineHeight: 20,
   },
-  inputLabel: {
-    color: Colors.textTertiary,
-    marginBottom: Spacing.xs,
-    letterSpacing: 0.5,
-  },
   textInput: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
@@ -595,33 +472,6 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-    marginBottom: Spacing.md,
-  },
-  suggestedChip: {
-    minHeight: 44,
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-  },
-  suggestedChipSelected: {
-    backgroundColor: Colors.primaryTint,
-    borderColor: Colors.primary,
-  },
-  suggestedChipText: {
-    color: Colors.textSecondary,
-  },
-  suggestedChipTextSelected: {
-    color: Colors.primary,
-    fontFamily: Typography.button.fontFamily,
   },
   optionalAction: {
     minHeight: 44,
@@ -676,27 +526,6 @@ const styles = StyleSheet.create({
   },
   optionDescription: {
     color: Colors.textSecondary,
-  },
-  budgetChip: {
-    minHeight: 44,
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-  },
-  budgetChipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  budgetChipText: {
-    color: Colors.textPrimary,
-  },
-  budgetChipTextSelected: {
-    color: Colors.textInverse,
-    fontFamily: Typography.button.fontFamily,
   },
   errorBanner: {
     flexDirection: 'row',

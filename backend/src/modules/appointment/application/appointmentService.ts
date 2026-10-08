@@ -12,6 +12,7 @@ import {
   AppointmentModality,
   AppointmentPageQuery,
   AppointmentTransition,
+  ReviewPageQuery,
 } from '../domain/appointmentTypes';
 
 export class AppointmentService {
@@ -134,6 +135,22 @@ export class AppointmentService {
       this.policy,
       audit
     );
+  }
+
+  createReview(
+    actor: AuthenticatedActor,
+    appointmentId: string,
+    rating: number,
+    comment: string | null,
+    audit: AppointmentAuditContext
+  ) {
+    this.assertCapability(actor, 'review:create:self');
+    return this.repository.createReview(actor.user.id, appointmentId, rating, comment, audit);
+  }
+
+  listReceivedReviews(actor: AuthenticatedActor, query: ReviewPageQuery) {
+    this.assertCapability(actor, 'review:read:self');
+    return this.repository.listReceivedReviews(actor.user.id, query);
   }
 
   private assertStartWithinBookingWindow(startsAt: Date, now: Date): void {

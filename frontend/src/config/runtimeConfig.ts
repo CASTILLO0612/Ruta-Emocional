@@ -15,6 +15,8 @@ export interface DirectoryMapConfig {
   readonly radiusKm: number;
   readonly latitudeDelta: number;
   readonly longitudeDelta: number;
+  readonly defaultLatitude: number;
+  readonly defaultLongitude: number;
 }
 
 export interface RequestPollingConfig {
@@ -26,6 +28,22 @@ function requiredPositiveNumber(rawValue: string | undefined, name: string): num
   const value = raw ? Number(raw) : Number.NaN;
   if (!Number.isFinite(value) || value <= 0) {
     throw new RuntimeConfigurationError(`${name} debe ser un número positivo.`);
+  }
+  return value;
+}
+
+function requiredNumberInRange(
+  rawValue: string | undefined,
+  name: string,
+  minimum: number,
+  maximum: number
+): number {
+  const raw = rawValue?.trim();
+  const value = raw ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    throw new RuntimeConfigurationError(
+      `${name} debe ser un número entre ${minimum} y ${maximum}.`
+    );
   }
   return value;
 }
@@ -76,6 +94,12 @@ export function getVersionOneApiBaseUrl(): string {
   return `${getApiOrigin()}/api/v1`;
 }
 
+export function resolveApiAssetUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  return value.startsWith('/') ? `${getApiOrigin()}${value}` : null;
+}
+
 export function getDirectoryMapConfig(): DirectoryMapConfig {
   if (cachedDirectoryMapConfig) return cachedDirectoryMapConfig;
   cachedDirectoryMapConfig = Object.freeze({
@@ -90,6 +114,18 @@ export function getDirectoryMapConfig(): DirectoryMapConfig {
     longitudeDelta: requiredPositiveNumber(
       process.env.EXPO_PUBLIC_MAP_LONGITUDE_DELTA,
       'EXPO_PUBLIC_MAP_LONGITUDE_DELTA'
+    ),
+    defaultLatitude: requiredNumberInRange(
+      process.env.EXPO_PUBLIC_DEFAULT_MAP_LATITUDE,
+      'EXPO_PUBLIC_DEFAULT_MAP_LATITUDE',
+      -90,
+      90
+    ),
+    defaultLongitude: requiredNumberInRange(
+      process.env.EXPO_PUBLIC_DEFAULT_MAP_LONGITUDE,
+      'EXPO_PUBLIC_DEFAULT_MAP_LONGITUDE',
+      -180,
+      180
     ),
   });
   return cachedDirectoryMapConfig;

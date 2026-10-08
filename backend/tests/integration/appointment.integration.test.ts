@@ -214,6 +214,39 @@ test('appointment HTTP flow is relational, idempotent, authorized and concurrenc
     assert.equal(confirmation.status, 200);
     assert.equal((await confirmation.json() as AppointmentResponse).data.status, 'CONFIRMED');
 
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: 'IN_PROGRESS' },
+    });
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: 'COMPLETED' },
+    });
+    const review = await fetch(`${baseUrl}/appointments/${appointmentId}/review`, {
+      method: 'POST',
+      headers: authorization(patient.data.tokens.accessToken),
+      body: JSON.stringify({ rating: 5, comment: 'Atención clara y respetuosa.' }),
+    });
+    assert.equal(review.status, 201);
+    const reviewBody = await review.json() as { data: { rating: number; comment: string } };
+    assert.equal(reviewBody.data.rating, 5);
+    assert.equal(reviewBody.data.comment, 'Atención clara y respetuosa.');
+    const duplicateReview = await fetch(`${baseUrl}/appointments/${appointmentId}/review`, {
+      method: 'POST',
+      headers: authorization(patient.data.tokens.accessToken),
+      body: JSON.stringify({ rating: 4, comment: null }),
+    });
+    assert.equal(duplicateReview.status, 409);
+    const receivedReviews = await fetch(`${baseUrl}/psychologists/me/reviews`, {
+      headers: authorization(psychologist.data.tokens.accessToken),
+    });
+    assert.equal(receivedReviews.status, 200);
+    const receivedBody = await receivedReviews.json() as {
+      data: readonly { rating: number; patient: { displayName: string } }[];
+    };
+    assert.equal(receivedBody.data[0]?.rating, 5);
+    assert.equal(receivedBody.data[0]?.patient.displayName, 'Appointment Patient');
+
     assert.equal(await prisma.appointmentEvent.count({ where: { appointmentId } }), 2);
     assert.equal(await prisma.auditEvent.count({
       where: { resourceType: 'appointment', resourceId: appointmentId },
@@ -232,6 +265,7 @@ test('appointment HTTP flow is relational, idempotent, authorized and concurrenc
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await prisma.$transaction(async (transaction) => {
       if (appointmentId) {
+        await transaction.review.deleteMany({ where: { appointmentId } });
         await transaction.appointmentEvent.deleteMany({ where: { appointmentId } });
         await transaction.appointment.deleteMany({ where: { id: appointmentId } });
       }

@@ -8,6 +8,7 @@ import { OpaquePasswordResetTokenService } from './modules/identity/infrastructu
 import { ResendPasswordResetDelivery } from './modules/identity/infrastructure/delivery/resendPasswordResetDelivery';
 import { ScryptPasswordHasher } from './modules/identity/infrastructure/security/scryptPasswordHasher';
 import { GoogleIdentityTokenVerifier } from './modules/identity/infrastructure/security/googleIdentityTokenVerifier';
+import { LocalProfilePhotoStorage } from './modules/identity/infrastructure/storage/localProfilePhotoStorage';
 import { SystemClock } from './shared/application/clock';
 import { ProfessionalDirectoryService } from './modules/professional-directory/application/professionalDirectoryService';
 import { PrismaProfessionalDirectoryRepository } from './modules/professional-directory/infrastructure/persistence/prismaProfessionalDirectoryRepository';
@@ -32,6 +33,15 @@ import { PrismaMentaContextGateway } from './modules/menta/infrastructure/persis
 import { GeminiInteractionsMentaProvider } from './modules/menta/infrastructure/providers/geminiInteractionsMentaProvider';
 import { UnavailableMentaAgentProvider } from './modules/menta/infrastructure/providers/unavailableMentaAgentProvider';
 import { OllamaMentaAgentProvider } from './modules/menta/infrastructure/providers/ollamaMentaAgentProvider';
+import { NotificationService } from './modules/notification/application/notificationService';
+import { PrismaPushDeviceRepository } from './modules/notification/infrastructure/persistence/prismaPushDeviceRepository';
+import { S3Client } from '@aws-sdk/client-s3';
+import { S3QuarantineObjectStore } from './shared/infrastructure/storage/s3QuarantineObjectStore';
+import { S3ProfilePhotoStorage } from './modules/identity/infrastructure/storage/s3ProfilePhotoStorage';
+import { S3PrivateEvidenceStorage } from './modules/professional-directory/infrastructure/storage/s3PrivateEvidenceStorage';
+import { CallService } from './modules/call/application/callService';
+import { PrismaCallSessionRepository } from './modules/call/infrastructure/persistence/prismaCallSessionRepository';
+import { LiveKitCallAccessTokenIssuer } from './modules/call/infrastructure/providers/liveKitCallAccessTokenIssuer';
 
 export interface ApplicationServices {
   readonly identity: IdentityService;
@@ -42,10 +52,25 @@ export interface ApplicationServices {
   readonly clinicalRecords: ClinicalRecordService;
   readonly triage: TriageService;
   readonly menta: MentaService;
+  readonly notifications: NotificationService;
+  readonly calls: CallService;
 }
 
 export function buildApplicationServices(config: AppConfig, prisma: PrismaClient): ApplicationServices {
   const identityRepository = new PrismaIdentityRepository(prisma);
+  const s3Objects = config.media.storageProvider === 'S3'
+    ? new S3QuarantineObjectStore(
+        new S3Client({
+          region: config.media.s3Region!,
+          ...(config.media.s3Endpoint ? { endpoint: config.media.s3Endpoint } : {}),
+          forcePathStyle: config.media.s3ForcePathStyle,
+        }),
+        config.media.s3Bucket!
+      )
+    : null;
+  const profilePhotoStorage = s3Objects
+    ? new S3ProfilePhotoStorage(prisma, s3Objects)
+    : new LocalProfilePhotoStorage(config.media.profilePhotoDirectory);
   const passwordHasher = new ScryptPasswordHasher({
     pepper: config.password.pepper,
     n: config.password.scryptN,
@@ -59,9 +84,11 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
     audience: config.jwt.audience,
     expiresInSeconds: config.jwt.accessTtlSeconds,
   });
-  const evidenceStorage = config.localQa.enabled && config.localQa.evidenceDirectory
-    ? new LocalPrivateEvidenceStorage(config.localQa.evidenceDirectory)
-    : undefined;
+  const evidenceStorage = s3Objects
+    ? new S3PrivateEvidenceStorage(prisma, s3Objects)
+    : config.localQa.enabled && config.localQa.evidenceDirectory
+      ? new LocalPrivateEvidenceStorage(config.localQa.evidenceDirectory)
+      : undefined;
   const passwordResetDelivery = config.passwordRecovery.provider === 'RESEND'
     ? new ResendPasswordResetDelivery({
         apiKey: config.passwordRecovery.resendApiKey!,
@@ -100,6 +127,13 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
           toolCallingEnabled: config.menta.ollamaToolCallingEnabled,
         })
       : new UnavailableMentaAgentProvider();
+  const callTokenIssuer = config.calls.enabled
+    ? new LiveKitCallAccessTokenIssuer(
+        config.calls.liveKitUrl!,
+        config.calls.liveKitApiKey!,
+        config.calls.liveKitApiSecret!
+      )
+    : null;
 
   return {
     identity: new IdentityService(
@@ -112,11 +146,15 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       new SystemClock(),
       config.jwt.refreshTtlDays,
       config.passwordRecovery,
-      federatedIdentityVerifier
+      federatedIdentityVerifier,
+      profilePhotoStorage
     ),
     professionalDirectory: new ProfessionalDirectoryService(
       new PrismaProfessionalDirectoryRepository(prisma),
-      config.localQa,
+      {
+        enabled: Boolean(evidenceStorage),
+        maximumBytes: config.media.evidenceMaximumBytes,
+      },
       evidenceStorage
     ),
     serviceRequests: new ServiceRequestService(
@@ -163,5 +201,7 @@ export function buildApplicationServices(config: AppConfig, prisma: PrismaClient
       config.menta,
       config.triage
     ),
+    notifications: new NotificationService(new PrismaPushDeviceRepository(prisma)),
+    calls: new CallService(new PrismaCallSessionRepository(prisma), callTokenIssuer, config.calls),
   };
 }

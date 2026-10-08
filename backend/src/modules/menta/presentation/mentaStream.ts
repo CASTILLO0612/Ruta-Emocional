@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import type { MentaTurnView } from '../domain/mentaTypes';
 
-export type MentaStreamEvent = 'status' | 'delta' | 'completed' | 'error';
+export type MentaStreamEvent = 'status' | 'delta' | 'replace' | 'completed' | 'error';
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));

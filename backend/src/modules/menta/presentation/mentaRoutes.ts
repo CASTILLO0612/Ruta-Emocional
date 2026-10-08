@@ -74,6 +74,21 @@ export function createMentaRouter(
   }));
 
   router.post(
+    '/menta/conversations/:conversationId/restart',
+    authenticate,
+    messageLimiter,
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const conversationId = parseMentaUuid(request.params.conversationId, 'conversationId');
+      const conversation = await service.restartConversation(
+        getActor(request),
+        conversationId,
+        auditContext(request, response)
+      );
+      response.status(201).json(envelope(conversation, response));
+    })
+  );
+
+  router.post(
     '/menta/conversations/:conversationId/turns',
     authenticate,
     messageLimiter,
@@ -114,15 +129,34 @@ export function createMentaRouter(
       });
       response.flushHeaders();
       writeMentaStreamEvent(response, 'status', { message: 'MENTA está preparando una respuesta.' });
+      const controller = new AbortController();
+      let streamedText = '';
+      response.once('close', () => {
+        if (!response.writableEnded) controller.abort();
+      });
 
       void service.sendMessage(
         getActor(request),
         conversationId,
         command.clientMessageId,
         command.message,
-        auditContext(request, response)
+        auditContext(request, response),
+        {
+          signal: controller.signal,
+          onTextDelta: (delta) => {
+            streamedText += delta;
+            writeMentaStreamEvent(response, 'delta', { delta });
+          },
+        }
       ).then(async (turn) => {
-        await streamMentaTurn(response, turn, policy.streamingChunkIntervalMs);
+        if (!streamedText) {
+          await streamMentaTurn(response, turn, policy.streamingChunkIntervalMs);
+        } else {
+          if (streamedText.trim() !== turn.assistantMessage) {
+            writeMentaStreamEvent(response, 'replace', { text: turn.assistantMessage });
+          }
+          writeMentaStreamEvent(response, 'completed', { turn });
+        }
         if (!response.writableEnded) response.end();
       }).catch((error: unknown) => {
         writeMentaStreamEvent(response, 'error', { message: streamFailureMessage(error) });

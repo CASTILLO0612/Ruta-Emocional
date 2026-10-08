@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Edit3, CheckCircle2, ShieldCheck } from 'lucide-react-native';
+import { Edit3, ShieldCheck } from 'lucide-react-native';
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { Spacing, BorderRadius } from '../../theme/spacing';
+import { Spacing } from '../../theme/spacing';
 import { IconSize } from '../../theme/icons';
 import { formatMoney } from '../../utils/money';
 import type { WizardDraft } from '../../utils/validateWizardStep';
@@ -37,14 +37,13 @@ export const RequestSummary: React.FC<RequestSummaryProps> = ({
     <View style={styles.container}>
       <Text style={[Typography.h3, styles.title]}>Revisa tu solicitud</Text>
       <Text style={[Typography.body, styles.subtitle]}>
-        Comprueba que la información sea correcta antes de publicarla para los psicólogos.
+        Confirma los datos antes de publicarla.
       </Text>
 
-      {/* Sección 1: Necesidad */}
-      <View style={styles.sectionCard}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[Typography.caption, styles.sectionLabel]}>
-            1. MOTIVO / NECESIDAD
+            MOTIVO
           </Text>
           <TouchableOpacity
             onPress={() => onEditStep(1)}
@@ -66,11 +65,10 @@ export const RequestSummary: React.FC<RequestSummaryProps> = ({
         )}
       </View>
 
-      {/* Sección 2: Modalidad */}
-      <View style={styles.sectionCard}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[Typography.caption, styles.sectionLabel]}>
-            2. MODALIDAD
+            MODALIDAD
           </Text>
           <TouchableOpacity
             onPress={() => onEditStep(2)}
@@ -87,11 +85,10 @@ export const RequestSummary: React.FC<RequestSummaryProps> = ({
         </Text>
       </View>
 
-      {/* Sección 3: Horario */}
-      <View style={styles.sectionCard}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[Typography.caption, styles.sectionLabel]}>
-            3. HORARIO DE ATENCIÓN
+            HORARIO
           </Text>
           <TouchableOpacity
             onPress={() => onEditStep(3)}
@@ -112,11 +109,10 @@ export const RequestSummary: React.FC<RequestSummaryProps> = ({
         </Text>
       </View>
 
-      {/* Sección 4: Presupuesto */}
-      <View style={styles.sectionCard}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[Typography.caption, styles.sectionLabel]}>
-            4. TU PRESUPUESTO PROPUESTO
+            PRESUPUESTO
           </Text>
           <TouchableOpacity
             onPress={() => onEditStep(4)}
@@ -133,11 +129,10 @@ export const RequestSummary: React.FC<RequestSummaryProps> = ({
         </Text>
       </View>
 
-      {/* Garantía de privacidad y proceso */}
-      <View style={styles.guaranteeBox}>
+      <View style={styles.privacyNote}>
         <ShieldCheck size={IconSize.inline} color={Colors.primary} />
-        <Text style={[Typography.caption, styles.guaranteeText]}>
-          Tu solicitud será visible únicamente para profesionales verificados. No publicamos tus datos de contacto.
+        <Text style={[Typography.caption, styles.privacyText]}>
+          Solo profesionales verificados podrán verla.
         </Text>
       </View>
     </View>
@@ -157,13 +152,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     lineHeight: 20,
   },
-  sectionCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+  section: {
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -198,16 +190,13 @@ const styles = StyleSheet.create({
   budgetAmount: {
     color: Colors.primary,
   },
-  guaranteeBox: {
+  privacyNote: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.primaryTint,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginTop: Spacing.md,
+    paddingVertical: Spacing.base,
   },
-  guaranteeText: {
+  privacyText: {
     flex: 1,
     color: Colors.textSecondary,
     lineHeight: 18,

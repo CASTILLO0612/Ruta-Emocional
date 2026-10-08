@@ -3,6 +3,7 @@ import {
   RealtimeConnectionState,
   subscribeToConversation,
 } from '../services/socketClient';
+import { resolveApiAssetUrl } from '../config/runtimeConfig';
 
 export type ConversationModality = 'CHAT' | 'CALL' | 'IN_PERSON';
 
@@ -51,6 +52,18 @@ interface PageEnvelope<T> {
   readonly page: { readonly nextCursor: string | null; readonly hasMore: boolean };
 }
 
+function normalizeCounterpart(counterpart: ConversationCounterpart): ConversationCounterpart {
+  return { ...counterpart, photoUrl: resolveApiAssetUrl(counterpart.photoUrl) };
+}
+
+function normalizeConversation(conversation: Conversation): Conversation {
+  return { ...conversation, counterpart: normalizeCounterpart(conversation.counterpart) };
+}
+
+function normalizeMessage(message: ChatMessage): ChatMessage {
+  return { ...message, sender: normalizeCounterpart(message.sender) };
+}
+
 function queryString(parameters: Record<string, string | number | undefined>): string {
   const query = Object.entries(parameters)
     .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
@@ -81,24 +94,25 @@ export async function fetchUserConversations(
   cursor?: string,
   signal?: AbortSignal
 ): Promise<PageEnvelope<Conversation>> {
-  return apiV1Request<PageEnvelope<Conversation>>(
+  const response = await apiV1Request<PageEnvelope<Conversation>>(
     `/conversations${queryString({ cursor })}`,
     'GET',
     undefined,
     { signal }
   );
+  return { ...response, data: response.data.map(normalizeConversation) };
 }
 
 export async function fetchConversation(
   conversationId: string,
   signal?: AbortSignal
 ): Promise<Conversation> {
-  return (await apiV1Request<Envelope<Conversation>>(
+  return normalizeConversation((await apiV1Request<Envelope<Conversation>>(
     `/conversations/${encodeURIComponent(conversationId)}`,
     'GET',
     undefined,
     { signal }
-  )).data;
+  )).data);
 }
 
 export async function fetchMessages(
@@ -109,7 +123,7 @@ export async function fetchMessages(
     readonly signal?: AbortSignal;
   } = {}
 ): Promise<PageEnvelope<ChatMessage>> {
-  return apiV1Request<PageEnvelope<ChatMessage>>(
+  const response = await apiV1Request<PageEnvelope<ChatMessage>>(
     `/conversations/${encodeURIComponent(conversationId)}/messages${queryString({
       cursor: options.cursor,
       direction: options.direction,
@@ -118,13 +132,14 @@ export async function fetchMessages(
     undefined,
     { signal: options.signal }
   );
+  return { ...response, data: response.data.map(normalizeMessage) };
 }
 
 export async function sendChatMessage(
   conversationId: string,
   input: { readonly clientMessageId: string; readonly text: string }
 ): Promise<{ readonly message: ChatMessage; readonly replayed: boolean }> {
-  return (await apiV1Request<Envelope<{
+  const response = (await apiV1Request<Envelope<{
     readonly message: ChatMessage;
     readonly replayed: boolean;
   }>>(
@@ -132,6 +147,7 @@ export async function sendChatMessage(
     'POST',
     { clientMessageId: input.clientMessageId, type: 'TEXT', text: input.text }
   )).data;
+  return { ...response, message: normalizeMessage(response.message) };
 }
 
 export function listenToConversation(options: {
@@ -157,7 +173,7 @@ export function listenToConversation(options: {
         && typeof message.isOwn === 'boolean'
         && message.conversationId === options.conversationId
       ) {
-        options.onMessage(message as ChatMessage);
+        options.onMessage(normalizeMessage(message as ChatMessage));
       }
     },
   });

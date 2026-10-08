@@ -91,6 +91,8 @@ test('professional directory HTTP flow protects verification and exposes a minim
       evidenceMaximumBytes: 5_242_880,
       evidenceUploadsPerMinute: 5,
     },
+    media: createTestConfig(databaseUrl, 'directory-integration').media,
+    pushNotifications: createTestConfig(databaseUrl, 'directory-integration').pushNotifications,
     requestFlow: {
       minimumAmount: '100.00',
       maximumAmount: '10000.00',
@@ -113,6 +115,7 @@ test('professional directory HTTP flow protects verification and exposes a minim
       supportedCurrencies: ['NIO'],
     },
     messaging: createTestConfig(databaseUrl, 'directory-integration').messaging,
+    calls: createTestConfig(databaseUrl, 'directory-integration').calls,
     appointments: createTestConfig(databaseUrl, 'directory-integration').appointments,
     clinical: createTestConfig(databaseUrl, 'directory-integration').clinical,
     triage: createTestConfig(databaseUrl, 'directory-integration').triage,

@@ -11,6 +11,7 @@ dist/
 **/dist
 web-build/
 .qa-*-build/
+.qa-edge-profile/
 expo-env.d.ts
 
 .kotlin/
@@ -34,6 +35,8 @@ yarn-error.*
 
 **/.env
 **/.env*.local
+**/google-services.json
+**/GoogleService-Info.plist
 
 *.tsbuildinfo
 backend/src/generated/prisma/

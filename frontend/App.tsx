@@ -21,6 +21,9 @@ import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { useAuthStore } from './src/store/useAuthStore';
 import { Colors } from './src/theme/colors';
 import { Spacing } from './src/theme/spacing';
+import { GoogleNavigationProvider } from './src/providers/GoogleNavigationProvider';
+import { PushNotificationCoordinator } from './src/components/notifications/PushNotificationCoordinator';
+import { appNavigationRef } from './src/navigation/navigationRoot';
 
 const authLinking: LinkingOptions<AuthStackParamList> = {
   prefixes: ['rutaemocional://'],
@@ -48,6 +51,7 @@ export default function App() {
     Poppins_700Bold,
   });
   const { isAuthenticated, isLoading, initializeSession } = useAuthStore();
+  const [navigationReady, setNavigationReady] = React.useState(false);
 
   React.useEffect(() => {
     void initializeSession();
@@ -71,14 +75,24 @@ export default function App() {
   ) : (
     <GestureHandlerRootView style={styles.root}>
       <AlertProvider>
-        <NavigationContainer linking={isAuthenticated ? undefined : authLinking}>
+        <NavigationContainer
+          ref={appNavigationRef}
+          linking={isAuthenticated ? undefined : authLinking}
+          onReady={() => setNavigationReady(true)}
+          onStateChange={() => setNavigationReady(true)}
+        >
+          <PushNotificationCoordinator navigationReady={navigationReady} />
           {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
         </NavigationContainer>
       </AlertProvider>
     </GestureHandlerRootView>
   );
 
-  return <ErrorBoundary>{content}</ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      <GoogleNavigationProvider>{content}</GoogleNavigationProvider>
+    </ErrorBoundary>
+  );
 }
 
 const styles = StyleSheet.create({

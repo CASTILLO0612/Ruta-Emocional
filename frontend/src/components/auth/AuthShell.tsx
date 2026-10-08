@@ -103,7 +103,7 @@ export const AuthShell: React.FC<AuthShellProps> = ({
             </View>
 
             {children}
-            {footer}
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -136,9 +136,14 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   content: {
+    flexGrow: 1,
     width: '100%',
     maxWidth: 520,
     gap: Spacing.base,
+  },
+  footer: {
+    marginTop: 'auto',
+    paddingTop: Spacing.xl,
   },
   backButton: {
     alignSelf: 'flex-start',

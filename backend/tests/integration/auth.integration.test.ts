@@ -65,6 +65,8 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       evidenceMaximumBytes: 5_242_880,
       evidenceUploadsPerMinute: 5,
     },
+    media: createTestConfig(databaseUrl, 'auth-integration').media,
+    pushNotifications: createTestConfig(databaseUrl, 'auth-integration').pushNotifications,
     requestFlow: {
       minimumAmount: '100.00',
       maximumAmount: '10000.00',
@@ -87,6 +89,7 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       supportedCurrencies: ['NIO'],
     },
     messaging: createTestConfig(databaseUrl, 'auth-integration').messaging,
+    calls: createTestConfig(databaseUrl, 'auth-integration').calls,
     appointments: createTestConfig(databaseUrl, 'auth-integration').appointments,
     clinical: createTestConfig(databaseUrl, 'auth-integration').clinical,
     triage: createTestConfig(databaseUrl, 'auth-integration').triage,
@@ -143,6 +146,41 @@ test('auth HTTP flow persists sessions, rotates refresh tokens and revokes repla
       headers: { authorization: `Bearer ${registrationBody.data.tokens.accessToken}` },
     });
     assert.equal(me.status, 200);
+
+    const profileUpdate = await fetch(`${baseUrl}/auth/me`, {
+      method: 'PATCH',
+      headers: {
+        authorization: `Bearer ${registrationBody.data.tokens.accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ displayName: 'Integration Patient Updated', phone: '+50588888888' }),
+    });
+    assert.equal(profileUpdate.status, 200);
+    const updatedProfile = await profileUpdate.json() as {
+      data: { displayName: string; phone: string | null };
+    };
+    assert.equal(updatedProfile.data.displayName, 'Integration Patient Updated');
+    assert.equal(updatedProfile.data.phone, '+50588888888');
+
+    const photoUpload = await fetch(`${baseUrl}/auth/me/photo`, {
+      method: 'PUT',
+      headers: {
+        authorization: `Bearer ${registrationBody.data.tokens.accessToken}`,
+        'content-type': 'image/jpeg',
+      },
+      body: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00]),
+    });
+    assert.equal(photoUpload.status, 200);
+    const photoProfile = await photoUpload.json() as { data: { photoUrl: string } };
+    assert.match(photoProfile.data.photoUrl, /^\/api\/v1\/auth\/profile-photos\//);
+    const photoRead = await fetch(`http://127.0.0.1:${address.port}${photoProfile.data.photoUrl}`);
+    assert.equal(photoRead.status, 200);
+    assert.equal(photoRead.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    const photoDelete = await fetch(`${baseUrl}/auth/me/photo`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${registrationBody.data.tokens.accessToken}` },
+    });
+    assert.equal(photoDelete.status, 200);
 
     const refresh = await fetch(`${baseUrl}/auth/refresh`, {
       method: 'POST',

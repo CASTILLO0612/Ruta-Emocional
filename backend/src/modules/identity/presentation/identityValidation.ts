@@ -1,7 +1,13 @@
 import { AppError, FieldError } from '../../../shared/domain/appError';
+import type { ProfilePhotoContentType, ProfilePhotoFile } from '../application/ports';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/;
+const PROFILE_PHOTO_CONTENT_TYPES = new Set<ProfilePhotoContentType>([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -110,6 +116,11 @@ export interface PasswordResetRequestBody {
 export interface PasswordResetCompletionBody {
   readonly token: string;
   readonly password: string;
+}
+
+export interface UpdateOwnProfileBody {
+  readonly displayName: string;
+  readonly phone: string | null;
 }
 
 export function parsePatientRegistration(body: unknown): PatientRegistrationBody {
@@ -254,4 +265,63 @@ export function parseRefresh(body: unknown): string {
   const refreshToken = requiredString(record, 'refreshToken', 40, 300, errors);
   throwIfErrors(errors);
   return refreshToken;
+}
+
+export function parseUpdateOwnProfile(body: unknown): UpdateOwnProfileBody {
+  const record = asRecord(body);
+  const errors = rejectUnknownFields(record, ['displayName', 'phone']);
+  const displayName = requiredString(record, 'displayName', 2, 160, errors);
+  let phone: string | null = null;
+  if (record.phone !== undefined && record.phone !== null && record.phone !== '') {
+    if (typeof record.phone !== 'string') {
+      errors.push({ field: 'phone', code: 'INVALID_PHONE', message: 'Ingresa un teléfono válido.' });
+    } else {
+      const compact = record.phone.trim().replace(/[\s()-]/g, '');
+      if (!/^\+?\d{8,15}$/.test(compact)) {
+        errors.push({ field: 'phone', code: 'INVALID_PHONE', message: 'Ingresa entre 8 y 15 dígitos.' });
+      } else {
+        phone = compact;
+      }
+    }
+  }
+  throwIfErrors(errors);
+  return { displayName, phone };
+}
+
+export function parseProfilePhotoUpload(input: {
+  readonly body: unknown;
+  readonly contentType: string | undefined;
+  readonly maximumBytes: number;
+}): ProfilePhotoFile {
+  const contentType = input.contentType?.split(';', 1)[0]?.trim().toLowerCase();
+  if (!contentType || !PROFILE_PHOTO_CONTENT_TYPES.has(contentType as ProfilePhotoContentType)) {
+    throw AppError.validation([{
+      field: 'photo',
+      code: 'UNSUPPORTED_PROFILE_PHOTO_TYPE',
+      message: 'Utiliza una imagen JPEG, PNG o WebP.',
+    }]);
+  }
+  if (!Buffer.isBuffer(input.body) || input.body.length === 0 || input.body.length > input.maximumBytes) {
+    throw AppError.validation([{
+      field: 'photo',
+      code: 'INVALID_PROFILE_PHOTO_SIZE',
+      message: 'La imagen está vacía o supera el tamaño permitido.',
+    }]);
+  }
+  const bytes = input.body;
+  const signatureMatches = contentType === 'image/jpeg'
+    ? bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+    : contentType === 'image/png'
+      ? bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+      : bytes.length >= 12
+        && bytes.subarray(0, 4).toString('ascii') === 'RIFF'
+        && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (!signatureMatches) {
+    throw AppError.validation([{
+      field: 'photo',
+      code: 'PROFILE_PHOTO_SIGNATURE_MISMATCH',
+      message: 'El contenido de la imagen no coincide con su formato.',
+    }]);
+  }
+  return { contentType: contentType as ProfilePhotoContentType, bytes };
 }

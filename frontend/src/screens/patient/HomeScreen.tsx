@@ -1,12 +1,12 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Sparkles, Calendar, ArrowRight } from 'lucide-react-native';
+import { ClipboardCheck, Calendar, ChevronRight } from 'lucide-react-native';
 
 import { APP_LOCALE } from '../../config/localization';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { Spacing, BorderRadius, Shadow } from '../../theme/spacing';
+import { Spacing, BorderRadius } from '../../theme/spacing';
 import { IconSize } from '../../theme/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useRequestStore } from '../../store/useRequestStore';
@@ -28,6 +28,14 @@ import {
   HomeAppointment,
 } from '../../utils/prioritizeHomeSections';
 import type { PatientHomeNavigation } from '../../navigation/navigationTypes';
+
+const appointmentScheduleFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<PatientHomeNavigation>();
@@ -108,10 +116,10 @@ export const HomeScreen: React.FC = () => {
 
       case 'PENDING_DECISION':
         return (
-          <View style={styles.decisionCard}>
+          <View style={styles.decisionSection}>
             <View style={styles.decisionHeader}>
               <View style={styles.decisionIconContainer}>
-                <Sparkles size={IconSize.action} color={Colors.primary} />
+                <ClipboardCheck size={IconSize.action} color={Colors.primary} />
               </View>
               <View style={styles.decisionTextContainer}>
                 <Text style={[Typography.h4, styles.decisionTitle]}>
@@ -137,35 +145,32 @@ export const HomeScreen: React.FC = () => {
 
       case 'NEXT_APPOINTMENT':
         return (
-          <View style={styles.appointmentCard}>
-            <View style={styles.appointmentHeader}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Appointments')}
+            style={styles.appointmentSection}
+            activeOpacity={0.76}
+            accessibilityRole="button"
+            accessibilityLabel={`Próxima cita con ${item.appointment.professionalName}`}
+            accessibilityHint="Abre el detalle de la cita en Agenda"
+          >
+            <View style={styles.appointmentIconContainer}>
               <Calendar size={IconSize.action} color={Colors.primary} />
-              <Text style={[Typography.h4, styles.appointmentTitle]}>
+            </View>
+
+            <View style={styles.appointmentCopy}>
+              <Text style={[Typography.label, styles.appointmentLabel]}>
                 Próxima cita
               </Text>
-            </View>
-            <Text style={[Typography.body, styles.appointmentDetails]}>
-              {item.appointment.professionalName} · {item.appointment.modality}
-            </Text>
-            <Text style={styles.appointmentTime}>
-              {new Intl.DateTimeFormat(APP_LOCALE, {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                hour: '2-digit',
-                minute: '2-digit',
-              }).format(item.appointment.scheduledFor)}
-            </Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Appointments')}
-              style={styles.appointmentAction}
-            >
-              <Text style={[Typography.button, styles.appointmentActionText]}>
-                Ver detalles en Agenda
+              <Text style={[Typography.h4, styles.appointmentTitle]}>
+                {item.appointment.professionalName}
               </Text>
-              <ArrowRight size={14} color={Colors.primary} />
-            </TouchableOpacity>
-          </View>
+              <Text style={[Typography.bodySmall, styles.appointmentDetails]}>
+                {item.appointment.modality} · {formatAppointmentSchedule(item.appointment.scheduledFor)}
+              </Text>
+            </View>
+
+            <ChevronRight size={IconSize.action} color={Colors.textTertiary} />
+          </TouchableOpacity>
         );
 
       case 'PRIMARY_ACTION':
@@ -199,7 +204,7 @@ export const HomeScreen: React.FC = () => {
             <SectionHeader
               title="Profesionales"
               actionLabel="Ver todos"
-              onAction={() => navigation.navigate('Search')}
+              onAction={() => navigation.navigate('ProfessionalDirectory')}
             />
             <View style={styles.directoryList}>
               {item.professionals.map((psychologist, index) => (
@@ -263,14 +268,11 @@ const styles = StyleSheet.create({
   greetingTitle: {
     color: Colors.textPrimary,
   },
-  decisionCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
+  decisionSection: {
+    paddingVertical: Spacing.base,
     marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    ...Shadow.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
   decisionHeader: {
     flexDirection: 'row',
@@ -296,48 +298,43 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: Spacing.xxs,
   },
-  appointmentCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-  },
-  appointmentHeader: {
+  appointmentSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    gap: Spacing.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    borderRadius: BorderRadius.lg,
+  },
+  appointmentIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appointmentCopy: {
+    flex: 1,
+    gap: Spacing.xxs,
+  },
+  appointmentLabel: {
+    color: Colors.primary,
   },
   appointmentTitle: {
     color: Colors.textPrimary,
   },
   appointmentDetails: {
     color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  appointmentTime: {
-    ...Typography.bodySmall,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  appointmentAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  appointmentActionText: {
-    color: Colors.primary,
-    fontSize: 14,
   },
   directoryContainer: {
     marginTop: Spacing.xs,
   },
   directoryList: {
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.xs,
   },
 });
 
@@ -350,4 +347,8 @@ function getGreeting(now: Date = new Date()): string {
 
 function getPreferredName(displayName: string): string {
   return displayName.trim().split(/\s+/)[0] || 'Paciente';
+}
+
+function formatAppointmentSchedule(date: Date): string {
+  return appointmentScheduleFormatter.format(date);
 }

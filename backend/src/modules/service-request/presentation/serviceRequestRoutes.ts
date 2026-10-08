@@ -17,6 +17,7 @@ import {
   parseEligiblePageQuery,
   parseIdempotencyKey,
   parseOfferBody,
+  parseOfferPageQuery,
   parsePageQuery,
   parseUuid,
 } from './serviceRequestValidation';
@@ -89,6 +90,20 @@ export function createServiceRequestRouter(
     const page = await service.listEligibleRequests(
       getActor(request),
       parseEligiblePageQuery(request.query as Record<string, unknown>, policy)
+    );
+    response.json({
+      data: page.items,
+      meta: { requestId: getRequestId(response), nextCursor: page.nextCursor },
+    });
+  }));
+
+  router.get('/offers/me', authenticate, canManageOffer, asyncHandler(async (
+    request: AuthenticatedRequest,
+    response
+  ) => {
+    const page = await service.listOwnOffers(
+      getActor(request),
+      parseOfferPageQuery(request.query as Record<string, unknown>, policy)
     );
     response.json({
       data: page.items,

@@ -29,7 +29,16 @@ export interface ProfessionalProfile {
   readonly availability: {
     readonly timezone: string | null;
     readonly weeklyRules: readonly WeeklyAvailabilityRule[];
+    readonly exceptions: readonly AvailabilityException[];
   };
+}
+
+export interface AvailabilityException {
+  readonly id: string;
+  readonly startsAt: string;
+  readonly endsAt: string;
+  readonly type: 'AVAILABLE' | 'UNAVAILABLE';
+  readonly reason: string | null;
 }
 
 export interface PracticeLocation {
@@ -56,7 +65,7 @@ export interface ProfessionalCatalogs {
 export type EvidenceUploadPolicy =
   | { readonly mode: 'DISABLED' }
   | {
-      readonly mode: 'LOCAL_QA';
+      readonly mode: 'DIRECT';
       readonly maximumBytes: number;
       readonly acceptedContentTypes: readonly ('application/pdf' | 'image/jpeg' | 'image/png')[];
     };

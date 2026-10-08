@@ -4,12 +4,23 @@ import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
 import type { Logger } from '../../../../shared/infrastructure/logging/logger';
 import type { RealtimePublisher } from '../../../../sockets/socketHandler';
 import type { MessagingService } from '../../application/messagingService';
+import type { NotificationFanout } from '../../../notification/infrastructure/outbox/notificationFanout';
 
 interface ClaimedEvent {
   readonly id: string;
   readonly eventType: string;
   readonly payload: Prisma.JsonValue;
   readonly attempts: number;
+}
+
+interface CallEventPayload {
+  readonly callId: string;
+  readonly conversationId: string;
+  readonly status?: 'ACTIVE' | 'ENDED' | 'DECLINED' | 'MISSED';
+  readonly mediaType?: 'AUDIO' | 'VIDEO';
+  readonly initiatorUserId?: string;
+  readonly recipientUserId?: string;
+  readonly userIds?: readonly string[];
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -89,6 +100,37 @@ function appointmentReminderFromPayload(payload: Prisma.JsonValue): {
   };
 }
 
+function callEventFromPayload(payload: Prisma.JsonValue): CallEventPayload | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const record = payload as Prisma.JsonObject;
+  const callId = record.callId;
+  const conversationId = record.conversationId;
+  if (
+    typeof callId !== 'string' || !UUID_PATTERN.test(callId)
+    || typeof conversationId !== 'string' || !UUID_PATTERN.test(conversationId)
+  ) return null;
+  const rawUserIds = record.userIds;
+  const userIds = Array.isArray(rawUserIds)
+    ? rawUserIds.filter((value): value is string => typeof value === 'string' && UUID_PATTERN.test(value))
+    : undefined;
+  if (rawUserIds !== undefined && (!Array.isArray(rawUserIds) || !userIds || userIds.length !== rawUserIds.length)) return null;
+  return {
+    callId: callId.toLowerCase(),
+    conversationId: conversationId.toLowerCase(),
+    ...(record.status === 'ACTIVE' || record.status === 'ENDED' || record.status === 'DECLINED' || record.status === 'MISSED'
+      ? { status: record.status }
+      : {}),
+    ...(record.mediaType === 'AUDIO' || record.mediaType === 'VIDEO' ? { mediaType: record.mediaType } : {}),
+    ...(typeof record.initiatorUserId === 'string' && UUID_PATTERN.test(record.initiatorUserId)
+      ? { initiatorUserId: record.initiatorUserId.toLowerCase() }
+      : {}),
+    ...(typeof record.recipientUserId === 'string' && UUID_PATTERN.test(record.recipientUserId)
+      ? { recipientUserId: record.recipientUserId.toLowerCase() }
+      : {}),
+    ...(userIds ? { userIds: userIds.map((value) => value.toLowerCase()) } : {}),
+  };
+}
+
 export class MessageOutboxDispatcher {
   private stopped = true;
   private timer?: NodeJS.Timeout;
@@ -97,6 +139,7 @@ export class MessageOutboxDispatcher {
     private readonly prisma: PrismaClient,
     private readonly messaging: MessagingService,
     private readonly publisher: RealtimePublisher,
+    private readonly notificationFanout: NotificationFanout,
     private readonly logger: Logger,
     private readonly config: AppConfig['messaging']
   ) {}
@@ -126,7 +169,10 @@ export class MessageOutboxDispatcher {
            'appointment.created',
            'appointment.updated',
            'appointment.rescheduled',
-           'appointment.reminder_due'
+           'appointment.reminder_due',
+           'call.started',
+           'call.accepted',
+           'call.finished'
          )
            AND "published_at" IS NULL
            AND "dead_lettered_at" IS NULL
@@ -188,11 +234,35 @@ export class MessageOutboxDispatcher {
         ) {
           await this.publisher.publishAppointmentReminder(reminder);
         }
+      } else if (event.eventType === 'call.started') {
+        const call = callEventFromPayload(event.payload);
+        if (!call?.mediaType || !call.initiatorUserId || !call.recipientUserId) {
+          throw new Error('INVALID_CALL_EVENT_PAYLOAD');
+        }
+        await this.publisher.publishCallIncoming({
+          callId: call.callId,
+          conversationId: call.conversationId,
+          mediaType: call.mediaType,
+          initiatorUserId: call.initiatorUserId,
+          recipientUserId: call.recipientUserId,
+        });
+      } else if (event.eventType === 'call.accepted' || event.eventType === 'call.finished') {
+        const call = callEventFromPayload(event.payload);
+        if (!call?.status || !call.userIds?.length) {
+          throw new Error('INVALID_CALL_UPDATE_PAYLOAD');
+        }
+        await this.publisher.publishCallUpdated({
+          callId: call.callId,
+          conversationId: call.conversationId,
+          status: call.status,
+          userIds: call.userIds,
+        });
       } else {
         const update = appointmentUpdateFromPayload(event.payload);
         if (!update) throw new Error('INVALID_APPOINTMENT_EVENT_PAYLOAD');
         await this.publisher.publishAppointmentUpdated(update);
       }
+      await this.notificationFanout.enqueue(event.id, event.eventType, event.payload);
       await this.prisma.outboxEvent.updateMany({
         where: { id: event.id, claimToken },
         data: { publishedAt: new Date(), claimedAt: null, claimToken: null, lastError: null },

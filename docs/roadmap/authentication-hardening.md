@@ -110,8 +110,8 @@ coincidencia de correo una cuenta que ya utiliza contraseña.
 
 ## 8. Verificación ejecutada
 
-- 43 suites y 121 pruebas de frontend aprobadas.
-- 55 pruebas unitarias de backend aprobadas.
+- 57 suites y 148 pruebas de frontend aprobadas sin advertencias de React.
+- 65 pruebas unitarias de backend aprobadas.
 - Nueve suites de integración HTTP aprobadas contra PostgreSQL, sin regresiones
   en directorio, solicitudes, mensajería, agenda, clínica, triaje ni MENTA.
 - Flujo HTTP de autenticación aprobado contra PostgreSQL: registro, consulta de
@@ -119,7 +119,7 @@ coincidencia de correo una cuenta que ya utiliza contraseña.
   contraseña, invalidación del secreto anterior, consumo único y alta de
   psicólogo pendiente de verificación.
 - TypeScript de frontend y backend sin errores.
-- Esquema Prisma válido y 25 migraciones aplicadas.
+- Esquema Prisma válido y 27 migraciones aplicadas.
 - Validadores de identidad visual y configuración nativa aprobados.
 - Exportación de Expo Web aprobada con 5.037 módulos y todos los recursos de
   marca incluidos.

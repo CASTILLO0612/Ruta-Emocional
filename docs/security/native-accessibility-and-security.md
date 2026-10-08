@@ -7,8 +7,11 @@
 - `WHEN_UNLOCKED_THIS_DEVICE_ONLY` y exclusión de backup Android administrada
   por el plugin;
 - API obligatoriamente HTTPS fuera de desarrollo;
-- clave de Google Maps inyectada al build como `GOOGLE_MAPS_API_KEY`, nunca como
-  variable JS `EXPO_PUBLIC_*`;
+- mapa y navegación Android provistos por Google Navigation SDK con clave de
+  build restringida por paquete, firma y API; web conserva el mapa embebido de
+  OpenStreetMap;
+- condiciones de navegación aceptadas antes de inicializar el SDK y atribuciones
+  oficiales accesibles desde Perfil;
 - perfiles EAS separados para development, preview y production;
 - botones comunes con rol, etiqueta y estados disabled/busy;
 - MENTA con radiogroups, radios, checkbox, alertas, live regions, enlaces y
@@ -28,6 +31,7 @@
 | almacenamiento seguro tras reinicio | pendiente | pendiente | prueba dispositivo |
 | tráfico HTTPS y rechazo HTTP | pendiente | pendiente | proxy de prueba |
 | deeplinks/URLs de recursos | pendiente | pendiente | esquema/host permitidos |
+| ruta, recálculo, llegada y GPS degradado | pendiente | no aplica | grabación Android |
 | build release sin menú dev | pendiente | pendiente | artefacto EAS firmado |
 | SAST/DAST y dependencias | pendiente | pendiente | reporte release |
 

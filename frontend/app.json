@@ -29,10 +29,33 @@
       ],
       "expo-font",
       [
+        "@livekit/react-native-expo-plugin",
+        {
+          "android": { "audioType": "communication" },
+          "ios": { "enableMultitaskingCameraAccess": false }
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Ruta Emocional usa la cámara durante una videollamada que tú inicies o aceptes.",
+          "microphonePermission": "Ruta Emocional usa el micrófono durante una llamada que tú inicies o aceptes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#253A82",
+          "defaultChannel": "ruta-emocional"
+        }
+      ],
+      "./plugins/withGoogleNavigationSdk",
+      [
         "expo-splash-screen",
         {
-          "image": "./assets/brand/ruta-emocional-logo-negative.png",
-          "imageWidth": 260,
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#253A82"
         }
@@ -45,6 +68,12 @@
       "lang": "es",
       "themeColor": "#253A82",
       "backgroundColor": "#F8FAFC"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6ac126af-e664-4d91-912a-264560e06f61"
+      }
+    },
+    "owner": "castillo109b"
   }
 }

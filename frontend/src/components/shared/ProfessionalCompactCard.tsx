@@ -31,7 +31,6 @@ export const ProfessionalCompactCard: React.FC<ProfessionalCompactCardProps> = (
       accessibilityRole="button"
       accessibilityLabel={`Perfil de ${psychologist.displayName}, especialidad ${specialtyName}`}
     >
-      {/* Avatar */}
       <View style={styles.avatarContainer}>
         {psychologist.photoURL ? (
           <Image source={{ uri: psychologist.photoURL }} style={styles.avatar} />
@@ -42,7 +41,6 @@ export const ProfessionalCompactCard: React.FC<ProfessionalCompactCardProps> = (
         )}
       </View>
 
-      {/* Info central */}
       <View style={styles.infoContainer}>
         <View style={styles.nameRow}>
           <Text style={[Typography.h4, styles.name]} numberOfLines={1}>
@@ -65,7 +63,6 @@ export const ProfessionalCompactCard: React.FC<ProfessionalCompactCardProps> = (
         ) : null}
       </View>
 
-      {/* Tarifa base */}
       <View style={styles.rateContainer}>
         <Text style={[Typography.priceSm, styles.rateText]}>
           {formatDecimalMoney(psychologist.pricePerHour, psychologist.currencyCode)}
@@ -80,7 +77,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
     minHeight: 76,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,

@@ -1,15 +1,15 @@
-# Fase 8.2 — Consolidación del producto sin proveedores de pago
+# Fase 8.2 — Consolidación inicial del producto
 
-**Estado:** implementada y validada localmente  
+**Estado:** implementada; la decisión de mapas fue sustituida por ADR-007
 **Corte:** acceso federado, resiliencia móvil, mapas y continuidad multimodal  
 **Alcance:** Expo SDK 57, API HTTP, PostgreSQL y Ollama local
 
 ## 1. Objetivo
 
-Mejorar la experiencia real del MVP sin introducir dependencias de pago ni
-debilitar las fronteras de seguridad existentes. El incremento conserva la
-arquitectura modular y utiliza adaptadores por plataforma cuando Android y web
-requieren comportamientos distintos.
+Mejorar la experiencia real del MVP sin debilitar las fronteras de seguridad
+existentes. El incremento conserva la arquitectura modular y utiliza
+adaptadores por plataforma cuando Android y web requieren comportamientos
+distintos.
 
 ## 2. Acceso con Google
 
@@ -37,10 +37,11 @@ declarar su rol y el psicólogo conserva el proceso de verificación profesional
 
 ## 4. Mapas y atención presencial
 
-El directorio utiliza OpenStreetMap con atribución visible y sin una clave
-comercial. Las coordenadas exactas continúan privadas y sólo se muestran cuando
-la relación y el flujo lo autorizan. La navegación se delega por elección del
-usuario a Google Maps o Waze mediante enlaces externos.
+Android utiliza Google Navigation SDK para el mapa, tráfico, cálculo de rutas,
+recálculo y guía giro a giro. Web conserva el mapa embebido de OpenStreetMap y
+la salida a un proveedor externo. Waze permanece como fallback voluntario. Las
+coordenadas exactas continúan privadas y sólo se muestran cuando la relación y
+el flujo lo autorizan.
 
 Aceptar una propuesta presencial ya no abre un chat como destino final. Si el
 consultorio está definido, la interfaz prioriza cómo llegar. Si aún falta,
@@ -50,18 +51,20 @@ dirigen a su acción o agenda correspondiente.
 ## 5. MENTA local
 
 MENTA conserva Ollama como proveedor local, persistencia PostgreSQL y
-autorización por rol. La respuesta validada se entrega por SSE y el cliente la
-presenta con una cadencia legible, listas y jerarquía tipográfica. El contexto
+autorización por rol. Ollama entrega fragmentos nativos mientras genera y la API
+los transmite por SSE; el cliente mantiene una cadencia legible, listas y
+jerarquía tipográfica. Si la validación final sustituye una salida, el flujo
+reemplaza el contenido parcial por la respuesta segura persistida. El contexto
 se obtiene mediante herramientas acotadas; el agente no recibe acceso general a
 la base ni escribe automáticamente información clínica.
 
 ## 6. Calidad y verificación
 
 - TypeScript estricto aprobado en frontend y backend.
-- 43 suites y 121 pruebas de frontend aprobadas.
-- 55 pruebas unitarias de backend aprobadas.
+- 57 suites y 148 pruebas de frontend aprobadas.
+- 65 pruebas unitarias de backend aprobadas.
 - Nueve suites de integración HTTP aprobadas sobre PostgreSQL real.
-- Esquema Prisma válido y 25 migraciones aplicadas.
+- Esquema Prisma válido y 27 migraciones aplicadas.
 - Validadores de identidad visual y configuración nativa aprobados.
 - Exportación web completa aprobada.
 - Liveness y readiness aprobados con base de datos, outbox y privacidad en estado
@@ -73,9 +76,9 @@ la base ni escribe automáticamente información clínica.
 
 1. Google nativo requiere una compilación de desarrollo; no funciona dentro de
    Expo Go porque depende de código nativo.
-2. El servidor público de teselas de OpenStreetMap es apropiado para el
-   Hackathon y pruebas moderadas. Producción debe adoptar un proveedor o caché
-   conforme a la política de uso y al volumen real.
+2. Navigation SDK exige compilación nativa, Google Play Services, una clave
+   restringida, facturación habilitada y límites operativos. Web no ofrece guía
+   giro a giro integrada.
 3. Las notificaciones push, almacenamiento privado con antimalware,
    observabilidad externa y entrega de correo continúan siendo adaptadores de
    infraestructura pendientes.

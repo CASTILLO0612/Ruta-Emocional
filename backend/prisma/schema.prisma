@@ -170,6 +170,23 @@ enum MessageType {
   @@map("message_type")
 }
 
+enum CallMediaType {
+  AUDIO
+  VIDEO
+
+  @@map("call_media_type")
+}
+
+enum CallSessionStatus {
+  RINGING
+  ACTIVE
+  ENDED
+  DECLINED
+  MISSED
+
+  @@map("call_session_status")
+}
+
 enum PaymentStatus {
   PENDING
   HELD
@@ -239,6 +256,39 @@ enum MentaToolOutcome {
   @@map("menta_tool_outcome")
 }
 
+enum PushPlatform {
+  ANDROID
+  IOS
+
+  @@map("push_platform")
+}
+
+enum PushDeliveryStatus {
+  PENDING
+  ACCEPTED
+  DELIVERED
+  FAILED
+  SKIPPED
+
+  @@map("push_delivery_status")
+}
+
+enum MediaPurpose {
+  PROFILE_PHOTO
+  PROFESSIONAL_EVIDENCE
+
+  @@map("media_purpose")
+}
+
+enum MalwareScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  FAILED
+
+  @@map("malware_scan_status")
+}
+
 model User {
   id                            String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   legacyId                      String?                            @unique @map("legacy_id")
@@ -265,8 +315,79 @@ model User {
   appointmentEvents             AppointmentEvent[]                 @relation("AppointmentEventActor")
   resolvedTriageErasureRequests TriageErasureRequest[]             @relation("TriageErasureResolver")
   mentaConversations            MentaConversation[]
+  pushDevices                   PushDevice[]
+  mediaObjects                  MediaObject[]
+  initiatedCalls                CallSession[]                      @relation("CallInitiator")
 
   @@map("users")
+}
+
+model MediaObject {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId      String            @map("owner_user_id") @db.Uuid
+  purpose          MediaPurpose
+  targetResourceId String?           @map("target_resource_id") @db.Uuid
+  objectKey        String            @unique @map("object_key") @db.VarChar(512)
+  publicPath       String?           @map("public_path") @db.Text
+  contentType      String            @map("content_type") @db.VarChar(100)
+  byteSize         Int               @map("byte_size")
+  scanStatus       MalwareScanStatus @default(PENDING) @map("scan_status")
+  scannedAt        DateTime?         @map("scanned_at") @db.Timestamptz(3)
+  activatedAt      DateTime?         @map("activated_at") @db.Timestamptz(3)
+  discardedAt      DateTime?         @map("discarded_at") @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  owner            User              @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([scanStatus, discardedAt, createdAt])
+  @@index([ownerUserId, purpose, createdAt])
+  @@index([targetResourceId, purpose, scanStatus])
+  @@map("media_objects")
+}
+
+model PushDevice {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  installationId String         @map("installation_id") @db.Uuid
+  expoPushToken  String         @unique @map("expo_push_token") @db.VarChar(255)
+  platform       PushPlatform
+  active         Boolean        @default(true)
+  lastSeenAt     DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  disabledAt     DateTime?      @map("disabled_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries     PushDelivery[]
+
+  @@unique([userId, installationId])
+  @@index([userId, active])
+  @@map("push_devices")
+}
+
+model PushDelivery {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  outboxEventId    String             @map("outbox_event_id") @db.Uuid
+  pushDeviceId     String             @map("push_device_id") @db.Uuid
+  notificationType String             @map("notification_type") @db.VarChar(80)
+  title            String             @db.VarChar(120)
+  body             String             @db.VarChar(240)
+  data             Json
+  status           PushDeliveryStatus @default(PENDING)
+  attempts         Int                @default(0)
+  availableAt      DateTime           @default(now()) @map("available_at") @db.Timestamptz(3)
+  claimedAt        DateTime?          @map("claimed_at") @db.Timestamptz(3)
+  claimToken       String?            @map("claim_token") @db.Uuid
+  providerTicketId String?            @map("provider_ticket_id") @db.VarChar(120)
+  receiptCheckedAt DateTime?          @map("receipt_checked_at") @db.Timestamptz(3)
+  lastErrorCode    String?            @map("last_error_code") @db.VarChar(100)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  pushDevice       PushDevice         @relation(fields: [pushDeviceId], references: [id], onDelete: Cascade)
+
+  @@unique([outboxEventId, pushDeviceId])
+  @@index([status, availableAt, createdAt])
+  @@index([providerTicketId, status])
+  @@map("push_deliveries")
 }
 
 model ExternalIdentity {
@@ -844,8 +965,29 @@ model Conversation {
   createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
   careRelationship   CareRelationship          @relation(fields: [careRelationshipId], references: [id], onDelete: Restrict)
   participants       ConversationParticipant[]
+  callSessions       CallSession[]
 
   @@map("conversations")
+}
+
+model CallSession {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String            @map("conversation_id") @db.Uuid
+  initiatorUserId String            @map("initiator_user_id") @db.Uuid
+  mediaType       CallMediaType     @map("media_type")
+  status          CallSessionStatus @default(RINGING)
+  roomName        String            @unique @map("room_name") @db.VarChar(100)
+  acceptedAt      DateTime?         @map("accepted_at") @db.Timestamptz(3)
+  endedAt         DateTime?         @map("ended_at") @db.Timestamptz(3)
+  expiresAt       DateTime          @map("expires_at") @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  conversation    Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  initiator       User              @relation("CallInitiator", fields: [initiatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, createdAt])
+  @@index([status, expiresAt])
+  @@map("call_sessions")
 }
 
 model ConversationParticipant {

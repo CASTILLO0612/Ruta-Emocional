@@ -56,6 +56,14 @@ describe('AgendaScreen', () => {
       handleOptionsReschedule: jest.fn(),
       handleCancel: jest.fn(),
       mutationId: null,
+      review: {
+        appointment: null,
+        error: null,
+        isSubmitting: false,
+        onOpen: jest.fn(),
+        onClose: jest.fn(),
+        onSubmit: jest.fn(),
+      },
       schedule: {
         visible: false,
         rescheduling: null,
@@ -87,6 +95,7 @@ describe('AgendaScreen', () => {
         licenses: [],
         availability: {
           timezone: 'America/Managua',
+          exceptions: [],
           weeklyRules: [
             { weekday: 1, startTime: '08:00', endTime: '12:00', isActive: true },
           ],

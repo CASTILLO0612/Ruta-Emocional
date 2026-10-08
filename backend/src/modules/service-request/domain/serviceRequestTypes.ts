@@ -91,6 +91,18 @@ export interface ServiceOfferView {
   readonly updatedAt: string;
 }
 
+export interface OwnServiceOfferView {
+  readonly offer: ServiceOfferView;
+  readonly request: {
+    readonly modality: ServiceModality;
+    readonly primaryNeed: string | null;
+    readonly proposedBudget: MoneyView;
+    readonly status: ServiceRequestStatus;
+    readonly scheduledFor: string | null;
+    readonly expiresAt: string;
+  };
+}
+
 export interface ServiceRequestPage<T> {
   readonly items: readonly T[];
   readonly nextCursor: string | null;

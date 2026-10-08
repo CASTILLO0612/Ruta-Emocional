@@ -90,6 +90,58 @@ export class PrismaMentaConversationRepository implements MentaConversationRepos
     return this.requireOwnedConversation(userId, conversationId);
   }
 
+  async restartConversation(
+    userId: string,
+    conversationId: string,
+    scope: MentaScope,
+    consentVersion: string,
+    audit: MentaAuditContext
+  ): Promise<MentaConversationView> {
+    const nextConversationId = await this.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${`${userId}:${scope}`}, 0))
+      `);
+      const current = await transaction.mentaConversation.findFirst({
+        where: { id: conversationId, userId, scope, closedAt: null },
+        select: { id: true },
+      });
+      if (!current) throw AppError.notFound('MENTA_CONVERSATION_NOT_FOUND');
+
+      const closedAt = new Date();
+      await transaction.mentaConversation.update({
+        where: { id: current.id },
+        data: { closedAt },
+      });
+      const created = await transaction.mentaConversation.create({
+        data: { userId, scope, consentVersion },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: audit.actorUserId,
+          action: 'menta.conversation_restarted',
+          resourceType: 'menta_conversation',
+          resourceId: current.id,
+          requestId: audit.requestId,
+          ipAddress: audit.ipAddress,
+          metadata: { scope, nextConversationId: created.id },
+        },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: audit.actorUserId,
+          action: 'menta.conversation_opened',
+          resourceType: 'menta_conversation',
+          resourceId: created.id,
+          requestId: audit.requestId,
+          ipAddress: audit.ipAddress,
+          metadata: { scope, consentVersion, previousConversationId: current.id },
+        },
+      });
+      return created.id;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return this.requireOwnedConversation(userId, nextConversationId);
+  }
+
   async requireOwnedConversation(userId: string, conversationId: string): Promise<MentaConversationView> {
     const conversation = await this.prisma.mentaConversation.findFirst({
       where: { id: conversationId, userId, closedAt: null },

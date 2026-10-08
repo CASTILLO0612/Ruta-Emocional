@@ -43,6 +43,7 @@ interface Envelope<T> { readonly data: T }
 interface MentaStreamHandlers {
   readonly onStatus?: (message: string) => void;
   readonly onDelta: (delta: string) => void;
+  readonly onReplace?: (text: string) => void;
 }
 
 interface ServerSentEvent {
@@ -82,6 +83,14 @@ function streamMessage(value: unknown, fallback: string): string {
     : fallback;
 }
 
+function streamDelta(value: unknown): string {
+  return isRecord(value) && typeof value.delta === 'string' ? value.delta : '';
+}
+
+function streamText(value: unknown): string {
+  return isRecord(value) && typeof value.text === 'string' ? value.text : '';
+}
+
 function streamTurn(value: unknown): MentaTurn {
   if (!isRecord(value) || !isRecord(value.turn)) {
     throw new ApiError({
@@ -112,6 +121,15 @@ export async function openMentaConversation(
     '/menta/conversations',
     'POST',
     { scope, consentGranted: true }
+  )).data;
+}
+
+export async function restartMentaConversation(
+  conversationId: string
+): Promise<MentaConversation> {
+  return (await apiV1Request<Envelope<MentaConversation>>(
+    `/menta/conversations/${encodeURIComponent(conversationId)}/restart`,
+    'POST'
   )).data;
 }
 
@@ -153,8 +171,12 @@ export async function sendMentaMessageStream(
       return;
     }
     if (event.event === 'delta') {
-      const delta = streamMessage(event.data, '');
+      const delta = streamDelta(event.data);
       if (delta) handlers.onDelta(delta);
+      return;
+    }
+    if (event.event === 'replace') {
+      handlers.onReplace?.(streamText(event.data));
       return;
     }
     if (event.event === 'completed') {

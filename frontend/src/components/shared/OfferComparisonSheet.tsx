@@ -22,14 +22,14 @@ import {
   MapPin,
   MessageCircle,
   Phone,
-  CheckCircle2,
 } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Offer } from '../../models/Offer';
 import { ActiveRequest } from '../../models/ActiveRequest';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { Spacing, BorderRadius, Shadow } from '../../theme/spacing';
+import { Spacing } from '../../theme/spacing';
 import { IconSize, IconStroke } from '../../theme/icons';
 import { AppButton } from '../common/AppButton';
 import { formatMoney } from '../../utils/money';
@@ -94,10 +94,10 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
     <Modal
       visible={visible}
       animationType={reduceMotion ? 'none' : 'slide'}
-      transparent
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <View
           ref={sheetRef}
           style={styles.sheet}
@@ -106,7 +106,6 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
           accessibilityLabel="Detalle de propuesta del profesional"
           collapsable={false}
         >
-          {/* Barra superior de cierre */}
           <View style={styles.headerBar}>
             <Text style={[Typography.h4, styles.sheetTitle]}>Propuesta de atención</Text>
             <TouchableOpacity
@@ -124,7 +123,6 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* 1. Identidad del profesional */}
             <View style={styles.profileSection}>
               <TouchableOpacity
                 onPress={() => onViewProfile(offer.psychologistId)}
@@ -150,7 +148,6 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
                     {offer.psychologistSpecialty}
                   </Text>
                 )}
-                {/* Rating solo si > 0 */}
                 {hasRating && (
                   <View style={styles.ratingRow}>
                     <Star size={13} color={Colors.starFilled} fill={Colors.starFilled} />
@@ -162,8 +159,7 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
               </View>
             </View>
 
-            {/* 2. Comparación Monetaria */}
-            <View style={styles.comparisonBox}>
+            <View style={styles.comparisonSection}>
               <View style={styles.comparisonCol}>
                 <Text style={[Typography.caption, styles.comparisonLabel]}>
                   TU PRESUPUESTO
@@ -175,24 +171,24 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
 
               <View style={styles.differenceIndicator}>
                 {difference > 0 ? (
-                  <View style={[styles.diffBadge, styles.diffBadgeOver]}>
+                  <>
                     <ArrowUpRight size={12} color={Colors.warning} />
                     <Text style={[Typography.caption, styles.diffTextOver]}>
                       +{formatMoney(difference, offer.currencyCode)}
                     </Text>
-                  </View>
+                  </>
                 ) : difference < 0 ? (
-                  <View style={[styles.diffBadge, styles.diffBadgeUnder]}>
+                  <>
                     <ArrowDownRight size={12} color={Colors.success} />
                     <Text style={[Typography.caption, styles.diffTextUnder]}>
                       {formatMoney(difference, offer.currencyCode)}
                     </Text>
-                  </View>
+                  </>
                 ) : (
-                  <View style={[styles.diffBadge, styles.diffBadgeEqual]}>
+                  <>
                     <Minus size={12} color={Colors.textTertiary} />
                     <Text style={[Typography.caption, styles.diffTextEqual]}>Mismo precio</Text>
-                  </View>
+                  </>
                 )}
               </View>
 
@@ -206,9 +202,8 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
               </View>
             </View>
 
-            {/* 3. Mensaje del psicólogo (si existe) */}
             {offer.message && offer.message.trim().length > 0 && (
-              <View style={styles.messageBox}>
+              <View style={styles.messageSection}>
                 <View style={styles.messageHeader}>
                   <MessageSquareQuote size={14} color={Colors.primary} />
                   <Text style={[Typography.caption, styles.messageTitle]}>
@@ -221,8 +216,7 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
               </View>
             )}
 
-            {/* 4. Condiciones de tu solicitud (claramente separadas) */}
-            <View style={styles.conditionsBox}>
+            <View style={styles.conditionsSection}>
               <Text style={[Typography.caption, styles.conditionsTitle]}>
                 CONDICIONES DE TU SOLICITUD
               </Text>
@@ -246,10 +240,9 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
             </View>
           </ScrollView>
 
-          {/* Barra de acciones inferior */}
           <View style={styles.actionsBar}>
             <AppButton
-              label={isAccepting ? 'Aceptando...' : 'Aceptar oferta'}
+              label={isAccepting ? 'Aceptando' : 'Aceptar oferta'}
               onPress={() => onAccept(offer)}
               variant="primary"
               size="lg"
@@ -284,23 +277,19 @@ export const OfferComparisonSheet: React.FC<OfferComparisonSheetProps> = ({
             </View>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
+  screen: {
     flex: 1,
-    backgroundColor: Colors.overlay,
-    justifyContent: 'flex-end',
+    backgroundColor: Colors.surface,
   },
   sheet: {
+    flex: 1,
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: BorderRadius.xxl,
-    borderTopRightRadius: BorderRadius.xxl,
-    maxHeight: '90%',
-    ...Shadow.xl,
   },
   headerBar: {
     flexDirection: 'row',
@@ -362,16 +351,15 @@ const styles = StyleSheet.create({
   ratingText: {
     color: Colors.textTertiary,
   },
-  comparisonBox: {
+  comparisonSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
+    paddingVertical: Spacing.base,
     marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.divider,
   },
   comparisonCol: {
     flex: 1,
@@ -392,46 +380,31 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   differenceIndicator: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xs,
-  },
-  diffBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
     gap: 2,
-  },
-  diffBadgeOver: {
-    backgroundColor: Colors.warningSurface,
   },
   diffTextOver: {
     color: Colors.warning,
     fontFamily: Typography.button.fontFamily,
     fontSize: 11,
   },
-  diffBadgeUnder: {
-    backgroundColor: Colors.successSurface,
-  },
   diffTextUnder: {
     color: Colors.success,
     fontFamily: Typography.button.fontFamily,
     fontSize: 11,
   },
-  diffBadgeEqual: {
-    backgroundColor: Colors.surfaceMuted,
-  },
   diffTextEqual: {
     color: Colors.textTertiary,
     fontSize: 11,
   },
-  messageBox: {
-    backgroundColor: Colors.primaryTint,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
+  messageSection: {
+    paddingVertical: Spacing.sm,
+    paddingLeft: Spacing.md,
     marginBottom: Spacing.lg,
-    borderLeftWidth: 3,
+    borderLeftWidth: 2,
     borderLeftColor: Colors.primary,
   },
   messageHeader: {
@@ -449,12 +422,10 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     lineHeight: 22,
   },
-  conditionsBox: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+  conditionsSection: {
+    paddingVertical: Spacing.base,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
   },

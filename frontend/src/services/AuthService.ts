@@ -1,4 +1,11 @@
-import { ApiError, apiV1Request, configureAuthRefresh, setAuthToken } from './apiClient';
+import { resolveApiAssetUrl } from '../config/runtimeConfig';
+import {
+  ApiError,
+  apiV1FileRequest,
+  apiV1Request,
+  configureAuthRefresh,
+  setAuthToken,
+} from './apiClient';
 import { deleteRefreshToken, readRefreshToken, writeRefreshToken } from './secureSessionStorage';
 import { configureSocketAuthRefresh, disconnectSocket } from './socketClient';
 
@@ -14,6 +21,7 @@ export interface CurrentUser {
   readonly displayName: string;
   readonly email: string;
   readonly photoUrl: string | null;
+  readonly phone?: string | null;
   readonly status: AccountStatus;
   readonly roles: readonly RoleCode[];
   readonly psychologistVerificationStatus: VerificationStatus | null;
@@ -90,6 +98,7 @@ function isCurrentUser(value: unknown): value is CurrentUser {
     && typeof value.displayName === 'string'
     && typeof value.email === 'string'
     && (typeof value.photoUrl === 'string' || value.photoUrl === null)
+    && (value.phone === undefined || typeof value.phone === 'string' || value.phone === null)
     && typeof value.status === 'string'
     && ACCOUNT_STATUSES.has(value.status as AccountStatus)
     && isStringArray(roles)
@@ -126,7 +135,7 @@ function envelopeData(payload: unknown): unknown {
 function readCurrentUser(payload: unknown): CurrentUser {
   const user = envelopeData(payload);
   if (!isCurrentUser(user)) throw invalidResponseError();
-  return user;
+  return { ...user, photoUrl: resolveApiAssetUrl(user.photoUrl) };
 }
 
 function readTokenPair(payload: unknown): TokenPair {
@@ -140,7 +149,10 @@ function readAuthenticatedSession(payload: unknown): AuthenticatedSession {
   if (!isRecord(data) || !isCurrentUser(data.user) || !isTokenPair(data.tokens)) {
     throw invalidResponseError();
   }
-  return { user: data.user, tokens: data.tokens };
+  return {
+    user: { ...data.user, photoUrl: resolveApiAssetUrl(data.user.photoUrl) },
+    tokens: data.tokens,
+  };
 }
 
 function readPasswordResetRequest(payload: unknown): PasswordResetRequestResult {
@@ -340,6 +352,31 @@ export async function completePasswordReset(token: string, password: string): Pr
 
 export async function getCurrentUser(): Promise<CurrentUser> {
   const payload = await apiV1Request<unknown>('/auth/me');
+  return readCurrentUser(payload);
+}
+
+export async function updateCurrentUserProfile(input: {
+  readonly displayName: string;
+  readonly phone: string | null;
+}): Promise<CurrentUser> {
+  const payload = await apiV1Request<unknown>('/auth/me', 'PATCH', input);
+  return readCurrentUser(payload);
+}
+
+export async function uploadCurrentUserPhoto(input: {
+  readonly uri: string;
+  readonly contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+}): Promise<CurrentUser> {
+  const payload = await apiV1FileRequest<unknown>(
+    '/auth/me/photo',
+    input.uri,
+    { contentType: input.contentType, fileName: 'profile-photo' }
+  );
+  return readCurrentUser(payload);
+}
+
+export async function removeCurrentUserPhoto(): Promise<CurrentUser> {
+  const payload = await apiV1Request<unknown>('/auth/me/photo', 'DELETE');
   return readCurrentUser(payload);
 }
 

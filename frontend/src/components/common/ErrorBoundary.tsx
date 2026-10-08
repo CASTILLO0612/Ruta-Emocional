@@ -8,7 +8,6 @@ import { IconSize, IconStroke } from '../../theme/icons';
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  errorMessage: string;
 }
 
 interface ErrorBoundaryProps {
@@ -19,19 +18,19 @@ interface ErrorBoundaryProps {
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, errorMessage: '' };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, errorMessage: error?.message || 'Error inesperado' };
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    console.error('[ErrorBoundary] Error capturado:', error, info);
+    if (__DEV__) console.error('[ErrorBoundary]', error.name, info.componentStack);
   }
 
   handleRetry = (): void => {
-    this.setState({ hasError: false, errorMessage: '' });
+    this.setState({ hasError: false });
   };
 
   render() {
@@ -46,13 +45,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           </View>
           <Text style={styles.title}>Algo salió mal</Text>
           <Text style={styles.subtitle}>
-            Ocurrió un error inesperado. Tus datos están seguros.
+            No pudimos mostrar esta pantalla. Inténtalo nuevamente.
           </Text>
-          {__DEV__ && (
-            <View style={styles.devBox}>
-              <Text style={styles.devText}>{this.state.errorMessage}</Text>
-            </View>
-          )}
           <TouchableOpacity style={styles.retryBtn} onPress={this.handleRetry}>
             <RefreshCw size={IconSize.action} strokeWidth={IconStroke.regular} color={Colors.textInverse} />
             <Text style={styles.retryText}>Reintentar</Text>
@@ -93,18 +87,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  devBox: {
-    backgroundColor: Colors.errorFaded,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    width: '100%',
-    marginTop: Spacing.sm,
-  },
-  devText: {
-    ...Typography.bodySmall,
-    color: Colors.error,
-    fontFamily: 'monospace',
   },
   retryBtn: {
     flexDirection: 'row',

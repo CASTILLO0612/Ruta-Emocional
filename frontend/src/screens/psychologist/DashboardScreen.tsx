@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   View,
   Text,
   StyleSheet,
   FlatList,
+  Pressable,
   StatusBar,
 } from 'react-native';
-import { RadioTower } from 'lucide-react-native';
+import { RadioTower, Send } from 'lucide-react-native';
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
@@ -15,6 +16,7 @@ import { BorderRadius, Spacing } from '../../theme/spacing';
 import { AppHeader } from '../../components/shared/AppHeader';
 import { RequestCard } from '../../components/psychologist/RequestCard';
 import { ProfessionalOfferSheet } from '../../components/psychologist/ProfessionalOfferSheet';
+import { SentOfferRow } from '../../components/psychologist/SentOfferRow';
 import { ActiveRequest } from '../../models/ActiveRequest';
 import { useRequestStore } from '../../store/useRequestStore';
 import { CustomAlert } from '../../components/common/CustomAlert';
@@ -25,6 +27,7 @@ import {
 } from '../../repositories/RequestRepository';
 import { formatMoney } from '../../utils/money';
 import { presentUserError } from '../../utils/userFacingError';
+import { getOwnOffers, OwnOffer, withdrawOffer } from '../../repositories/OfferRepository';
 
 export const DashboardScreen: React.FC = () => {
   const { toastConfig, showToast, hideToast } = useToast();
@@ -40,6 +43,15 @@ export const DashboardScreen: React.FC = () => {
   } = useRequestStore();
 
   const [selectedRequest, setSelectedRequest] = useState<ActiveRequest | null>(null);
+  const [section, setSection] = useState<'AVAILABLE' | 'SENT'>('AVAILABLE');
+  const [sentOffers, setSentOffers] = useState<readonly OwnOffer[]>([]);
+  const [nextOffersCursor, setNextOffersCursor] = useState<string | null | undefined>(undefined);
+  const [isLoadingOffers, setIsLoadingOffers] = useState(false);
+  const [offersLoadingMode, setOffersLoadingMode] = useState<'initial' | 'refresh' | 'more' | null>(null);
+  const isLoadingOffersRef = useRef(false);
+  const hasLoadedOffersRef = useRef(false);
+  const [withdrawingOfferId, setWithdrawingOfferId] = useState<string | null>(null);
+  const [withdrawTarget, setWithdrawTarget] = useState<OwnOffer | null>(null);
   const [counterAmount, setCounterAmount] = useState('');
   const [requestPolicy, setRequestPolicy] = useState<ServiceRequestPolicy | null>(null);
 
@@ -60,6 +72,41 @@ export const DashboardScreen: React.FC = () => {
       stopListeningToPendingRequests();
     };
   }, [showToast, startListeningToPendingRequests, stopListeningToPendingRequests]);
+
+  const loadOwnOffers = useCallback(async (cursor?: string, signal?: AbortSignal) => {
+    if (isLoadingOffersRef.current) return;
+    isLoadingOffersRef.current = true;
+    const loadingMode = cursor ? 'more' : hasLoadedOffersRef.current ? 'refresh' : 'initial';
+    setOffersLoadingMode(loadingMode);
+    setIsLoadingOffers(true);
+    try {
+      const page = await getOwnOffers(cursor, signal);
+      if (!signal?.aborted) {
+        setSentOffers((current) => {
+          if (!cursor) return page.items;
+          const knownIds = new Set(current.map(({ offer }) => offer.id));
+          return [...current, ...page.items.filter(({ offer }) => !knownIds.has(offer.id))];
+        });
+        setNextOffersCursor(page.nextCursor);
+        hasLoadedOffersRef.current = true;
+      }
+    } catch (loadError) {
+      if (signal?.aborted || (loadError instanceof Error && loadError.name === 'AbortError')) return;
+      showToast(presentUserError(loadError, 'No pudimos cargar tus ofertas enviadas.'), 'error');
+    } finally {
+      isLoadingOffersRef.current = false;
+      if (!signal?.aborted) {
+        setIsLoadingOffers(false);
+        setOffersLoadingMode(null);
+      }
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadOwnOffers(undefined, controller.signal);
+    return () => controller.abort();
+  }, [loadOwnOffers]);
 
   useEffect(() => {
     if (!error) return;
@@ -83,6 +130,7 @@ export const DashboardScreen: React.FC = () => {
         requestId: req.id,
         amount: req.proposedBudget,
       });
+      void loadOwnOffers();
       showToast('Oferta enviada. El paciente podrá revisarla y responder.', 'success');
     } catch (submissionError) {
       clearError();
@@ -126,6 +174,7 @@ export const DashboardScreen: React.FC = () => {
         requestId: selectedRequest.id,
         amount,
       });
+      void loadOwnOffers();
       setSelectedRequest(null);
       setCounterAmount('');
       showToast('Contraoferta enviada correctamente.', 'success');
@@ -135,6 +184,24 @@ export const DashboardScreen: React.FC = () => {
         presentUserError(submissionError, 'No pudimos enviar la contraoferta. Inténtalo nuevamente.'),
         'error'
       );
+    }
+  };
+
+  const handleConfirmWithdraw = async () => {
+    if (!withdrawTarget) return;
+    const target = withdrawTarget;
+    setWithdrawTarget(null);
+    setWithdrawingOfferId(target.offer.id);
+    try {
+      const updated = await withdrawOffer(target.offer.requestId, target.offer.id);
+      setSentOffers((current) => current.map((item) => (
+        item.offer.id === updated.id ? { ...item, offer: updated } : item
+      )));
+      showToast('La oferta fue retirada.', 'success');
+    } catch (withdrawError) {
+      showToast(presentUserError(withdrawError, 'No pudimos retirar la oferta.'), 'error');
+    } finally {
+      setWithdrawingOfferId(null);
     }
   };
 
@@ -175,7 +242,27 @@ export const DashboardScreen: React.FC = () => {
         showInbox
       />
 
-      <FlatList
+      <View style={styles.primaryNavigation} accessibilityRole="tablist">
+        {(['AVAILABLE', 'SENT'] as const).map((value) => {
+          const selected = section === value;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => setSection(value)}
+              style={[styles.primaryNavigationItem, selected && styles.primaryNavigationItemActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              aria-selected={selected}
+            >
+              <Text style={[styles.primaryNavigationText, selected && styles.primaryNavigationTextActive]}>
+                {value === 'AVAILABLE' ? 'Disponibles' : 'Enviadas'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {section === 'AVAILABLE' ? <FlatList
         data={pendingRequests}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -198,7 +285,55 @@ export const DashboardScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         initialNumToRender={6}
         windowSize={7}
-      />
+      /> : <FlatList
+        data={sentOffers}
+        keyExtractor={({ offer }) => offer.id}
+        renderItem={({ item }) => (
+          <SentOfferRow
+            item={item}
+            isWithdrawing={withdrawingOfferId === item.offer.id}
+            onWithdraw={setWithdrawTarget}
+          />
+        )}
+        ListHeaderComponent={sentOffers.length > 0 ? (
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>Tus propuestas</Text>
+            <Text style={styles.listSubtitle}>Puedes retirar las que aún esperan respuesta.</Text>
+          </View>
+        ) : null}
+        ListEmptyComponent={(
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconBox}>
+              {isLoadingOffers ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : (
+                <Send size={28} color={Colors.primary} strokeWidth={1.8} />
+              )}
+            </View>
+            <Text style={styles.emptyTitle}>
+              {isLoadingOffers ? 'Cargando ofertas' : 'Aún no has enviado ofertas'}
+            </Text>
+            <Text style={styles.emptySub}>Las propuestas enviadas y su estado aparecerán aquí.</Text>
+          </View>
+        )}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshing={offersLoadingMode === 'refresh'}
+        onRefresh={() => void loadOwnOffers()}
+        onEndReached={() => {
+          if (nextOffersCursor && !isLoadingOffersRef.current) {
+            void loadOwnOffers(nextOffersCursor);
+          }
+        }}
+        onEndReachedThreshold={0.35}
+        ListFooterComponent={sentOffers.length > 0 && offersLoadingMode === 'more' ? (
+          <View style={styles.paginationLoader}>
+            <ActivityIndicator color={Colors.primary} />
+          </View>
+        ) : null}
+        initialNumToRender={8}
+        windowSize={7}
+      />}
 
       <ProfessionalOfferSheet
         request={selectedRequest}
@@ -209,6 +344,18 @@ export const DashboardScreen: React.FC = () => {
         onAmountChange={setCounterAmount}
         onSubmit={() => void handleSubmitCounter()}
         onClose={handleCloseOfferSheet}
+      />
+
+      <CustomAlert
+        visible={Boolean(withdrawTarget)}
+        title="Retirar oferta"
+        message="El paciente dejará de ver esta propuesta. Esta acción no se puede deshacer."
+        confirmText="Retirar"
+        cancelText="Cancelar"
+        tone="warning"
+        showCancel
+        onConfirm={() => void handleConfirmWithdraw()}
+        onCancel={() => setWithdrawTarget(null)}
       />
 
       <CustomAlert
@@ -233,6 +380,18 @@ export const DashboardScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
+  primaryNavigation: {
+    minHeight: 52, flexDirection: 'row', paddingHorizontal: Spacing.base,
+    gap: Spacing.xl, borderBottomWidth: 1, borderBottomColor: Colors.divider,
+    backgroundColor: Colors.surface,
+  },
+  primaryNavigationItem: {
+    flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center',
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  primaryNavigationItemActive: { borderBottomColor: Colors.primary },
+  primaryNavigationText: { ...Typography.bodySmall, color: Colors.textSecondary },
+  primaryNavigationTextActive: { color: Colors.primary },
   listContent: {
     flexGrow: 1,
     paddingHorizontal: Spacing.base,
@@ -253,6 +412,11 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: Spacing.md,
+  },
+  paginationLoader: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   emptyState: {

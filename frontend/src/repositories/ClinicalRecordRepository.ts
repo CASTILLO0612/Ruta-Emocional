@@ -1,4 +1,5 @@
 import { apiV1Request } from '../services/apiClient';
+import { resolveApiAssetUrl } from '../config/runtimeConfig';
 
 export type ClinicalNoteStatus = 'DRAFT' | 'SIGNED' | 'AMENDED';
 export type TreatmentPlanStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
@@ -125,7 +126,20 @@ export function fetchClinicalPatients(
     'GET',
     undefined,
     { signal }
-  );
+  ).then((response) => ({
+    ...response,
+    data: response.data.map((patient) => ({
+      ...patient,
+      photoUrl: resolveApiAssetUrl(patient.photoUrl),
+    })),
+  }));
+}
+
+function normalizeClinicalRecord(record: ClinicalRecord): ClinicalRecord {
+  return {
+    ...record,
+    patient: { ...record.patient, photoUrl: resolveApiAssetUrl(record.patient.photoUrl) },
+  };
 }
 
 export async function fetchClinicalRecord(
@@ -133,12 +147,12 @@ export async function fetchClinicalRecord(
   cursor?: string,
   signal?: AbortSignal
 ): Promise<ClinicalRecord> {
-  return (await apiV1Request<Envelope<ClinicalRecord>>(
+  return normalizeClinicalRecord((await apiV1Request<Envelope<ClinicalRecord>>(
     `/clinical/patients/${encodeURIComponent(patientUserId)}/record${queryString({ cursor })}`,
     'GET',
     undefined,
     { signal }
-  )).data;
+  )).data);
 }
 
 export async function fetchClinicalNoteVersions(
@@ -162,12 +176,12 @@ export async function createClinicalEncounter(
   },
   idempotencyKey: string
 ): Promise<ClinicalRecord> {
-  return (await apiV1Request<Envelope<ClinicalRecord>>(
+  return normalizeClinicalRecord((await apiV1Request<Envelope<ClinicalRecord>>(
     '/clinical/encounters',
     'POST',
     input,
     { idempotencyKey }
-  )).data;
+  )).data);
 }
 
 export async function updateClinicalDraft(
@@ -176,12 +190,12 @@ export async function updateClinicalDraft(
   content: string,
   idempotencyKey: string
 ): Promise<ClinicalRecord> {
-  return (await apiV1Request<Envelope<ClinicalRecord>>(
+  return normalizeClinicalRecord((await apiV1Request<Envelope<ClinicalRecord>>(
     `/clinical/notes/${encodeURIComponent(noteId)}/draft`,
     'PUT',
     { expectedVersion, content },
     { idempotencyKey }
-  )).data;
+  )).data);
 }
 
 export async function signClinicalNote(
@@ -189,12 +203,12 @@ export async function signClinicalNote(
   expectedVersion: number,
   idempotencyKey: string
 ): Promise<ClinicalRecord> {
-  return (await apiV1Request<Envelope<ClinicalRecord>>(
+  return normalizeClinicalRecord((await apiV1Request<Envelope<ClinicalRecord>>(
     `/clinical/notes/${encodeURIComponent(noteId)}/sign`,
     'POST',
     { expectedVersion },
     { idempotencyKey }
-  )).data;
+  )).data);
 }
 
 export async function amendClinicalNote(
@@ -202,12 +216,12 @@ export async function amendClinicalNote(
   input: { readonly expectedVersion: number; readonly content: string; readonly reason: string },
   idempotencyKey: string
 ): Promise<ClinicalRecord> {
-  return (await apiV1Request<Envelope<ClinicalRecord>>(
+  return normalizeClinicalRecord((await apiV1Request<Envelope<ClinicalRecord>>(
     `/clinical/notes/${encodeURIComponent(noteId)}/amendments`,
     'POST',
     input,
     { idempotencyKey }
-  )).data;
+  )).data);
 }
 
 export async function createTreatmentPlan(

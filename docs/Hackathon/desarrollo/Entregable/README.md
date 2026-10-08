@@ -24,14 +24,14 @@ El archivo [`Modelo ER.pdf`](Diagrama%20ER.pdf) contiene:
 - 72 asociaciones semánticas con cardinalidad y participación;
 - una jerarquía `ISA` parcial y superpuesta para Usuario, Paciente y Psicólogo;
 - 7 relaciones N:N conservadas explícitamente en el nivel conceptual;
-- cobertura trazable de los 58 modelos Prisma vigentes, distinguiendo estructuras lógicas auxiliares;
+- cobertura trazable de los 63 modelos Prisma vigentes, distinguiendo estructuras lógicas auxiliares;
 - separación de su resolución mediante estructuras asociativas en el modelo lógico;
 - exclusión explícita de tablas, tipos SQL, llaves foráneas, índices, triggers y detalles del motor.
 
 La representación se mantiene conceptual. El modelo relacional y la demostración de tercera forma normal se documentan por separado para no mezclar niveles de abstracción.
 
 La [`trazabilidad del modelo vigente`](trazabilidad-modelo-vigente.md) clasifica
-uno por uno los 58 modelos Prisma como entidad, subtipo, asociación materializada,
+uno por uno los 63 modelos Prisma como entidad, subtipo, asociación materializada,
 catálogo lógico o estructura técnica. Así se demuestra cobertura sin convertir
 el DER en una captura del esquema físico.
 

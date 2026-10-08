@@ -37,7 +37,10 @@ import {
 } from '../../utils/authValidation';
 import { presentUserError } from '../../utils/userFacingError';
 import { ApiError } from '../../services/apiClient';
-import { requestGoogleIdToken } from '../../services/googleIdentityProvider';
+import {
+  GoogleIdentityProviderError,
+  requestGoogleIdToken,
+} from '../../services/googleIdentityProvider';
 
 const AuthFooter: React.FC<{ navigation: AuthNavigation }> = ({ navigation }) => (
   <AuthLegalLinks navigation={navigation} />
@@ -113,7 +116,14 @@ export const LoginScreen: React.FC = () => {
         throw error;
       }
     } catch (error) {
-      showToast(presentUserError(error, 'No pudimos completar el acceso con Google.'), 'error');
+      showToast(
+        error instanceof GoogleIdentityProviderError
+          ? error.message
+          : presentUserError(error, 'No pudimos completar el acceso con Google.'),
+        error instanceof GoogleIdentityProviderError && error.code === 'CANCELLED'
+          ? 'warning'
+          : 'error'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +173,7 @@ export const LoginScreen: React.FC = () => {
           <AuthField
             icon={LockKeyhole}
             label="Contraseña"
-            placeholder="Ingresa tu contraseña"
+            placeholder="Tu contraseña"
             value={password}
             onChangeText={(value) => {
               setPassword(value);

@@ -1,4 +1,4 @@
-import { File, UploadType } from 'expo-file-system';
+import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import { fetch as expoFetch } from 'expo/fetch';
 import { getLegacyApiBaseUrl, getVersionOneApiBaseUrl } from '../config/runtimeConfig';
 
@@ -150,6 +150,7 @@ async function executeRequest<T>(
       signal: options.signal,
     });
   } catch (cause) {
+    if (cause instanceof ApiError) throw cause;
     throw new ApiError({
       status: 0,
       code: 'NETWORK_ERROR',
@@ -180,7 +181,7 @@ async function executeRequest<T>(
 
 async function executeFileUpload<T>(
   endpoint: string,
-  file: File,
+  fileUri: string,
   options: ApiRequestOptions & {
     readonly contentType: string;
     readonly fileName: string;
@@ -199,15 +200,29 @@ async function executeFileUpload<T>(
   let status: number;
   let responseBody: string;
   try {
-    const result = await file.upload(`${getVersionOneApiBaseUrl()}${endpoint}`, {
+    if (options.signal?.aborted) {
+      throw new ApiError({
+        status: 0,
+        code: 'REQUEST_ABORTED',
+        message: 'La transferencia fue cancelada.',
+      });
+    }
+    const result = await uploadAsync(`${getVersionOneApiBaseUrl()}${endpoint}`, fileUri, {
       httpMethod: 'PUT',
-      uploadType: UploadType.BINARY_CONTENT,
+      uploadType: FileSystemUploadType.BINARY_CONTENT,
       headers,
-      signal: options.signal,
     });
+    if (options.signal?.aborted) {
+      throw new ApiError({
+        status: 0,
+        code: 'REQUEST_ABORTED',
+        message: 'La transferencia fue cancelada.',
+      });
+    }
     status = result.status;
     responseBody = result.body;
   } catch (cause) {
+    if (cause instanceof ApiError) throw cause;
     throw new ApiError({
       status: 0,
       code: 'FILE_UPLOAD_ERROR',
@@ -224,7 +239,7 @@ async function executeFileUpload<T>(
   ) {
     const nextAccessToken = await refreshAccessToken();
     if (nextAccessToken) {
-      return executeFileUpload<T>(endpoint, file, {
+      return executeFileUpload<T>(endpoint, fileUri, {
         ...options,
         retryUnauthorized: false,
       });
@@ -334,13 +349,13 @@ export function apiV1Request<T>(
 
 export function apiV1FileRequest<T>(
   endpoint: string,
-  file: File,
+  fileUri: string,
   options: ApiRequestOptions & {
     readonly contentType: string;
     readonly fileName: string;
   }
 ): Promise<T> {
-  return executeFileUpload<T>(endpoint, file, options);
+  return executeFileUpload<T>(endpoint, fileUri, options);
 }
 
 export function apiV1EventStream(

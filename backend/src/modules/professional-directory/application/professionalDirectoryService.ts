@@ -20,7 +20,10 @@ import {
 export class ProfessionalDirectoryService {
   constructor(
     private readonly repository: ProfessionalDirectoryRepository,
-    private readonly localQa: AppConfig['localQa'],
+    private readonly evidenceUploads: {
+      readonly enabled: boolean;
+      readonly maximumBytes: number;
+    },
     private readonly evidenceStorage?: PrivateEvidenceStorage
   ) {}
 
@@ -127,10 +130,10 @@ export class ProfessionalDirectoryService {
 
   getEvidenceUploadPolicy(actor: AuthenticatedActor): EvidenceUploadPolicy {
     this.assertCapability(actor, 'psychologist_onboarding:update:self');
-    if (!this.localQa.enabled || !this.evidenceStorage) return { mode: 'DISABLED' };
+    if (!this.evidenceUploads.enabled || !this.evidenceStorage) return { mode: 'DISABLED' };
     return {
-      mode: 'LOCAL_QA',
-      maximumBytes: this.localQa.evidenceMaximumBytes,
+      mode: 'DIRECT',
+      maximumBytes: this.evidenceUploads.maximumBytes,
       acceptedContentTypes: LOCAL_QA_EVIDENCE_CONTENT_TYPES,
     };
   }
@@ -141,7 +144,7 @@ export class ProfessionalDirectoryService {
     audit: RequestAuditContext
   ) {
     this.assertCapability(actor, 'psychologist_onboarding:update:self');
-    if (!this.localQa.enabled || !this.evidenceStorage) {
+    if (!this.evidenceUploads.enabled || !this.evidenceStorage) {
       throw AppError.notFound(
         'LOCAL_QA_EVIDENCE_NOT_AVAILABLE',
         'La carga local de evidencia no está habilitada.'

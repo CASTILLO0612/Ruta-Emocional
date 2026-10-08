@@ -1,4 +1,5 @@
 import { apiV1Request } from '../services/apiClient';
+import { resolveApiAssetUrl } from '../config/runtimeConfig';
 
 export type AppointmentModality = 'CHAT' | 'CALL' | 'IN_PERSON';
 export type AppointmentStatus =
@@ -38,8 +39,24 @@ export interface Appointment {
   readonly timezone: string;
   readonly status: AppointmentStatus;
   readonly cancellationReason: string | null;
+  readonly review?: AppointmentReview | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface AppointmentReview {
+  readonly id: string;
+  readonly rating: number;
+  readonly comment: string | null;
+  readonly createdAt: string;
+}
+
+export interface ReceivedReview extends AppointmentReview {
+  readonly appointmentId: string;
+  readonly patient: {
+    readonly displayName: string;
+    readonly photoUrl: string | null;
+  };
 }
 
 export interface AppointmentPolicy {
@@ -64,6 +81,26 @@ function queryString(parameters: Record<string, string | number | undefined>): s
   return query ? `?${query}` : '';
 }
 
+function normalizeRelationship(relationship: AppointmentRelationship): AppointmentRelationship {
+  return {
+    ...relationship,
+    counterpart: {
+      ...relationship.counterpart,
+      photoUrl: resolveApiAssetUrl(relationship.counterpart.photoUrl),
+    },
+  };
+}
+
+function normalizeAppointment(appointment: Appointment): Appointment {
+  return {
+    ...appointment,
+    counterpart: {
+      ...appointment.counterpart,
+      photoUrl: resolveApiAssetUrl(appointment.counterpart.photoUrl),
+    },
+  };
+}
+
 export async function fetchAppointmentPolicy(signal?: AbortSignal): Promise<AppointmentPolicy> {
   return (await apiV1Request<Envelope<AppointmentPolicy>>(
     '/appointments/policy',
@@ -81,7 +118,7 @@ export async function fetchAppointmentRelationships(
     'GET',
     undefined,
     { signal }
-  )).data;
+  )).data.map(normalizeRelationship);
 }
 
 export async function fetchAppointmentSlots(input: {
@@ -109,12 +146,13 @@ export async function fetchAppointments(
   cursor?: string,
   signal?: AbortSignal
 ): Promise<PageEnvelope<Appointment>> {
-  return apiV1Request<PageEnvelope<Appointment>>(
+  const page = await apiV1Request<PageEnvelope<Appointment>>(
     `/appointments${queryString({ scope, cursor })}`,
     'GET',
     undefined,
     { signal }
   );
+  return { ...page, data: page.data.map(normalizeAppointment) };
 }
 
 export async function createAppointment(
@@ -125,12 +163,12 @@ export async function createAppointment(
   },
   idempotencyKey: string
 ): Promise<Appointment> {
-  return (await apiV1Request<Envelope<Appointment>>(
+  return normalizeAppointment((await apiV1Request<Envelope<Appointment>>(
     '/appointments',
     'POST',
     input,
     { idempotencyKey }
-  )).data;
+  )).data);
 }
 
 export async function transitionAppointment(
@@ -139,12 +177,12 @@ export async function transitionAppointment(
   idempotencyKey: string,
   reason?: string
 ): Promise<Appointment> {
-  return (await apiV1Request<Envelope<Appointment>>(
+  return normalizeAppointment((await apiV1Request<Envelope<Appointment>>(
     `/appointments/${encodeURIComponent(appointmentId)}/transitions`,
     'POST',
     { transition, ...(reason ? { reason } : {}) },
     { idempotencyKey }
-  )).data;
+  )).data);
 }
 
 export async function rescheduleAppointment(
@@ -152,10 +190,41 @@ export async function rescheduleAppointment(
   startsAt: string,
   idempotencyKey: string
 ): Promise<Appointment> {
-  return (await apiV1Request<Envelope<Appointment>>(
+  return normalizeAppointment((await apiV1Request<Envelope<Appointment>>(
     `/appointments/${encodeURIComponent(appointmentId)}/reschedule`,
     'POST',
     { startsAt },
     { idempotencyKey }
+  )).data);
+}
+
+export async function createAppointmentReview(
+  appointmentId: string,
+  rating: number,
+  comment: string | null
+): Promise<AppointmentReview> {
+  return (await apiV1Request<Envelope<AppointmentReview>>(
+    `/appointments/${encodeURIComponent(appointmentId)}/review`,
+    'POST',
+    { rating, comment }
   )).data;
+}
+
+export async function fetchReceivedReviews(
+  cursor?: string,
+  signal?: AbortSignal
+): Promise<PageEnvelope<ReceivedReview>> {
+  const page = await apiV1Request<PageEnvelope<ReceivedReview>>(
+    `/psychologists/me/reviews${queryString({ cursor })}`,
+    'GET',
+    undefined,
+    { signal }
+  );
+  return {
+    ...page,
+    data: page.data.map((review) => ({
+      ...review,
+      patient: { ...review.patient, photoUrl: resolveApiAssetUrl(review.patient.photoUrl) },
+    })),
+  };
 }

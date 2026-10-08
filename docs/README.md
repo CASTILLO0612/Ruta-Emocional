@@ -40,6 +40,10 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 34. [Planteamiento del problema para Aficionado / Desarrollo](Hackathon/desarrollo/Entregable/planteamiento-y-comprension-del-problema.md)
 35. [Matriz de cumplimiento de la entrega](Hackathon/desarrollo/Entregable/matriz-cumplimiento-entrega.md)
 36. [Trazabilidad del DER al esquema vigente](Hackathon/desarrollo/Entregable/trazabilidad-modelo-vigente.md)
+37. [Consolidación del producto sin proveedores de pago](roadmap/phase-8-2-no-cost-product-hardening.md)
+38. [Validación reproducible de rendimiento](operations/performance-validation.md)
+39. [ADR: navegación nativa con Google](architecture/ADR-007-native-google-navigation.md)
+40. [Llamadas de audio y video](operations/realtime-calls.md)
 
 ## Decisiones vigentes
 
@@ -57,6 +61,8 @@ Este directorio es la fuente de verdad para las decisiones funcionales y técnic
 - El agente contextual es una capacidad separada, de sólo lectura en su primera
   versión, con herramientas autorizadas, conversaciones cifradas y proveedor
   exclusivo del backend.
+- Android usa Google Navigation SDK para mapas y guía giro a giro; web conserva
+  una experiencia cartográfica separada y Waze permanece como fallback.
 
 ## Estado documental
 

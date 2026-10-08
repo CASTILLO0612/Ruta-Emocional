@@ -8,6 +8,9 @@ import {
   AppointmentTransition,
   AppointmentView,
   AvailableAppointmentSlot,
+  AppointmentReviewView,
+  ReviewPage,
+  ReviewPageQuery,
 } from '../domain/appointmentTypes';
 
 export interface AppointmentAuditContext {
@@ -68,6 +71,14 @@ export interface AppointmentRepository {
     policy: AppConfig['appointments'],
     audit: AppointmentAuditContext
   ): Promise<AppointmentView>;
+  createReview(
+    userId: string,
+    appointmentId: string,
+    rating: number,
+    comment: string | null,
+    audit: AppointmentAuditContext
+  ): Promise<AppointmentReviewView>;
+  listReceivedReviews(userId: string, query: ReviewPageQuery): Promise<ReviewPage>;
 }
 
 export function hashAppointmentPayload(input: unknown): string {

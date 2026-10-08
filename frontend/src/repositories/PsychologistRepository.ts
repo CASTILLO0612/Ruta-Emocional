@@ -1,4 +1,5 @@
 import { apiV1Request } from '../services/apiClient';
+import { resolveApiAssetUrl } from '../config/runtimeConfig';
 import { DirectoryModality, Modality, Psychologist } from '../models/Psychologist';
 
 interface DirectoryDto {
@@ -36,6 +37,12 @@ export interface DirectoryQuery {
   readonly longitude?: number;
   readonly radiusKm?: number;
   readonly limit?: number;
+  readonly cursor?: string;
+}
+
+export interface PsychologistDirectoryPage {
+  readonly items: readonly Psychologist[];
+  readonly nextCursor: string | null;
 }
 
 const MODALITY_VIEW: Readonly<Record<DirectoryModality, Modality>> = {
@@ -58,7 +65,7 @@ function toView(dto: DirectoryDto): Psychologist {
   return {
     id: dto.id,
     displayName: dto.displayName,
-    photoURL: dto.photoUrl ?? undefined,
+    photoURL: resolveApiAssetUrl(dto.photoUrl) ?? undefined,
     specialty: dto.primarySpecialty?.name ?? dto.specialties[0]?.name ?? '',
     specialties: dto.specialties,
     rating: dto.rating.average === null ? 0 : Number(dto.rating.average),
@@ -86,13 +93,23 @@ export async function getAvailablePsychologists(
   query: DirectoryQuery = {},
   signal?: AbortSignal
 ): Promise<Psychologist[]> {
+  return [...(await getAvailablePsychologistPage(query, signal)).items];
+}
+
+export async function getAvailablePsychologistPage(
+  query: DirectoryQuery = {},
+  signal?: AbortSignal
+): Promise<PsychologistDirectoryPage> {
   const response = await apiV1Request<DirectoryEnvelope>(
     `/psychologists${queryString(query)}`,
     'GET',
     undefined,
     { authenticated: false, signal }
   );
-  return response.data.map(toView);
+  return {
+    items: response.data.map(toView),
+    nextCursor: response.meta.nextCursor,
+  };
 }
 
 export async function getPsychologistById(

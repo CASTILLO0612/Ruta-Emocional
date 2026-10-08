@@ -24,6 +24,10 @@ import {
   AppointmentTransition,
   AppointmentView,
   AvailableAppointmentSlot,
+  AppointmentReviewView,
+  ReviewPage,
+  ReviewPageQuery,
+  encodeReviewCursor,
   encodeAppointmentCursor,
 } from '../../domain/appointmentTypes';
 
@@ -36,6 +40,7 @@ const ACTIVE_STATUSES: readonly AppointmentStatus[] = [
 ];
 
 const appointmentInclude = {
+  review: true,
   careRelationship: {
     include: {
       patientProfile: { include: { user: true } },
@@ -128,6 +133,85 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         conversationId: relationship.conversation?.id ?? null,
       };
     });
+  }
+
+  async createReview(
+    userId: string,
+    appointmentId: string,
+    rating: number,
+    comment: string | null,
+    audit: AppointmentAuditContext
+  ): Promise<AppointmentReviewView> {
+    return this.prisma.$transaction(async (transaction) => {
+      await this.lockAppointment(transaction, appointmentId);
+      const appointment = await transaction.appointment.findFirst({
+        where: { id: appointmentId, patientProfile: { userId } },
+        include: { review: true },
+      });
+      if (!appointment) throw AppError.notFound('APPOINTMENT_NOT_FOUND');
+      if (appointment.status !== AppointmentStatus.COMPLETED) {
+        throw AppError.conflict(
+          'APPOINTMENT_REVIEW_NOT_ALLOWED',
+          'Podrás calificar la atención cuando la cita esté completada.'
+        );
+      }
+      if (appointment.review) {
+        throw AppError.conflict('APPOINTMENT_ALREADY_REVIEWED', 'Esta atención ya fue calificada.');
+      }
+      const review = await transaction.review.create({
+        data: { appointmentId, rating, comment },
+      });
+      await this.writeAudit(transaction, audit, 'appointment.review_created', review.id, {
+        appointmentId,
+        rating,
+      });
+      return {
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt.toISOString(),
+      };
+    });
+  }
+
+  async listReceivedReviews(userId: string, query: ReviewPageQuery): Promise<ReviewPage> {
+    const rows = await this.prisma.review.findMany({
+      where: {
+        appointment: { psychologistProfile: { userId } },
+        ...(query.cursor
+          ? {
+              OR: [
+                { createdAt: { lt: query.cursor.createdAt } },
+                { createdAt: query.cursor.createdAt, id: { lt: query.cursor.id } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        appointment: { include: { patientProfile: { include: { user: true } } } },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    const hasMore = rows.length > query.limit;
+    const pageRows = hasMore ? rows.slice(0, query.limit) : rows;
+    const last = pageRows.at(-1);
+    return {
+      items: pageRows.map((review) => ({
+        id: review.id,
+        appointmentId: review.appointmentId,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt.toISOString(),
+        patient: {
+          displayName: review.appointment.patientProfile.user.displayName,
+          photoUrl: review.appointment.patientProfile.user.photoUrl,
+        },
+      })),
+      nextCursor: hasMore && last
+        ? encodeReviewCursor({ createdAt: last.createdAt, id: last.id })
+        : null,
+    };
   }
 
   async listAvailableSlots(
@@ -751,6 +835,14 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
       timezone: row.timezone,
       status: row.status,
       cancellationReason: row.cancellationReason,
+      review: row.review
+        ? {
+            id: row.review.id,
+            rating: row.review.rating,
+            comment: row.review.comment,
+            createdAt: row.review.createdAt.toISOString(),
+          }
+        : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

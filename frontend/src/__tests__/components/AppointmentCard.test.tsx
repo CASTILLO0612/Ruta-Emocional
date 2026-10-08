@@ -50,4 +50,22 @@ describe('AppointmentCard', () => {
     );
     expect(onOpenOptions).toHaveBeenCalledWith(appointment);
   });
+
+  it('permite al paciente calificar una cita completada una sola vez', async () => {
+    const completed = { ...appointment, status: 'COMPLETED' as const, review: null };
+    const onReview = jest.fn();
+    const view = await render(
+      <AppointmentCard
+        appointment={completed}
+        role="patient"
+        isBusy={false}
+        onPrimaryAction={jest.fn()}
+        onOpenOptions={jest.fn()}
+        onReview={onReview}
+      />
+    );
+
+    await fireEvent.press(view.getByRole('button', { name: 'Calificar atención' }));
+    expect(onReview).toHaveBeenCalledWith(completed);
+  });
 });

@@ -90,6 +90,7 @@ export const Colors = {
   callControl: 'rgba(255, 255, 255, 0.15)',
   callControlDisabled: 'rgba(194, 65, 77, 0.28)',
   callPreview: 'rgba(23, 32, 51, 0.72)',
+  callErrorText: '#FFE0E3',
 } as const;
 
 export type ColorKey = keyof typeof Colors;

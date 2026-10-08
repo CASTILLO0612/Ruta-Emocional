@@ -8,10 +8,12 @@ import {
   History,
   Info,
   LockKeyhole,
+  Phone,
   RefreshCw,
   Send,
   ShieldCheck,
   UserRound,
+  Video,
   X,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -315,6 +317,34 @@ export const ConversationScreen: React.FC = () => {
               <Text style={styles.connectionText}>{getRealtimeConnectionLabel(connectionState)}</Text>
             </View>
           </View>
+          {conversation.modality === 'CALL' ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Iniciar llamada de audio"
+                onPress={() => navigation.navigate('CallSession', {
+                  conversationId,
+                  mediaType: 'AUDIO',
+                  direction: 'OUTGOING',
+                })}
+                style={styles.iconButton}
+              >
+                <Phone size={21} color={Colors.primary} strokeWidth={1.9} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Iniciar videollamada"
+                onPress={() => navigation.navigate('CallSession', {
+                  conversationId,
+                  mediaType: 'VIDEO',
+                  direction: 'OUTGOING',
+                })}
+                style={styles.iconButton}
+              >
+                <Video size={21} color={Colors.primary} strokeWidth={1.9} />
+              </Pressable>
+            </>
+          ) : null}
           <View style={styles.secureBadge}>
             <LockKeyhole size={17} color={Colors.primary} strokeWidth={1.9} />
           </View>

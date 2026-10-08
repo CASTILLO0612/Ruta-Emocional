@@ -7,6 +7,7 @@ import {
   parseEligiblePageQuery,
   parseIdempotencyKey,
   parseOfferBody,
+  parseOfferPageQuery,
   parsePageQuery,
 } from '../../src/modules/service-request/presentation/serviceRequestValidation';
 import { AppError } from '../../src/shared/domain/appError';
@@ -78,6 +79,8 @@ test('idempotency, pagination and empty mutation bodies are fail closed', () => 
   });
   assert.throws(() => parsePageQuery({ limit: '500' }, policy), AppError);
   assert.throws(() => parseEligiblePageQuery({ status: 'ACCEPTED' }, policy), AppError);
+  assert.deepEqual(parseOfferPageQuery({ limit: '10' }, policy), { limit: 10 });
+  assert.throws(() => parseOfferPageQuery({ status: 'BIDDING' }, policy), AppError);
   assert.doesNotThrow(() => assertEmptyBody({}));
   assert.throws(() => assertEmptyBody({ finalPrice: '1.00' }), AppError);
 });

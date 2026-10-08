@@ -63,4 +63,18 @@ describe('presentUserError', () => {
       'Has realizado varios intentos. Espera un momento antes de volver a intentar.'
     );
   });
+
+  it('nunca muestra errores internos de módulos nativos', () => {
+    expect(presentUserError(
+      new Error('this.validatePath is not a function'),
+      'Selecciona otra imagen e inténtalo nuevamente.'
+    )).toBe('Selecciona otra imagen e inténtalo nuevamente.');
+  });
+
+  it('trata toda excepción no tipada como un detalle interno', () => {
+    expect(presentUserError(
+      new Error('Call to NativeImageModule failed unexpectedly'),
+      'La foto no pudo guardarse. Inténtalo nuevamente.'
+    )).toBe('La foto no pudo guardarse. Inténtalo nuevamente.');
+  });
 });

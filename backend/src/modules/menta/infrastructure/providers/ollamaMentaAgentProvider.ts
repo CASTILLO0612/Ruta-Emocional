@@ -1,4 +1,8 @@
-import type { MentaAgentProvider, MentaAgentProviderRequest } from '../../application/ports';
+import type {
+  MentaAgentProvider,
+  MentaAgentProviderObserver,
+  MentaAgentProviderRequest,
+} from '../../application/ports';
 import type { MentaAgentReply, MentaToolCode } from '../../domain/mentaTypes';
 
 type OllamaMessage = Readonly<Record<string, unknown>>;
@@ -6,6 +10,11 @@ type OllamaMessage = Readonly<Record<string, unknown>>;
 interface OllamaResponse {
   readonly model?: unknown;
   readonly message?: unknown;
+}
+
+interface OllamaChatResult {
+  readonly response: OllamaResponse;
+  readonly emittedText: boolean;
 }
 
 interface ToolCall {
@@ -111,20 +120,25 @@ export class OllamaMentaAgentProvider implements MentaAgentProvider {
     readonly fetchImplementation?: typeof fetch;
   }) {}
 
-  async generateReply(request: MentaAgentProviderRequest): Promise<MentaAgentReply> {
+  async generateReply(
+    request: MentaAgentProviderRequest,
+    observer?: MentaAgentProviderObserver
+  ): Promise<MentaAgentReply> {
     const messages = conversationMessages(request, this.options.maximumHistoryCharacters);
     const tools = this.options.toolCallingEnabled ? ollamaTools(request) : [];
     const allowedTools = new Set(request.tools.map(({ name }) => name));
     const toolsUsed: MentaToolCode[] = [];
 
     for (let round = 0; round <= this.options.maximumToolRounds; round += 1) {
-      const response = await this.chat(messages, tools);
+      const result = await this.chat(messages, tools, observer);
+      const response = result.response;
       const message = responseMessage(response);
       const calls = toolCalls(message, allowedTools);
       messages.push(message);
       if (calls.length === 0) {
         const text = typeof message.content === 'string' ? message.content.trim() : '';
         if (!text) throw new Error('Ollama did not return a text response');
+        if (observer && !result.emittedText) observer.onTextDelta(text);
         return {
           text,
           outcome: 'SUCCEEDED',
@@ -156,10 +170,14 @@ export class OllamaMentaAgentProvider implements MentaAgentProvider {
 
   private async chat(
     messages: readonly OllamaMessage[],
-    tools: readonly Record<string, unknown>[]
-  ): Promise<OllamaResponse> {
+    tools: readonly Record<string, unknown>[],
+    observer?: MentaAgentProviderObserver
+  ): Promise<OllamaChatResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
+    const abortFromObserver = () => controller.abort();
+    observer?.signal?.addEventListener('abort', abortFromObserver, { once: true });
+    if (observer?.signal?.aborted) controller.abort();
     try {
       const response = await (this.options.fetchImplementation ?? fetch)(
         `${this.options.baseUrl}/api/chat`,
@@ -170,7 +188,7 @@ export class OllamaMentaAgentProvider implements MentaAgentProvider {
             model: this.options.model,
             messages,
             ...(tools.length > 0 ? { tools } : {}),
-            stream: false,
+            stream: Boolean(observer),
             think: false,
             keep_alive: this.options.keepAlive,
             options: {
@@ -182,11 +200,69 @@ export class OllamaMentaAgentProvider implements MentaAgentProvider {
         }
       );
       if (!response.ok) throw new Error(`Ollama request failed with status ${response.status}`);
+      if (observer) return this.readStream(response, tools.length === 0 ? observer : undefined);
       const payload: unknown = await response.json();
       if (!isRecord(payload)) throw new Error('Ollama returned invalid JSON');
-      return payload;
+      return { response: payload, emittedText: false };
     } finally {
       clearTimeout(timeout);
+      observer?.signal?.removeEventListener('abort', abortFromObserver);
     }
+  }
+
+  private async readStream(
+    response: Response,
+    observer?: MentaAgentProviderObserver
+  ): Promise<OllamaChatResult> {
+    if (!response.body) throw new Error('Ollama returned an empty stream');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = '';
+    let model: unknown;
+    let content = '';
+    let emittedText = false;
+    const collectedToolCalls: unknown[] = [];
+
+    const consumeLine = (line: string) => {
+      if (!line.trim()) return;
+      const payload: unknown = JSON.parse(line);
+      if (!isRecord(payload)) throw new Error('Ollama returned an invalid stream event');
+      if (payload.model !== undefined) model = payload.model;
+      if (!isRecord(payload.message)) return;
+      if (typeof payload.message.content === 'string' && payload.message.content) {
+        content += payload.message.content;
+        observer?.onTextDelta(payload.message.content);
+        emittedText = emittedText || Boolean(observer);
+      }
+      if (Array.isArray(payload.message.tool_calls)) {
+        collectedToolCalls.push(...payload.message.tool_calls);
+      }
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        buffered += decoder.decode(value, { stream: !done });
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() ?? '';
+        lines.forEach(consumeLine);
+        if (done) break;
+      }
+      if (buffered.trim()) consumeLine(buffered);
+    } finally {
+      reader.releaseLock();
+    }
+
+    return {
+      response: {
+        model,
+        message: {
+          role: 'assistant',
+          content,
+          ...(collectedToolCalls.length > 0 ? { tool_calls: collectedToolCalls } : {}),
+        },
+      },
+      emittedText,
+    };
   }
 }

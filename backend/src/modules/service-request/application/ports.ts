@@ -5,6 +5,7 @@ import {
   EligibleServiceRequestView,
   PersistedServiceRequestInput,
   RequestPageQuery,
+  OwnServiceOfferView,
   ServiceOfferView,
   ServiceRequestPage,
   ServiceRequestView,
@@ -57,6 +58,10 @@ export interface ServiceRequestRepository {
     audit: RequestAuditContext
   ): Promise<ServiceOfferView>;
   listRequestOffers(userId: string, requestId: string): Promise<readonly ServiceOfferView[]>;
+  listOwnOffers(
+    userId: string,
+    query: RequestPageQuery
+  ): Promise<ServiceRequestPage<OwnServiceOfferView>>;
   withdrawOwnOffer(
     userId: string,
     requestId: string,

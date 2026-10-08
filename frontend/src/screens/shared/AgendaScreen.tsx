@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '../../components/common/AppButton';
 import { AppointmentCard } from '../../components/appointment/AppointmentCard';
 import { AppointmentOptionsSheet } from '../../components/appointment/AppointmentOptionsSheet';
+import { AppointmentReviewSheet } from '../../components/appointment/AppointmentReviewSheet';
 import { AppointmentScheduleSheet } from '../../components/appointment/AppointmentScheduleSheet';
 import { ProfessionalAvailabilitySheet } from '../../components/appointment/ProfessionalAvailabilitySheet';
 import { ProfessionalAvailabilityView } from '../../components/appointment/ProfessionalAvailabilityView';
@@ -56,6 +57,7 @@ export const AgendaScreen: React.FC = () => {
     handleOptionsReschedule,
     handleCancel,
     mutationId,
+    review,
     schedule,
   } = useAppointmentAgenda();
   const {
@@ -307,6 +309,7 @@ export const AgendaScreen: React.FC = () => {
               isBusy={mutationId === item.id}
               onPrimaryAction={handlePrimaryAction}
               onOpenOptions={setOptionsAppointment}
+              onReview={role === 'patient' ? review.onOpen : undefined}
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -355,6 +358,14 @@ export const AgendaScreen: React.FC = () => {
         onClose={() => {
           if (mutationId === null) setOptionsAppointment(null);
         }}
+      />
+
+      <AppointmentReviewSheet
+        appointment={review.appointment}
+        isSubmitting={review.isSubmitting}
+        error={review.error}
+        onSubmit={(appointment, rating, comment) => void review.onSubmit(appointment, rating, comment)}
+        onClose={review.onClose}
       />
 
       <ProfessionalAvailabilitySheet

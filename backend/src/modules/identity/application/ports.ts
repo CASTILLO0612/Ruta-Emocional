@@ -72,6 +72,40 @@ export interface RequestMetadataData {
   readonly ipAddress?: string;
 }
 
+export interface UpdateOwnProfileData extends RequestMetadataData {
+  readonly displayName: string;
+  readonly phone: string | null;
+}
+
+export interface UpdateOwnPhotoData extends RequestMetadataData {
+  readonly photoUrl: string | null;
+}
+
+export type ProfilePhotoContentType = 'image/jpeg' | 'image/png' | 'image/webp';
+
+export interface ProfilePhotoFile {
+  readonly contentType: ProfilePhotoContentType;
+  readonly bytes: Uint8Array;
+}
+
+export interface StoredProfilePhoto {
+  readonly id: string;
+  readonly publicPath: string;
+  readonly availability?: 'READY' | 'PENDING_SCAN';
+}
+
+export interface ReadProfilePhoto {
+  readonly contentType: ProfilePhotoContentType;
+  readonly bytes: Uint8Array;
+  readonly etag: string;
+}
+
+export interface ProfilePhotoStorage {
+  store(userId: string, file: ProfilePhotoFile): Promise<StoredProfilePhoto>;
+  read(photoId: string): Promise<ReadProfilePhoto | null>;
+  remove(publicPath: string): Promise<void>;
+}
+
 export interface IdentityRepository {
   findUserByEmail(email: string): Promise<IdentityUser | null>;
   findUserById(id: string): Promise<IdentityUser | null>;
@@ -81,6 +115,11 @@ export interface IdentityRepository {
   registerPatient(data: RegisterPatientData, session: RegistrationSessionData): Promise<IdentityUser>;
   registerPsychologist(data: RegisterPsychologistData, session: RegistrationSessionData): Promise<IdentityUser>;
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
+  updateOwnProfile(userId: string, data: UpdateOwnProfileData): Promise<IdentityUser>;
+  updateOwnPhoto(
+    userId: string,
+    data: UpdateOwnPhotoData
+  ): Promise<{ readonly user: IdentityUser; readonly previousPhotoUrl: string | null }>;
   createSession(data: CreateSessionData): Promise<void>;
   findSessionById(sessionId: string): Promise<IdentitySession | null>;
   rotateSession(sessionId: string, currentHash: string, nextHash: string, now: Date): Promise<boolean>;
@@ -134,6 +173,7 @@ export interface PasswordResetTokenService {
 }
 
 export interface PasswordResetDeliveryInput {
+  readonly deliveryId: string;
   readonly recipientEmail: string;
   readonly displayName: string;
   readonly token: string;

@@ -1,4 +1,3 @@
-import type { File } from 'expo-file-system';
 import { DirectoryModality } from '../models/Psychologist';
 import {
   EvidenceUploadPolicy,
@@ -55,11 +54,11 @@ export async function uploadLocalQaEvidence(input: {
   readonly licenseId: string;
   readonly fileName: string;
   readonly contentType: string;
-  readonly file: File;
+  readonly fileUri: string;
 }): Promise<ProfessionalProfile> {
   const response = await apiV1FileRequest<Envelope<ProfessionalProfile>>(
-    `/psychologists/me/verification-evidence/local/${input.licenseId}`,
-    input.file,
+    `/psychologists/me/verification-evidence/${input.licenseId}`,
+    input.fileUri,
     { contentType: input.contentType, fileName: input.fileName }
   );
   return response.data;
@@ -123,6 +122,20 @@ export async function replaceProfessionalAvailability(
     '/psychologists/me/availability',
     'PUT',
     { timezone, rules }
+  );
+  return response.data;
+}
+
+export async function addProfessionalAvailabilityException(input: {
+  readonly startsAt: string;
+  readonly endsAt: string;
+  readonly type: 'AVAILABLE' | 'UNAVAILABLE';
+  readonly reason?: string;
+}): Promise<ProfessionalProfile> {
+  const response = await apiV1Request<Envelope<ProfessionalProfile>>(
+    '/psychologists/me/availability-exceptions',
+    'POST',
+    input
   );
   return response.data;
 }

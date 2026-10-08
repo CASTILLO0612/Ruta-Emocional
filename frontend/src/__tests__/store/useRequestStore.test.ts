@@ -2,6 +2,7 @@ import type { ActiveRequest } from '../../models/ActiveRequest';
 import {
   getRequestById,
   listenToPendingRequests,
+  listenToRequest,
 } from '../../repositories/RequestRepository';
 import {
   clearActiveRequestId,
@@ -45,6 +46,7 @@ const mockedLoadActiveRequestId = jest.mocked(loadActiveRequestId);
 const mockedGetRequestById = jest.mocked(getRequestById);
 const mockedClearActiveRequestId = jest.mocked(clearActiveRequestId);
 const mockedListenToPendingRequests = jest.mocked(listenToPendingRequests);
+const mockedListenToRequest = jest.mocked(listenToRequest);
 
 describe('useRequestStore session isolation', () => {
   beforeEach(async () => {
@@ -135,5 +137,41 @@ describe('useRequestStore session isolation', () => {
 
     expect(mockedClearActiveRequestId).toHaveBeenCalledWith('patient-a');
     expect(useRequestStore.getState().sessionUserId).toBeNull();
+  });
+
+  it('libera la búsqueda y su referencia persistida cuando deja de estar abierta', async () => {
+    let deliverRequest: ((request: ActiveRequest) => void) | undefined;
+    const unsubscribe = jest.fn();
+    mockedListenToRequest.mockImplementationOnce((_requestId, onRequest) => {
+      deliverRequest = onRequest;
+      return unsubscribe;
+    });
+
+    useRequestStore.getState().bindSession('patient-a');
+    useRequestStore.setState({
+      activeRequestId: ACTIVE_REQUEST.id,
+      activeRequest: ACTIVE_REQUEST,
+      incomingOffers: [{
+        id: 'offer-a',
+        requestId: ACTIVE_REQUEST.id,
+        psychologistId: 'psychologist-a',
+        psychologistName: 'Profesional A',
+        psychologistRating: 5,
+        amount: 500,
+        currencyCode: 'NIO',
+        status: 'pending',
+        createdAt: new Date('2026-09-10T17:10:00.000Z'),
+      }],
+    });
+    useRequestStore.getState().startListeningToRequest(ACTIVE_REQUEST.id);
+
+    deliverRequest?.({ ...ACTIVE_REQUEST, status: 'cancelled' });
+    await Promise.resolve();
+
+    expect(useRequestStore.getState().activeRequest).toBeNull();
+    expect(useRequestStore.getState().activeRequestId).toBeNull();
+    expect(useRequestStore.getState().incomingOffers).toEqual([]);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(mockedClearActiveRequestId).toHaveBeenCalledWith('patient-a');
   });
 });

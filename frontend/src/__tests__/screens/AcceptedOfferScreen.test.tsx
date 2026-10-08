@@ -1,12 +1,31 @@
 import React from 'react';
-import { fireEvent } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { AcceptedOfferScreen } from '../../screens/patient/AcceptedOfferScreen';
 import { renderWithStackNavigation } from '../helpers/renderWithNavigation';
-import { Text, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 const MockConsultationScreen = () => (
   <View>
     <Text>Consultation Room Content</Text>
+  </View>
+);
+
+const MockPatientHomeScreen = () => (
+  <View>
+    <Text>Inicio del paciente</Text>
+  </View>
+);
+
+const MockNavigationScreen = ({
+  navigation,
+}: {
+  navigation: { goBack: () => void };
+}) => (
+  <View>
+    <Text>Navegación interna activa</Text>
+    <TouchableOpacity onPress={navigation.goBack}>
+      <Text>Volver a confirmación</Text>
+    </TouchableOpacity>
   </View>
 );
 
@@ -71,7 +90,7 @@ describe('AcceptedOfferScreen', () => {
   });
 
   it('muestra el destino y opciones de navegación para atención presencial', async () => {
-    const { getByText } = await renderWithStackNavigation({
+    const { getByLabelText, getByText, findByText } = await renderWithStackNavigation({
       screens: [
         {
           name: 'AcceptedOffer',
@@ -88,6 +107,14 @@ describe('AcceptedOfferScreen', () => {
             },
           },
         },
+        {
+          name: 'PatientMain',
+          component: MockPatientHomeScreen,
+        },
+        {
+          name: 'TurnByTurnNavigation',
+          component: MockNavigationScreen,
+        },
       ],
       initialRouteName: 'AcceptedOffer',
     });
@@ -97,6 +124,20 @@ describe('AcceptedOfferScreen', () => {
     expect(getByText('Segundo piso')).toBeTruthy();
     expect(getByText('Cómo llegar')).toBeTruthy();
     expect(getByText('Abrir en Waze')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('Cómo llegar'));
+    });
+    expect(await findByText('Navegación interna activa')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('Volver a confirmación'));
+    });
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Volver atrás'));
+    });
+    expect(await findByText('Inicio del paciente')).toBeTruthy();
   });
 
   it('no presenta una sala de espera ficticia para llamada inmediata', async () => {

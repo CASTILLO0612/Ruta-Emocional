@@ -29,7 +29,6 @@ export const StepProgress: React.FC<StepProgressProps> = ({
         {currentStep} de {totalSteps}
       </Text>
 
-      {/* Barra de progreso */}
       <View style={styles.track}>
         <View style={[styles.bar, { width: `${progressPercent}%` }]} />
       </View>

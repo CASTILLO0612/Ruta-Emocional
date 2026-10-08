@@ -26,6 +26,9 @@ export class ResendPasswordResetDelivery implements PasswordResetDelivery {
   async send(input: PasswordResetDeliveryInput): Promise<void> {
     const resetUrl = new URL(this.config.resetUrl);
     resetUrl.searchParams.set('token', input.token);
+    const recoveryUrl = resetUrl.toString();
+    const safeDisplayName = escapeHtml(input.displayName);
+    const safeRecoveryUrl = escapeHtml(recoveryUrl);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
@@ -35,6 +38,7 @@ export class ResendPasswordResetDelivery implements PasswordResetDelivery {
         headers: {
           authorization: `Bearer ${this.config.apiKey}`,
           'content-type': 'application/json',
+          'idempotency-key': `password-reset/${input.deliveryId}`,
         },
         body: JSON.stringify({
           from: this.config.sender,
@@ -44,15 +48,22 @@ export class ResendPasswordResetDelivery implements PasswordResetDelivery {
             `Hola ${input.displayName},`,
             '',
             'Recibimos una solicitud para cambiar la contraseña de tu cuenta.',
-            `Continúa desde este enlace: ${resetUrl.toString()}`,
+            'Abre este enlace seguro para continuar:',
+            recoveryUrl,
             '',
             `El enlace vence el ${input.expiresAt.toISOString()}.`,
             'Si no realizaste esta solicitud, puedes ignorar este mensaje.',
           ].join('\n'),
-          html: `<p>Hola ${escapeHtml(input.displayName)},</p>`
-            + '<p>Recibimos una solicitud para cambiar la contraseña de tu cuenta.</p>'
-            + `<p><a href="${escapeHtml(resetUrl.toString())}">Crear una nueva contraseña</a></p>`
-            + '<p>Este enlace es de un solo uso y vence pronto. Si no realizaste esta solicitud, puedes ignorar este mensaje.</p>',
+          html: '<div style="background:#f7f8fc;padding:32px 16px;font-family:Arial,sans-serif;color:#17213a">'
+            + '<div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e4e8f0;border-radius:16px;padding:32px">'
+            + '<p style="margin:0 0 28px;color:#29428c;font-size:16px;font-weight:700;letter-spacing:.06em">RUTA EMOCIONAL</p>'
+            + `<p style="margin:0 0 16px;font-size:16px;line-height:1.6">Hola ${safeDisplayName},</p>`
+            + '<p style="margin:0 0 24px;color:#526078;font-size:16px;line-height:1.6">Recibimos una solicitud para cambiar la contraseña de tu cuenta.</p>'
+            + `<p style="margin:0 0 24px"><a href="${safeRecoveryUrl}" style="display:inline-block;background:#29428c;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;padding:14px 22px;border-radius:12px">Crear una nueva contraseña</a></p>`
+            + '<p style="margin:0 0 8px;color:#526078;font-size:13px;line-height:1.5">Si el botón no funciona, abre este enlace:</p>'
+            + `<p style="margin:0 0 24px;font-size:13px;line-height:1.5;overflow-wrap:anywhere"><a href="${safeRecoveryUrl}" style="color:#29428c">${safeRecoveryUrl}</a></p>`
+            + '<p style="margin:0;color:#526078;font-size:13px;line-height:1.5">Este enlace es de un solo uso y vence pronto. Si no realizaste esta solicitud, puedes ignorar este mensaje.</p>'
+            + '</div></div>',
         }),
         signal: controller.signal,
       });

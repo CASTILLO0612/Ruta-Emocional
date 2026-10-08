@@ -76,7 +76,7 @@ export const PsychologistProfileScreen: React.FC = () => {
     return (
       <View style={styles.errorState}>
         <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.errorText}>Cargando perfil verificado...</Text>
+        <Text style={styles.errorText}>Cargando perfil</Text>
       </View>
     );
   }

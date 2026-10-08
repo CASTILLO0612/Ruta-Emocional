@@ -4,6 +4,7 @@ import {
   BrainCircuit,
   CircleAlert,
   ClipboardCheck,
+  RotateCcw,
   ShieldCheck,
 } from 'lucide-react-native';
 import { Square, SquareCheckBig } from 'lucide';
@@ -33,6 +34,7 @@ import {
   MentaConversation,
   MentaScope,
   openMentaConversation,
+  restartMentaConversation,
   sendMentaMessageStream,
 } from '../../repositories/MentaRepository';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -42,6 +44,7 @@ import { Typography } from '../../theme/typography';
 import { IconSize, IconStroke } from '../../theme/icons';
 import { Layout } from '../../theme/layout';
 import { StreamingCadence } from '../../theme/motion';
+import { showAlert } from '../../utils/alert';
 import { takeNextMentaStreamChunk } from '../../utils/mentaStreamPresentation';
 import { presentUserError } from '../../utils/userFacingError';
 
@@ -89,6 +92,7 @@ export function MentaAgentScreen() {
   const [streamingReply, setStreamingReply] = useState<StreamingReply | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpening, setIsOpening] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -199,6 +203,14 @@ export function MentaAgentScreen() {
       resolvePresentation();
     };
 
+    const replaceStreamText = (text: string) => {
+      bufferedText = '';
+      isPresenting = false;
+      if (streamPresentationTimer.current) clearTimeout(streamPresentationTimer.current);
+      streamPresentationTimer.current = null;
+      setStreamingReply((current) => current ? { ...current, text } : current);
+    };
+
     try {
       const turn = await sendMentaMessageStream(
         conversation.id,
@@ -209,6 +221,7 @@ export function MentaAgentScreen() {
             ? { ...current, status }
             : current),
           onDelta: enqueueStreamDelta,
+          onReplace: replaceStreamText,
         },
         controller.signal
       );
@@ -233,6 +246,47 @@ export function MentaAgentScreen() {
         setIsSending(false);
       }
     }
+  };
+
+  const handleRestart = async () => {
+    if (!conversation || isRestarting) return;
+    setIsRestarting(true);
+    setError(null);
+    streamAbortController.current?.abort();
+    streamAbortController.current = null;
+    if (streamPresentationTimer.current) clearTimeout(streamPresentationTimer.current);
+    streamPresentationTimer.current = null;
+    setPendingMessage(null);
+    setStreamingReply(null);
+    setIsSending(false);
+
+    try {
+      const restarted = await restartMentaConversation(conversation.id);
+      setConversation(restarted);
+      setBootstrap((current) => current ? { ...current, conversation: restarted } : current);
+      setMessage('');
+      turnsRef.current?.scrollToOffset({ offset: 0, animated: false });
+    } catch (restartError) {
+      setError(presentUserError(
+        restartError,
+        'No pudimos reiniciar la conversación. Inténtalo nuevamente.'
+      ));
+    } finally {
+      setIsRestarting(false);
+    }
+  };
+
+  const confirmRestart = () => {
+    if (isRestarting) return;
+    showAlert(
+      'Reiniciar conversación',
+      'Comenzarás un chat nuevo y MENTA dejará de usar estos mensajes como contexto. Tus citas y demás datos no cambiarán.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Reiniciar', style: 'destructive', onPress: () => void handleRestart() },
+      ],
+      'warning'
+    );
   };
 
   if (isLoading) {
@@ -275,13 +329,12 @@ export function MentaAgentScreen() {
           </View>
           <Text style={styles.title}>Conoce a MENTA</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
-          <View style={styles.disclosureCard}>
+          <View style={styles.disclosure}>
             <View style={styles.disclosureHeading}>
               <ShieldCheck size={IconSize.navigation} strokeWidth={IconStroke.regular} color={Colors.primary} />
-              <Text style={styles.disclosureTitle}>Alcance y privacidad</Text>
+              <Text style={styles.disclosureTitle}>Antes de comenzar</Text>
             </View>
             <Text style={styles.disclosureText}>{bootstrap.disclosure}</Text>
-            <Text style={styles.consentVersion}>Consentimiento {bootstrap.consentVersion}</Text>
           </View>
           <TouchableOpacity
             style={styles.consentRow}
@@ -321,7 +374,18 @@ export function MentaAgentScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <AppHeader title="MENTA" subtitle={subtitle} showBack />
+        <AppHeader
+          title="MENTA"
+          subtitle={subtitle}
+          showBack
+          contextualAction={(conversation.turns.length > 0 || pendingMessage)
+            ? {
+                label: 'Reiniciar conversación',
+                icon: RotateCcw,
+                onPress: confirmRestart,
+              }
+            : undefined}
+        />
 
         <FlatList
           ref={turnsRef}
@@ -420,16 +484,19 @@ export function MentaAgentScreen() {
             placeholderTextColor={Colors.textTertiary}
             multiline
             maxLength={2_000}
-            editable={!isSending}
+            editable={!isSending && !isRestarting}
             accessibilityLabel="Mensaje para MENTA"
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!message.trim() || isSending) && styles.sendButtonDisabled]}
+            style={[
+              styles.sendButton,
+              (!message.trim() || isSending || isRestarting) && styles.sendButtonDisabled,
+            ]}
             onPress={() => void handleSend()}
-            disabled={!message.trim() || isSending}
+            disabled={!message.trim() || isSending || isRestarting}
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
-            accessibilityState={{ disabled: !message.trim() || isSending }}
+            accessibilityState={{ disabled: !message.trim() || isSending || isRestarting }}
           >
             <ArrowUp size={IconSize.navigation} strokeWidth={IconStroke.emphasized} color={Colors.textInverse} />
           </TouchableOpacity>
@@ -468,21 +535,19 @@ const styles = StyleSheet.create({
   },
   title: { ...Typography.h1, color: Colors.textPrimary, textAlign: 'center' },
   subtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center' },
-  disclosureCard: {
+  disclosure: {
     width: '100%',
     maxWidth: 560,
-    padding: Spacing.lg,
+    paddingVertical: Spacing.base,
     marginTop: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.divider,
     gap: Spacing.sm,
   },
   disclosureHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   disclosureTitle: { ...Typography.h4, color: Colors.textPrimary },
   disclosureText: { ...Typography.body, color: Colors.textSecondary },
-  consentVersion: { ...Typography.caption, color: Colors.textTertiary },
   consentRow: {
     width: '100%',
     maxWidth: 560,

@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { BrainCircuit, ArrowRight } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { BrainCircuit, ChevronRight } from 'lucide-react-native';
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing, BorderRadius } from '../../theme/spacing';
 import { IconSize, IconStroke } from '../../theme/icons';
-import { AppButton } from '../common/AppButton';
+import { Layout } from '../../theme/layout';
 
 interface ContextSuggestionCardProps {
   readonly text: string;
@@ -19,70 +19,73 @@ export const ContextSuggestionCard: React.FC<ContextSuggestionCardProps> = ({
   onAction,
   actionLabel = 'Revisar',
 }) => (
-  <View style={styles.container}>
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <BrainCircuit
-            size={IconSize.action}
-            color={Colors.technology}
-            strokeWidth={IconStroke.regular}
-          />
-        </View>
-        <Text style={[Typography.label, styles.agentLabel]}>MENTA</Text>
-      </View>
-
-      <Text style={[Typography.body, styles.text]}>{text}</Text>
-
-      <View style={styles.actionContainer}>
-        <AppButton
-          label={actionLabel}
-          onPress={onAction}
-          variant="secondary"
-          size="sm"
-          icon={<ArrowRight size={14} color={Colors.primary} />}
-          accessibilityLabel={`Acción sugerida por MENTA: ${actionLabel}`}
-        />
-      </View>
+  <TouchableOpacity
+    style={styles.container}
+    onPress={onAction}
+    activeOpacity={0.76}
+    accessibilityRole="button"
+    accessibilityLabel={`MENTA. ${text} ${actionLabel}`}
+    accessibilityHint="Abre la sugerencia contextual"
+  >
+    <View style={styles.iconContainer}>
+      <BrainCircuit
+        size={IconSize.action}
+        color={Colors.primary}
+        strokeWidth={IconStroke.regular}
+      />
     </View>
-  </View>
+
+    <View style={styles.copy}>
+      <Text style={[Typography.label, styles.agentLabel]}>MENTA</Text>
+      <Text style={[Typography.bodySmall, styles.text]}>{text}</Text>
+    </View>
+
+    <View style={styles.navigationIcon}>
+      <ChevronRight
+        size={IconSize.action}
+        color={Colors.textTertiary}
+        strokeWidth={IconStroke.regular}
+      />
+    </View>
+  </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: Spacing.xs,
-  },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.informative,
-  },
-  header: {
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.divider,
   },
   iconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: BorderRadius.xs,
+    width: Layout.minimumTouchTarget,
+    height: Layout.minimumTouchTarget,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  copy: {
+    flex: 1,
+    gap: Spacing.xxs,
   },
   agentLabel: {
     color: Colors.primary,
     letterSpacing: 1,
   },
   text: {
-    color: Colors.textPrimary,
-    lineHeight: 22,
-    marginBottom: Spacing.md,
+    color: Colors.textSecondary,
   },
-  actionContainer: {
-    alignItems: 'flex-start',
+  navigationIcon: {
+    width: Layout.minimumTouchTarget,
+    height: Layout.minimumTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

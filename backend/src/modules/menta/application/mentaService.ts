@@ -3,6 +3,7 @@ import { AppError } from '../../../shared/domain/appError';
 import type { AuthenticatedActor } from '../../identity/application/identityService';
 import type {
   MentaAgentProvider,
+  MentaAgentProviderObserver,
   MentaAuditContext,
   MentaContextGateway,
   MentaConversationRepository,
@@ -92,12 +93,33 @@ export class MentaService {
     );
   }
 
+  async restartConversation(
+    actor: AuthenticatedActor,
+    conversationId: string,
+    audit: MentaAuditContext
+  ): Promise<MentaConversationView> {
+    this.assertEnabled();
+    const conversation = await this.conversations.requireOwnedConversation(
+      actor.user.id,
+      conversationId
+    );
+    this.assertScope(actor, conversation.scope);
+    return this.conversations.restartConversation(
+      actor.user.id,
+      conversationId,
+      conversation.scope,
+      this.config.consentVersion,
+      audit
+    );
+  }
+
   async sendMessage(
     actor: AuthenticatedActor,
     conversationId: string,
     clientMessageId: string,
     message: string,
-    audit: MentaAuditContext
+    audit: MentaAuditContext,
+    observer?: MentaAgentProviderObserver
   ) {
     this.assertEnabled();
     const normalizedMessage = message.trim();
@@ -134,7 +156,8 @@ export class MentaService {
             started.turnId,
             started.history,
             normalizedMessage,
-            audit
+            audit,
+            observer
           );
       return await this.conversations.completeTurn(actor.user.id, started.turnId, reply, audit);
     } catch (error) {
@@ -149,7 +172,8 @@ export class MentaService {
     turnId: string,
     history: Parameters<MentaAgentProvider['generateReply']>[0]['history'],
     message: string,
-    audit: MentaAuditContext
+    audit: MentaAuditContext,
+    observer?: MentaAgentProviderObserver
   ): Promise<MentaAgentReply> {
     const deterministicIntent = resolveDeterministicIntent(scope, message);
     if (deterministicIntent) {
@@ -181,11 +205,12 @@ export class MentaService {
           argumentsValue,
           audit
         ),
-      });
+      }, observer);
       const validated = validateAssistantReply(generated.text, this.config.maximumReplyLength);
       if (!validated) return this.rejectedOutputReply(scope, generated.toolsUsed);
       return { ...generated, text: validated };
-    } catch {
+    } catch (error) {
+      if (observer?.signal?.aborted) throw error;
       return this.unavailableReply(scope);
     }
   }

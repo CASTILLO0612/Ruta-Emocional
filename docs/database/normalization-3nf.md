@@ -30,7 +30,7 @@ las dependencias funcionales.
 
 ## Matriz de dependencias funcionales y cobertura 3FN
 
-La matriz cubre las **58 relaciones** declaradas por los 58 modelos Prisma del
+La matriz cubre las **63 relaciones** declaradas por los 63 modelos Prisma del
 corte vigente. La flecha identifica el determinante de los atributos propios de
 cada fila; las marcas de creación y actualización que no se repiten en la
 notación dependen igualmente de la clave primaria. Las claves alternativas se
@@ -41,6 +41,10 @@ la matriz.
 | Relación | Dependencia funcional |
 |---|---|
 | `users` | `id -> email, display_name, password_hash, status` |
+| `media_objects` | `id -> owner_user_id, purpose, target_resource_id, object_key, public_path, content_type, byte_size, scan_status, scanned_at, activated_at, discarded_at, created_at, updated_at` y `object_key -> id` |
+| `push_devices` | `id -> user_id, installation_id, expo_push_token, platform, active, last_seen_at, disabled_at, created_at, updated_at`; `expo_push_token -> id` y `(user_id, installation_id) -> id` |
+| `push_deliveries` | `id -> outbox_event_id, push_device_id, notification_type, title, body, data, status, attempts, available_at, claimed_at, claim_token, provider_ticket_id, receipt_checked_at, last_error_code, created_at, updated_at` y `(outbox_event_id, push_device_id) -> id` |
+| `external_identities` | `id -> user_id, provider, provider_subject, last_authenticated_at, created_at, updated_at`; `(provider, provider_subject) -> id` y `(user_id, provider) -> id` |
 | `roles` | `id -> code, name, description` y `code -> id, name, description` |
 | `user_roles` | `id -> user_id, role_id, status, assigned_at, ended_at`; una asignación activa por pareja |
 | `auth_sessions` | `id -> user_id, refresh_token_hash, device_name, ip_address, user_agent, expires_at, revoked_at, created_at` |
@@ -89,6 +93,7 @@ la matriz.
 | `triage_erasure_requests` | `triage_assessment_id -> patient_profile_id, status, policy_version, requested_at, due_at, resolución` |
 | `conversations` | `id -> care_relationship_id, created_at` y `care_relationship_id -> id` |
 | `conversation_participants` | `(conversation_id, user_id) -> id, joined_at, left_at` |
+| `call_sessions` | `id -> conversation_id, initiator_user_id, media_type, status, room_name, accepted_at, ended_at, expires_at, created_at, updated_at` y `room_name -> id` |
 | `messages` | `id -> conversation_participant_id, client_message_id, content, type, sent_at` y `(conversation_participant_id, client_message_id) -> id` |
 | `menta_conversations` | `id -> user_id, scope, consent_version, consented_at, fechas` y una conversación abierta por `(user_id, scope)` |
 | `menta_turns` | `id -> conversation_id, client_message_id, contenidos cifrados, status, provider_outcome, model_name, fechas` y `(conversation_id, client_message_id) -> id` |
@@ -153,6 +158,25 @@ Por tanto, `password_reset_tokens` cumple 1FN, 2FN y 3FN: sus valores son
 atómicos, la clave primaria no es compuesta y ningún atributo no clave depende
 de otro atributo no clave. La unicidad de la huella permite localizar el
 registro sin desnormalizar la identidad del usuario.
+
+## Decisión de normalización de medios y notificaciones push
+
+- `media_objects` conserva metadatos de cuarentena y análisis, pero no duplica
+  nombre, correo, fotografía activa ni atributos de la evidencia profesional;
+  el propietario y el recurso objetivo se identifican mediante referencias;
+- `object_key` es una clave candidata opaca. Estado de análisis, activación y
+  descarte dependen del objeto, no del usuario ni del recurso asociado;
+- `push_devices` modela una instalación de una cuenta sin copiar sus datos de
+  perfil. El token del proveedor y la pareja usuario-instalación son claves
+  candidatas protegidas por restricciones únicas;
+- `push_deliveries` materializa un intento por evento outbox y dispositivo. El
+  estado, ticket, reintentos y error dependen de esa entrega, mientras que la
+  identidad del usuario se deriva mediante `push_device_id`;
+- la restricción `(outbox_event_id, push_device_id)` evita duplicar entregas al
+  reprocesar el outbox y permite que el worker sea idempotente.
+
+Las tres relaciones usan atributos atómicos y no contienen dependencias
+parciales ni transitivas entre atributos no clave, por lo que conservan 3FN.
 
 La revocación no se modela como columnas duplicadas dentro de
 `triage_assessments`: relaciona una evaluación con la nueva decisión

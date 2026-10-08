@@ -36,6 +36,13 @@ export interface MentaConversationRepository {
     consentVersion: string,
     audit: MentaAuditContext
   ): Promise<MentaConversationView>;
+  restartConversation(
+    userId: string,
+    conversationId: string,
+    scope: MentaScope,
+    consentVersion: string,
+    audit: MentaAuditContext
+  ): Promise<MentaConversationView>;
   requireOwnedConversation(userId: string, conversationId: string): Promise<MentaConversationView>;
   startTurn(
     userId: string,
@@ -82,6 +89,14 @@ export interface MentaAgentProviderRequest {
   ) => Promise<MentaToolExecution>;
 }
 
+export interface MentaAgentProviderObserver {
+  readonly signal?: AbortSignal;
+  readonly onTextDelta: (delta: string) => void;
+}
+
 export interface MentaAgentProvider {
-  generateReply(request: MentaAgentProviderRequest): Promise<MentaAgentReply>;
+  generateReply(
+    request: MentaAgentProviderRequest,
+    observer?: MentaAgentProviderObserver
+  ): Promise<MentaAgentReply>;
 }

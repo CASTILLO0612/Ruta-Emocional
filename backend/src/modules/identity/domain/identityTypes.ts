@@ -8,6 +8,7 @@ export interface IdentityUser {
   readonly displayName: string;
   readonly passwordHash: string | null;
   readonly photoUrl: string | null;
+  readonly phone: string | null;
   readonly status: AccountStatus;
   readonly roles: readonly RoleCode[];
   readonly patientProfileId: string | null;
@@ -20,6 +21,7 @@ export interface CurrentUserView {
   readonly email: string;
   readonly displayName: string;
   readonly photoUrl: string | null;
+  readonly phone?: string | null;
   readonly status: AccountStatus;
   readonly roles: readonly RoleCode[];
   readonly psychologistVerificationStatus: VerificationStatus | null;

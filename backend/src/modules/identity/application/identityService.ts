@@ -9,6 +9,8 @@ import {
   PasswordHasher,
   PasswordResetDelivery,
   PasswordResetTokenService,
+  ProfilePhotoFile,
+  ProfilePhotoStorage,
   RefreshTokenService,
 } from './ports';
 import {
@@ -54,6 +56,11 @@ export interface AuthenticatedActor {
   readonly sessionId: string;
 }
 
+export interface UpdateOwnProfileInput extends RequestMetadata {
+  readonly displayName: string;
+  readonly phone: string | null;
+}
+
 export interface PasswordResetRequestView {
   readonly accepted: true;
   readonly delivery: 'EMAIL' | 'LOCAL_QA' | 'UNAVAILABLE';
@@ -85,7 +92,8 @@ export class IdentityService {
     private readonly clock: Clock,
     private readonly refreshTtlDays: number,
     private readonly passwordRecovery: PasswordRecoveryConfig,
-    private readonly federatedIdentityVerifier: FederatedIdentityVerifier | null = null
+    private readonly federatedIdentityVerifier: FederatedIdentityVerifier | null = null,
+    private readonly profilePhotoStorage: ProfilePhotoStorage | null = null
   ) {
     this.dummyPasswordHash = passwordHasher.hash('invalid-login-candidate-for-timing-equalization');
   }
@@ -253,6 +261,7 @@ export class IdentityService {
 
     try {
       await this.passwordResetDelivery!.send({
+        deliveryId: id,
         recipientEmail: user.email,
         displayName: user.displayName,
         token: issued.token,
@@ -333,6 +342,70 @@ export class IdentityService {
     const user = await this.repository.findUserById(userId);
     if (!user || user.status !== 'ACTIVE') throw AppError.unauthorized();
     return this.toCurrentUser(user);
+  }
+
+  async updateOwnProfile(
+    actor: AuthenticatedActor,
+    input: UpdateOwnProfileInput
+  ): Promise<CurrentUserView> {
+    this.assertProfileUpdate(actor);
+    const user = await this.repository.updateOwnProfile(actor.user.id, {
+      displayName: input.displayName.trim(),
+      phone: input.phone,
+      requestId: input.requestId,
+      ipAddress: input.ipAddress,
+    });
+    return this.toCurrentUser(user);
+  }
+
+  async replaceOwnProfilePhoto(
+    actor: AuthenticatedActor,
+    file: ProfilePhotoFile,
+    metadata: RequestMetadata
+  ): Promise<CurrentUserView> {
+    this.assertProfileUpdate(actor);
+    if (!this.profilePhotoStorage) {
+      throw AppError.notFound('PROFILE_PHOTO_STORAGE_UNAVAILABLE');
+    }
+    const stored = await this.profilePhotoStorage.store(actor.user.id, file);
+    if (stored.availability === 'PENDING_SCAN') {
+      return actor.user;
+    }
+    try {
+      const updated = await this.repository.updateOwnPhoto(actor.user.id, {
+        photoUrl: stored.publicPath,
+        requestId: metadata.requestId,
+        ipAddress: metadata.ipAddress,
+      });
+      if (updated.previousPhotoUrl && updated.previousPhotoUrl !== stored.publicPath) {
+        await this.profilePhotoStorage.remove(updated.previousPhotoUrl);
+      }
+      return this.toCurrentUser(updated.user);
+    } catch (error) {
+      await this.profilePhotoStorage.remove(stored.publicPath);
+      throw error;
+    }
+  }
+
+  async removeOwnProfilePhoto(
+    actor: AuthenticatedActor,
+    metadata: RequestMetadata
+  ): Promise<CurrentUserView> {
+    this.assertProfileUpdate(actor);
+    const updated = await this.repository.updateOwnPhoto(actor.user.id, {
+      photoUrl: null,
+      requestId: metadata.requestId,
+      ipAddress: metadata.ipAddress,
+    });
+    if (updated.previousPhotoUrl && this.profilePhotoStorage) {
+      await this.profilePhotoStorage.remove(updated.previousPhotoUrl);
+    }
+    return this.toCurrentUser(updated.user);
+  }
+
+  readProfilePhoto(photoId: string) {
+    if (!this.profilePhotoStorage) return Promise.resolve(null);
+    return this.profilePhotoStorage.read(photoId);
   }
 
   async logout(sessionId: string, requestId?: string): Promise<void> {
@@ -435,6 +508,7 @@ export class IdentityService {
       capabilities.add('appointment:read:self');
       capabilities.add('appointment:create:self');
       capabilities.add('appointment:manage:self');
+      capabilities.add('review:create:self');
       capabilities.add('conversation:read:self');
       capabilities.add('conversation:send:self');
       capabilities.add('triage:create:self');
@@ -450,6 +524,7 @@ export class IdentityService {
         capabilities.add('offer:manage:self');
         capabilities.add('availability:manage:self');
         capabilities.add('appointment:manage:self');
+        capabilities.add('review:read:self');
         capabilities.add('clinical:write:authorized');
         capabilities.add('clinical:read:authorized');
         capabilities.add('conversation:read:self');
@@ -471,6 +546,7 @@ export class IdentityService {
       email: user.email,
       displayName: user.displayName,
       photoUrl: user.photoUrl,
+      phone: user.phone,
       status: user.status,
       roles: [...user.roles],
       psychologistVerificationStatus: user.psychologistVerificationStatus,
@@ -480,5 +556,11 @@ export class IdentityService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private assertProfileUpdate(actor: AuthenticatedActor): void {
+    if (!actor.user.capabilities.includes('profile:update:self')) {
+      throw AppError.forbidden('CAPABILITY_REQUIRED');
+    }
   }
 }

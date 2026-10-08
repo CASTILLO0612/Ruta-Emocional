@@ -545,8 +545,23 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
     cursor: string | undefined,
     limit: number
   ): Promise<VerificationQueuePage> {
+    const cleanEvidence = await this.prisma.mediaObject.findMany({
+      where: {
+        purpose: 'PROFESSIONAL_EVIDENCE',
+        scanStatus: 'CLEAN',
+        discardedAt: null,
+      },
+      select: { objectKey: true },
+    });
     const submissions = await this.prisma.professionalVerificationSubmission.findMany({
-      where: { decision: { is: null }, ...(cursor ? { id: { gt: cursor } } : {}) },
+      where: {
+        decision: { is: null },
+        ...(cursor ? { id: { gt: cursor } } : {}),
+        OR: [
+          { evidenceObjectKey: { startsWith: 'local-qa/' } },
+          { evidenceObjectKey: { in: cleanEvidence.map(({ objectKey }) => objectKey) } },
+        ],
+      },
       orderBy: { id: 'asc' },
       take: limit + 1,
       include: {
@@ -608,6 +623,18 @@ export class PrismaProfessionalDirectoryRepository implements ProfessionalDirect
       if (!submission) throw AppError.notFound('VERIFICATION_SUBMISSION_NOT_FOUND');
       if (submission.decision) {
         throw AppError.conflict('VERIFICATION_ALREADY_DECIDED', 'La solicitud ya fue resuelta.');
+      }
+      if (submission.evidenceObjectKey.startsWith('quarantine/')) {
+        const evidence = await transaction.mediaObject.findUnique({
+          where: { objectKey: submission.evidenceObjectKey },
+          select: { scanStatus: true, discardedAt: true },
+        });
+        if (!evidence || evidence.scanStatus !== 'CLEAN' || evidence.discardedAt) {
+          throw AppError.conflict(
+            'EVIDENCE_SCAN_PENDING',
+            'La evidencia todavía no ha superado el análisis de seguridad.'
+          );
+        }
       }
       if (decision === 'APPROVED') {
         const dossierComplete = submission.professionalLicense.psychologistProfile.modalities.some(

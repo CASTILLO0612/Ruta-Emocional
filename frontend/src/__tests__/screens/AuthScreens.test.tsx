@@ -101,6 +101,19 @@ describe('Auth screens', () => {
     });
   });
 
+  it('vuelve al inicio de sesión cuando recuperación es la ruta inicial', async () => {
+    const view = await renderWithStackNavigation({
+      screens: authScreens,
+      initialRouteName: 'ForgotPassword',
+    });
+
+    await fireEvent.press(view.getByLabelText('Volver'));
+
+    await waitFor(() => {
+      expect(view.getByText('Inicia sesión')).toBeTruthy();
+    });
+  });
+
   it('completa la recuperación local sin revelar datos de la cuenta', async () => {
     const localQaToken = 'local-qa-token-with-more-than-forty-characters-123';
     const nextPassword = 'NuevaClaveSegura123!';

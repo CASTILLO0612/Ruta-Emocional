@@ -4,7 +4,7 @@
 
 Esta matriz demuestra que el DER conceptual no es una reproducción automática
 de Prisma y, al mismo tiempo, que ningún modelo lógico vigente queda sin
-clasificación. El corte contiene **58 modelos Prisma**. Estos se trazan hacia
+clasificación. El corte contiene **63 modelos Prisma**. Estos se trazan hacia
 los **43 tipos de entidad**, las asociaciones conceptuales o el bloque técnico
 de plataforma del DER.
 
@@ -19,6 +19,10 @@ centrales del problema.
 | Modelo Prisma | Representación conceptual | Clasificación |
 |---|---|---|
 | `User` | Usuario | entidad |
+| `MediaObject` | Medio privado en cuarentena y su resultado antimalware | entidad técnica separada |
+| `PushDevice` | Instalación autorizada para notificaciones | entidad técnica separada |
+| `PushDelivery` | Entrega de evento outbox a una instalación | entidad técnica idempotente |
+| `ExternalIdentity` | Identidad federada vinculada a Usuario | entidad lógica de autenticación |
 | `Role` | Rol | entidad/catálogo |
 | `UserRole` | Usuario tiene asignado Rol | asociación N:N materializada |
 | `AuthSession` | Sesión | entidad |
@@ -55,6 +59,7 @@ centrales del problema.
 | `PatientConsent` | Decisión de consentimiento | entidad histórica |
 | `Conversation` | Conversación | entidad |
 | `ConversationParticipant` | Usuario participa en Conversación | asociación N:N materializada |
+| `CallSession` | Sesión de audio/video vinculada a Conversación | entidad técnica de comunicación en tiempo real |
 | `Message` | Mensaje | entidad |
 | `MentaConversation` | Conversación MENTA | entidad |
 | `MentaTurn` | Turno MENTA | entidad |
@@ -79,13 +84,13 @@ centrales del problema.
 
 ## 3. Controles de coherencia
 
-1. Los 58 modelos del esquema aparecen una sola vez en la matriz.
+1. Los 63 modelos del esquema aparecen una sola vez en la matriz.
 2. Las 7 relaciones N:N del DER permanecen como relaciones conceptuales; sus
    tablas asociativas solo se nombran aquí para explicar la transformación.
 3. Las estructuras de procedencia no se presentan como entidades del mundo
    real cuando solo materializan una asociación.
-4. El bloque técnico de auditoría, outbox e idempotencia permanece separado del
-   dominio clínico y comercial.
+4. El bloque técnico de auditoría, outbox, idempotencia, medios en cuarentena y
+   entrega push permanece separado del dominio clínico y comercial.
 5. Los catálogos internos del protocolo de triaje no se confunden con nuevas
    fuentes de verdad para solicitud, modalidad o relación asistencial.
 

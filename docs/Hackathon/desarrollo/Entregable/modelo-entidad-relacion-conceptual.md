@@ -346,6 +346,6 @@ La demostración detallada se encuentra en
 DER y ese documento deben entregarse juntos: uno explica la semántica y el otro
 demuestra su implementación relacional normalizada.
 
-La cobertura completa de los 58 modelos Prisma se verifica en
+La cobertura completa de los 62 modelos Prisma se verifica en
 [`trazabilidad-modelo-vigente.md`](trazabilidad-modelo-vigente.md), sin mezclar
 esa transformación lógica con la notación conceptual del diagrama.

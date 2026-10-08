@@ -6,23 +6,36 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "^15.0.2",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/poppins": "^0.4.1",
+    "@expo/dom-webview": "57.0.1",
+    "@googlemaps/react-native-navigation-sdk": "0.16.3",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@livekit/react-native": "^3.0.0",
+    "@livekit/react-native-expo-plugin": "^1.0.3",
+    "@livekit/react-native-webrtc": "^144.2.0",
     "@react-navigation/bottom-tabs": "^7.18.8",
     "@react-navigation/native": "^7.3.8",
     "@react-navigation/native-stack": "^7.17.10",
     "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.19",
-    "expo-crypto": "57.0.2",
-    "expo-dev-client": "~57.0.18",
-    "expo-document-picker": "~57.0.1",
+    "expo-asset": "~57.0.16",
+    "expo-constants": "~57.0.21",
+    "expo-crypto": "~57.0.3",
+    "expo-dev-client": "~57.0.19",
+    "expo-device": "~57.0.2",
+    "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.6",
     "expo-font": "~57.0.3",
-    "expo-location": "~57.0.15",
-    "expo-secure-store": "~57.0.3",
+    "expo-image-manipulator": "~57.0.21",
+    "expo-image-picker": "~57.0.15",
+    "expo-location": "~57.0.20",
+    "expo-notifications": "~57.0.22",
+    "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
+    "livekit-client": "^2.22.3",
     "lucide": "^1.39.0",
     "lucide-react-native": "^1.39.0",
     "morphicons": "^1.7.1",
@@ -31,7 +44,6 @@
     "react-native": "0.86.3",
     "react-native-dotenv": "^3.4.11",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-maps": "1.27.2",
     "react-native-nitro-google-signin": "^2.3.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
@@ -60,6 +72,16 @@
     "typecheck": "node --stack-size=16384 ./node_modules/typescript/bin/tsc --noEmit",
     "validate:design": "node scripts/validateDesignSystem.mjs",
     "validate:native-config": "node scripts/validateNativeConfig.mjs"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "@googlemaps/react-native-navigation-sdk",
+          "@livekit/react-native-expo-plugin"
+        ]
+      }
+    }
   },
   "jest": {
     "preset": "jest-expo",

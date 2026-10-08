@@ -1,7 +1,7 @@
 import { ApiError } from '../services/apiClient';
 
 const DEFAULT_MESSAGE = 'No pudimos completar la acción. Inténtalo nuevamente.';
-const TECHNICAL_CONTENT = /localhost|127\.0\.0\.1|https?:\/\/|prisma|postgres|\bsql\b|stack trace|typeerror|referenceerror|syntaxerror|\berr_[a-z_]+|\bhttp_?\d{3}\b|\bundefined\b|\bnull\b|\sat\s+[\w$.]+\s*\(/i;
+const TECHNICAL_CONTENT = /localhost|127\.0\.0\.1|https?:\/\/|prisma|postgres|\bsql\b|stack trace|typeerror|referenceerror|syntaxerror|invariant violation|turbomodule|native module|cannot read (?:properties|property)|\bis not a function\b|\bthis\.[a-z_$][\w$]*\b|\berr_[a-z_]+|\bhttp_?\d{3}\b|\bundefined\b|\bnull\b|\sat\s+[\w$.]+\s*\(/i;
 
 function safeMessage(message: string | undefined): string | null {
   const normalized = message?.trim();
@@ -39,6 +39,5 @@ export function presentUserError(error: unknown, fallback = DEFAULT_MESSAGE): st
     return safeMessage(error.message) ?? fallback;
   }
 
-  if (error instanceof Error) return safeMessage(error.message) ?? fallback;
   return fallback;
 }

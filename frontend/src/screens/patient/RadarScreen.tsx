@@ -1,30 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  BackHandler,
   View,
   Text,
   StyleSheet,
-  Animated,
-  Easing,
   TouchableOpacity,
   StatusBar,
-  Platform,
-  AccessibilityInfo,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, {
-  PROVIDER_DEFAULT,
-} from '../../components/common/CustomMapView';
+import MapView from '../../components/common/CustomMapView';
 import {
   ChevronUp,
+  CircleAlert,
   MapPin,
   MessageCircle,
   Phone,
   WalletCards,
   X,
-  ShieldCheck,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   BottomSheetModal,
   BottomSheetModalProvider,
@@ -32,7 +27,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
 
-import { Colors, BrandColors } from '../../theme/colors';
+import { Colors } from '../../theme/colors';
 import { FontFamily, Typography } from '../../theme/typography';
 import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
 import { OfferCard } from '../../components/patient/OfferCard';
@@ -42,6 +37,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { getNearbyPsychologists } from '../../repositories/PsychologistRepository';
 import { getDirectoryMapConfig } from '../../config/runtimeConfig';
 import { CustomAlert } from '../../components/common/CustomAlert';
+import { ErrorBoundary } from '../../components/common/ErrorBoundary';
 import { OfferComparisonSheet } from '../../components/shared/OfferComparisonSheet';
 import type {
   AppNavigation,
@@ -50,12 +46,9 @@ import type {
 import { showAlert } from '../../utils/alert';
 import { presentUserError } from '../../utils/userFacingError';
 import { formatMoney } from '../../utils/money';
-import { getResponsiveRadarWidth } from '../../utils/responsiveLayout';
 
-export const RadarScreen: React.FC = () => {
+const RadarScreenContent: React.FC = () => {
   const navigation = useNavigation<AppNavigation>();
-  const { width } = useWindowDimensions();
-  const radarWidth = getResponsiveRadarWidth(width);
   const userProfile = useAuthStore((state) => state.userProfile);
 
   const {
@@ -75,38 +68,37 @@ export const RadarScreen: React.FC = () => {
     longitude: number;
   } | null>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapLoadTimedOut, setMapLoadTimedOut] = useState(false);
 
   const [cancelAlertVisible, setCancelAlertVisible] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [acceptingOfferId, setAcceptingOfferId] = useState<string | null>(null);
-  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
-
-  const ring1 = useRef(new Animated.Value(0)).current;
-  const ring2 = useRef(new Animated.Value(0)).current;
-  const ring3 = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const mapConfig = React.useMemo(() => getDirectoryMapConfig(), []);
 
   useEffect(() => {
-    let isMounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (isMounted) setReduceMotionEnabled(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotionEnabled
-    );
-    return () => {
-      isMounted = false;
-      subscription.remove();
-    };
-  }, []);
+    setMapReady(false);
+    setMapLoadTimedOut(false);
+  }, [activeRequest?.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        setCancelAlertVisible(true);
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   useEffect(() => {
-    if (activeRequest?.modality !== 'in-person') {
+    if (!activeRequest) {
       setUserLocation(null);
       setLocationPermissionDenied(false);
+      setLocationPermissionGranted(false);
       setNearbyPsychologistCount(0);
       return;
     }
@@ -114,11 +106,28 @@ export const RadarScreen: React.FC = () => {
     let isMounted = true;
     const requestLocation = async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const existingPermission = await Location.getForegroundPermissionsAsync();
+        const { status } = existingPermission.status === 'granted'
+          ? existingPermission
+          : await Location.requestForegroundPermissionsAsync();
         if (!isMounted) return;
         if (status !== 'granted') {
           setLocationPermissionDenied(true);
+          setLocationPermissionGranted(false);
           return;
+        }
+        setLocationPermissionDenied(false);
+        setLocationPermissionGranted(true);
+
+        const lastKnownLocation = await Location.getLastKnownPositionAsync({
+          maxAge: 5 * 60 * 1000,
+          requiredAccuracy: 2_000,
+        });
+        if (isMounted && lastKnownLocation) {
+          setUserLocation({
+            latitude: lastKnownLocation.coords.latitude,
+            longitude: lastKnownLocation.coords.longitude,
+          });
         }
 
         const location = await Location.getCurrentPositionAsync({
@@ -130,7 +139,7 @@ export const RadarScreen: React.FC = () => {
           longitude: location.coords.longitude,
         });
       } catch {
-        if (isMounted) setLocationPermissionDenied(true);
+        if (isMounted) setLocationPermissionGranted(false);
       }
     };
 
@@ -138,16 +147,15 @@ export const RadarScreen: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [activeRequest?.modality]);
+  }, [activeRequest?.id]);
 
   useEffect(() => {
     if (!userLocation || activeRequest?.modality !== 'in-person') return;
     const controller = new AbortController();
-    const { radiusKm } = getDirectoryMapConfig();
     void getNearbyPsychologists(
       userLocation.latitude,
       userLocation.longitude,
-      radiusKm,
+      mapConfig.radiusKm,
       controller.signal
     )
       .then((profiles) => setNearbyPsychologistCount(profiles.length))
@@ -156,7 +164,17 @@ export const RadarScreen: React.FC = () => {
         setNearbyPsychologistCount(0);
       });
     return () => controller.abort();
-  }, [userLocation, activeRequest?.modality]);
+  }, [userLocation, activeRequest?.modality, mapConfig.radiusKm]);
+
+  useEffect(() => {
+    if (!activeRequest || mapReady) {
+      setMapLoadTimedOut(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => setMapLoadTimedOut(true), 8_000);
+    return () => clearTimeout(timeout);
+  }, [activeRequest?.id, mapReady]);
 
   useEffect(() => {
     const currentId = activeRequestId || activeRequest?.id;
@@ -170,61 +188,6 @@ export const RadarScreen: React.FC = () => {
     showAlert('No pudimos actualizar la búsqueda', error);
     clearError();
   }, [clearError, error]);
-
-  useEffect(() => {
-    const stopAnimations = () => {
-      ring1.stopAnimation();
-      ring2.stopAnimation();
-      ring3.stopAnimation();
-      rotateAnim.stopAnimation();
-    };
-    stopAnimations();
-
-    if (reduceMotionEnabled) {
-      ring1.setValue(0.35);
-      ring2.setValue(0.35);
-      ring3.setValue(0.35);
-      rotateAnim.setValue(0);
-      return stopAnimations;
-    }
-
-    const pulseRing = (animation: Animated.Value, delay: number) => Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(animation, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(animation, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-      ])
-    );
-    const ringAnimations = [
-      pulseRing(ring1, 0),
-      pulseRing(ring2, 700),
-      pulseRing(ring3, 1400),
-    ];
-    const sweepAnimation = Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: Platform.OS !== 'web',
-      })
-    );
-    ringAnimations.forEach((animation) => animation.start());
-    sweepAnimation.start();
-    return () => {
-      ringAnimations.forEach((animation) => animation.stop());
-      sweepAnimation.stop();
-      stopAnimations();
-    };
-  }, [reduceMotionEnabled, ring1, ring2, ring3, rotateAnim]);
 
   useEffect(() => {
     if (incomingOffers && incomingOffers.length > 0) {
@@ -300,7 +263,10 @@ export const RadarScreen: React.FC = () => {
         throw new Error('La sesión ya no está disponible.');
       }
       await cancelSearch(userProfile.id);
-      navigation.goBack();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'PatientMain', params: { screen: 'Search' } }],
+      });
     } catch (cancellationError) {
       clearError();
       showAlert(
@@ -313,33 +279,17 @@ export const RadarScreen: React.FC = () => {
     }
   };
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  const ringStyle = (anim: Animated.Value, size: number) => ({
-    width: size,
-    height: size,
-    borderRadius: size / 2,
-    position: 'absolute' as const,
-    borderWidth: 1.5,
-    borderColor: Colors.accent,
-    opacity: anim.interpolate({
-      inputRange: [0, 0.3, 1],
-      outputRange: [0, 0.6, 0],
-    }),
-    transform: [
-      {
-        scale: anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.4, 1],
-        }),
-      },
-    ],
-  });
-
+  const handleMapReady = React.useCallback(() => {
+    setMapReady(true);
+    setMapLoadTimedOut(false);
+  }, []);
   const isPresential = activeRequest?.modality === 'in-person';
+  const mapRegion = React.useMemo(() => ({
+    latitude: userLocation?.latitude ?? mapConfig.defaultLatitude,
+    longitude: userLocation?.longitude ?? mapConfig.defaultLongitude,
+    latitudeDelta: mapConfig.latitudeDelta,
+    longitudeDelta: mapConfig.longitudeDelta,
+  }), [mapConfig, userLocation?.latitude, userLocation?.longitude]);
 
   return (
     <BottomSheetModalProvider>
@@ -350,28 +300,32 @@ export const RadarScreen: React.FC = () => {
           translucent
         />
 
-        {isPresential && userLocation ? (
-          <MapView
-            style={StyleSheet.absoluteFill}
-            provider={PROVIDER_DEFAULT}
-            initialRegion={{
-              latitude: userLocation.latitude,
-              longitude: userLocation.longitude,
-              latitudeDelta: getDirectoryMapConfig().latitudeDelta,
-              longitudeDelta: getDirectoryMapConfig().longitudeDelta,
-            }}
-            showsUserLocation
-            scrollEnabled={false}
-            zoomEnabled={false}
-          />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.mapUnavailable]} />
+        <MapView
+          style={StyleSheet.absoluteFill}
+          initialRegion={mapRegion}
+          showsUserLocation={locationPermissionGranted}
+          scrollEnabled
+          zoomEnabled
+          onMapReady={handleMapReady}
+        />
+
+        {!mapReady && (
+          <View
+            style={[StyleSheet.absoluteFill, styles.mapLoading]}
+            pointerEvents="none"
+            accessibilityLiveRegion="polite"
+          >
+            {mapLoadTimedOut ? <MapPin size={18} color={Colors.primary} /> : (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            )}
+            <Text style={styles.mapLoadingBody}>
+              {mapLoadTimedOut ? 'El mapa está tardando; tu búsqueda sigue activa.' : 'Preparando mapa'}
+            </Text>
+          </View>
         )}
 
-        <View style={styles.darkOverlay} />
-
-        <SafeAreaView style={styles.safe}>
-          <View style={styles.topBar}>
+        <SafeAreaView style={styles.safe} pointerEvents="box-none">
+          <View style={styles.topBar} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.backBtn}
               onPress={() => setCancelAlertVisible(true)}
@@ -381,57 +335,33 @@ export const RadarScreen: React.FC = () => {
               <X size={22} color={Colors.primary} strokeWidth={2} />
             </TouchableOpacity>
 
-            <View style={styles.statusPill}>
-              <View style={styles.statusDot} />
+            <View style={styles.statusPill} pointerEvents="none">
+              {incomingOffers.length > 0 ? (
+                <View style={styles.statusDot} />
+              ) : (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              )}
               <Text style={styles.statusText}>
                 {incomingOffers.length > 0
                   ? `${incomingOffers.length} oferta(s) recibidas`
-                  : 'Buscando especialistas...'}
+                  : 'Buscando profesionales'}
               </Text>
             </View>
 
-            <View style={styles.topBarSpacer} />
+            <View style={styles.topBarSpacer} pointerEvents="none" />
           </View>
 
-          <View style={styles.radarContainer}>
-            <Animated.View style={ringStyle(ring1, radarWidth * 0.45)} />
-            <Animated.View style={ringStyle(ring2, radarWidth * 0.65)} />
-            <Animated.View style={ringStyle(ring3, radarWidth * 0.85)} />
-
-            <Animated.View
-              style={[
-                styles.sweepWrapper,
-                { width: radarWidth * 0.58, height: radarWidth * 0.58 },
-                { transform: [{ rotate: spin }] },
-              ]}
-            >
-              <View style={styles.sweepLine} />
-            </Animated.View>
-
-            <View style={styles.radarCore}>
-              <ShieldCheck
-                size={34}
-                color={Colors.accent}
-                strokeWidth={1.8}
-              />
-              {incomingOffers.length > 0 && (
-                <View style={styles.offerBadge}>
-                  <Text style={styles.offerBadgeText}>
-                    {incomingOffers.length}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.infoCard}>
+          <View
+            style={styles.infoCard}
+            pointerEvents={incomingOffers.length > 0 ? 'auto' : 'none'}
+          >
             <View style={styles.infoRow}>
               {activeRequest?.modality === 'in-person' ? (
-                <MapPin size={16} color={Colors.accent} />
+                <MapPin size={16} color={Colors.primary} />
               ) : activeRequest?.modality === 'call' ? (
-                <Phone size={16} color={Colors.accent} />
+                <Phone size={16} color={Colors.primary} />
               ) : (
-                <MessageCircle size={16} color={Colors.accent} />
+                <MessageCircle size={16} color={Colors.primary} />
               )}
               <Text style={styles.infoLabel}>Modalidad</Text>
               <Text style={styles.infoValue}>
@@ -444,7 +374,7 @@ export const RadarScreen: React.FC = () => {
             </View>
 
             <View style={styles.infoRow}>
-              <WalletCards size={16} color={Colors.accent} />
+              <WalletCards size={16} color={Colors.primary} />
               <Text style={styles.infoLabel}>Presupuesto sugerido</Text>
               <Text style={styles.infoValue}>
                 {activeRequest
@@ -455,7 +385,7 @@ export const RadarScreen: React.FC = () => {
 
             {isPresential && nearbyPsychologistCount > 0 && (
               <View style={styles.nearbyRow}>
-                <MapPin size={14} color={Colors.accent} />
+                <MapPin size={14} color={Colors.primary} />
                 <Text style={styles.nearbyText}>
                   {nearbyPsychologistCount} psicólogos disponibles en tu zona
                 </Text>
@@ -470,11 +400,7 @@ export const RadarScreen: React.FC = () => {
               </View>
             )}
 
-            {incomingOffers.length === 0 ? (
-              <Text style={styles.waitingText}>
-                Notificando a psicólogos verificados...
-              </Text>
-            ) : (
+            {incomingOffers.length > 0 && (
               <TouchableOpacity
                 style={styles.viewOffersBtn}
                 onPress={() => bottomSheetRef.current?.present()}
@@ -549,17 +475,185 @@ export const RadarScreen: React.FC = () => {
   );
 };
 
+interface RadarRecoveryProps {
+  readonly isCancelling: boolean;
+  readonly message: string | null;
+  readonly onRetry: () => void;
+  readonly onCancel: () => void;
+}
+
+const RadarRecovery: React.FC<RadarRecoveryProps> = ({
+  isCancelling,
+  message,
+  onRetry,
+  onCancel,
+}) => (
+  <View style={styles.recoveryScreen} accessibilityRole="alert">
+    <CircleAlert size={36} color={Colors.error} strokeWidth={1.8} />
+    <Text style={styles.recoveryTitle}>No pudimos abrir la búsqueda</Text>
+    <Text style={styles.recoveryBody}>
+      {message ?? 'Tu solicitud sigue protegida. Puedes reintentar o cancelarla para crear una nueva búsqueda.'}
+    </Text>
+    <View style={styles.recoveryActions}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Reintentar búsqueda"
+        disabled={isCancelling}
+        onPress={onRetry}
+        style={[styles.recoveryPrimaryAction, isCancelling && styles.recoveryActionDisabled]}
+      >
+        <Text style={styles.recoveryPrimaryActionText}>Reintentar</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Cancelar búsqueda activa"
+        disabled={isCancelling}
+        onPress={onCancel}
+        style={[styles.recoverySecondaryAction, isCancelling && styles.recoveryActionDisabled]}
+      >
+        {isCancelling ? (
+          <ActivityIndicator size="small" color={Colors.error} />
+        ) : (
+          <Text style={styles.recoverySecondaryActionText}>Cancelar búsqueda</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
+export const RadarScreen: React.FC = () => {
+  const navigation = useNavigation<AppNavigation>();
+  const userId = useAuthStore((state) => state.userProfile?.id);
+  const activeRequestId = useRequestStore((state) => state.activeRequestId ?? state.activeRequest?.id);
+  const cancelSearch = useRequestStore((state) => state.cancelSearch);
+  const clearError = useRequestStore((state) => state.clearError);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
+  const retry = React.useCallback(() => {
+    clearError();
+    setRecoveryMessage(null);
+    setRecoveryAttempt((attempt) => attempt + 1);
+  }, [clearError]);
+
+  const cancel = React.useCallback(async () => {
+    if (isCancelling) return;
+    if (!userId) {
+      setRecoveryMessage('Tu sesión ya no está disponible. Vuelve a iniciar sesión para continuar.');
+      return;
+    }
+
+    setIsCancelling(true);
+    setRecoveryMessage(null);
+    try {
+      await cancelSearch(userId);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'PatientMain', params: { screen: 'Search' } }],
+      });
+    } catch {
+      setRecoveryMessage('No pudimos cancelar la búsqueda. Revisa tu conexión e inténtalo nuevamente.');
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [cancelSearch, isCancelling, navigation, userId]);
+
+  return (
+    <ErrorBoundary
+      key={`${activeRequestId ?? 'without-request'}-${recoveryAttempt}`}
+      fallback={(
+        <RadarRecovery
+          isCancelling={isCancelling}
+          message={recoveryMessage}
+          onRetry={retry}
+          onCancel={() => void cancel()}
+        />
+      )}
+    >
+      <RadarScreenContent />
+    </ErrorBoundary>
+  );
+};
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BrandColors.navy,
+    backgroundColor: Colors.surfaceMuted,
   },
-  mapUnavailable: {
-    backgroundColor: BrandColors.navy,
+  recoveryScreen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xxl,
+    gap: Spacing.md,
   },
-  darkOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: Colors.overlay,
+  recoveryTitle: {
+    ...Typography.h2,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  recoveryBody: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 360,
+  },
+  recoveryActions: {
+    width: '100%',
+    maxWidth: 360,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  recoveryPrimaryAction: {
+    minHeight: 48,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+  },
+  recoveryPrimaryActionText: {
+    ...Typography.button,
+    color: Colors.textInverse,
+  },
+  recoverySecondaryAction: {
+    minHeight: 48,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.error,
+  },
+  recoverySecondaryActionText: {
+    ...Typography.button,
+    color: Colors.error,
+  },
+  recoveryActionDisabled: {
+    opacity: 0.55,
+  },
+  mapLoading: {
+    position: 'absolute',
+    top: 112,
+    left: Spacing.xl,
+    right: Spacing.xl,
+    zIndex: 2,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surface,
+    ...Shadow.sm,
+  },
+  mapLoadingBody: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
   safe: {
     flex: 1,
@@ -586,12 +680,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.overlay,
+    backgroundColor: Colors.surface,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.borderOnBrand,
+    borderColor: Colors.borderSubtle,
+    ...Shadow.sm,
   },
   statusDot: {
     width: 8,
@@ -601,61 +696,18 @@ const styles = StyleSheet.create({
   },
   statusText: {
     ...Typography.caption,
-    color: Colors.textInverse,
+    color: Colors.textPrimary,
     fontFamily: FontFamily.bodySemiBold,
-  },
-  radarContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sweepWrapper: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  sweepLine: {
-    width: 1.5,
-    height: '50%',
-    backgroundColor: Colors.accent,
-    opacity: 0.5,
-    transformOrigin: 'bottom',
-  },
-  radarCore: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.accent,
-    ...Shadow.xl,
-  },
-  offerBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  offerBadgeText: {
-    ...Typography.caption,
-    fontFamily: FontFamily.bodyBold,
-    color: Colors.primary,
   },
   infoCard: {
     margin: Spacing.base,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
     padding: Spacing.base,
     gap: Spacing.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.borderOnBrand,
-    ...Shadow.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    ...Shadow.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -664,12 +716,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     ...Typography.bodySmall,
-    color: Colors.textOnBrandMuted,
+    color: Colors.textSecondary,
     flex: 1,
   },
   infoValue: {
     ...Typography.label,
-    color: Colors.textInverse,
+    color: Colors.textPrimary,
     letterSpacing: 0,
     textTransform: 'none',
   },
@@ -677,20 +729,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.surfaceOnBrand,
+    backgroundColor: Colors.primaryTint,
     padding: Spacing.sm,
     borderRadius: BorderRadius.md,
   },
   nearbyText: {
     ...Typography.caption,
-    color: Colors.accent,
+    color: Colors.primary,
     fontFamily: FontFamily.bodyMedium,
-  },
-  waitingText: {
-    ...Typography.bodySmall,
-    color: Colors.textOnBrandMuted,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    flex: 1,
   },
   viewOffersBtn: {
     minHeight: 44,

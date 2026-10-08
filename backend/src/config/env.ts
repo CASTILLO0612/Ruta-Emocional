@@ -91,6 +91,33 @@ export interface AppConfig {
     readonly evidenceMaximumBytes: number;
     readonly evidenceUploadsPerMinute: number;
   };
+  readonly media: {
+    readonly storageProvider: 'LOCAL' | 'S3';
+    readonly profilePhotoDirectory: string;
+    readonly profilePhotoMaximumBytes: number;
+    readonly profilePhotoUploadsPerMinute: number;
+    readonly evidenceMaximumBytes: number;
+    readonly evidenceUploadsPerMinute: number;
+    readonly s3Region: string | null;
+    readonly s3Bucket: string | null;
+    readonly s3Endpoint: string | null;
+    readonly s3ForcePathStyle: boolean;
+    readonly scanPollIntervalMs: number;
+    readonly scanBatchSize: number;
+  };
+  readonly pushNotifications: {
+    readonly enabled: boolean;
+    readonly expoAccessToken: string | null;
+    readonly providerTimeoutMs: number;
+    readonly pollIntervalMs: number;
+    readonly batchSize: number;
+    readonly receiptBatchSize: number;
+    readonly receiptInitialDelayMs: number;
+    readonly receiptRetryDelayMs: number;
+    readonly claimTtlSeconds: number;
+    readonly maximumAttempts: number;
+    readonly retryBaseDelayMs: number;
+  };
   readonly requestFlow: {
     readonly minimumAmount: string;
     readonly maximumAmount: string;
@@ -125,6 +152,16 @@ export interface AppConfig {
     readonly outboxMaximumAttempts: number;
     readonly outboxRetryBaseDelayMs: number;
     readonly outboxReadinessMaximumLagSeconds: number;
+  };
+  readonly calls: {
+    readonly enabled: boolean;
+    readonly liveKitUrl: string | null;
+    readonly liveKitApiKey: string | null;
+    readonly liveKitApiSecret: string | null;
+    readonly accessTokenTtlSeconds: number;
+    readonly ringingTimeoutSeconds: number;
+    readonly maximumDurationSeconds: number;
+    readonly mutationsPerMinute: number;
   };
   readonly appointments: {
     readonly durationMinutes: number;
@@ -317,6 +354,18 @@ function readPasswordResetProvider(source: NodeJS.ProcessEnv): 'DISABLED' | 'RES
     throw new ConfigurationError('PASSWORD_RESET_PROVIDER must be DISABLED or RESEND');
   }
   return value;
+}
+
+function isValidEmailAddress(value: string): boolean {
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
+}
+
+export function isValidEmailSender(value: string): boolean {
+  if (/[\r\n]/.test(value)) return false;
+  if (isValidEmailAddress(value)) return true;
+
+  const namedSender = /^([^<>]{1,100})\s+<([^<>]+)>$/.exec(value);
+  return Boolean(namedSender?.[1].trim() && isValidEmailAddress(namedSender?.[2].trim() ?? ''));
 }
 
 function readOrigins(source: NodeJS.ProcessEnv, environment: RuntimeEnvironment): readonly string[] {
@@ -665,16 +714,49 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       );
     }
     assertSecret('PASSWORD_RESET_RESEND_API_KEY', passwordResetApiKey);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(passwordResetSender)) {
+    if (!isValidEmailSender(passwordResetSender)) {
       throw new ConfigurationError('PASSWORD_RESET_SENDER must contain a valid email address');
     }
     try {
       const parsedResetUrl = new URL(passwordResetUrl);
-      if (environment === 'production' && parsedResetUrl.protocol !== 'https:') throw new Error();
-      if (!['http:', 'https:', 'rutaemocional:'].includes(parsedResetUrl.protocol)) throw new Error();
+      if (parsedResetUrl.protocol !== 'https:') throw new Error();
     } catch {
-      throw new ConfigurationError('PASSWORD_RESET_URL must contain a valid recovery URL');
+      throw new ConfigurationError('PASSWORD_RESET_URL must contain a valid HTTPS recovery URL');
     }
+  }
+
+  const mediaStorageProviderValue = source.MEDIA_STORAGE_PROVIDER?.trim().toUpperCase() || 'LOCAL';
+  if (mediaStorageProviderValue !== 'LOCAL' && mediaStorageProviderValue !== 'S3') {
+    throw new ConfigurationError('MEDIA_STORAGE_PROVIDER must be LOCAL or S3');
+  }
+  const mediaStorageProvider = mediaStorageProviderValue as 'LOCAL' | 'S3';
+  const mediaS3Region = source.MEDIA_S3_REGION?.trim() || null;
+  const mediaS3Bucket = source.MEDIA_S3_BUCKET?.trim() || null;
+  const mediaS3Endpoint = source.MEDIA_S3_ENDPOINT?.trim() || null;
+  if (mediaStorageProvider === 'S3' && (!mediaS3Region || !mediaS3Bucket)) {
+    throw new ConfigurationError('MEDIA_S3_REGION and MEDIA_S3_BUCKET are required with S3 storage');
+  }
+
+  const callProvider = source.CALL_PROVIDER?.trim().toUpperCase() || 'DISABLED';
+  if (callProvider !== 'DISABLED' && callProvider !== 'LIVEKIT') {
+    throw new ConfigurationError('CALL_PROVIDER must be DISABLED or LIVEKIT');
+  }
+  const liveKitUrl = source.LIVEKIT_URL?.trim() || null;
+  const liveKitApiKey = source.LIVEKIT_API_KEY?.trim() || null;
+  const liveKitApiSecret = source.LIVEKIT_API_SECRET?.trim() || null;
+  if (callProvider === 'LIVEKIT') {
+    if (!liveKitUrl || !liveKitApiKey || !liveKitApiSecret) {
+      throw new ConfigurationError(
+        'LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required when CALL_PROVIDER is LIVEKIT'
+      );
+    }
+    try {
+      const parsedLiveKitUrl = new URL(liveKitUrl);
+      if (parsedLiveKitUrl.protocol !== 'wss:' || !parsedLiveKitUrl.hostname) throw new Error();
+    } catch {
+      throw new ConfigurationError('LIVEKIT_URL must be a valid secure wss:// URL');
+    }
+    assertSecret('LIVEKIT_API_SECRET', liveKitApiSecret);
   }
 
   const supportedCurrencies = readCurrencies(source);
@@ -809,6 +891,71 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         30
       ),
     },
+    media: {
+      storageProvider: mediaStorageProvider,
+      profilePhotoDirectory: path.resolve(
+        source.PROFILE_PHOTO_STORAGE_DIRECTORY?.trim() || './var/profile-photos'
+      ),
+      profilePhotoMaximumBytes: readInteger(
+        source,
+        'PROFILE_PHOTO_MAXIMUM_BYTES',
+        5_242_880,
+        65_536,
+        10_485_760
+      ),
+      profilePhotoUploadsPerMinute: readInteger(
+        source,
+        'PROFILE_PHOTO_UPLOADS_PER_MINUTE',
+        6,
+        1,
+        30
+      ),
+      evidenceMaximumBytes: readInteger(
+        source,
+        'MEDIA_EVIDENCE_MAXIMUM_BYTES',
+        5_242_880,
+        1_024,
+        10_485_760
+      ),
+      evidenceUploadsPerMinute: readInteger(
+        source,
+        'MEDIA_EVIDENCE_UPLOADS_PER_MINUTE',
+        5,
+        1,
+        30
+      ),
+      s3Region: mediaS3Region,
+      s3Bucket: mediaS3Bucket,
+      s3Endpoint: mediaS3Endpoint,
+      s3ForcePathStyle: readBoolean(source, 'MEDIA_S3_FORCE_PATH_STYLE', false),
+      scanPollIntervalMs: readInteger(source, 'MEDIA_SCAN_POLL_INTERVAL_MS', 5_000, 1_000, 60_000),
+      scanBatchSize: readInteger(source, 'MEDIA_SCAN_BATCH_SIZE', 25, 1, 100),
+    },
+    pushNotifications: {
+      enabled: readBoolean(source, 'PUSH_NOTIFICATIONS_ENABLED', false),
+      expoAccessToken: source.EXPO_PUSH_ACCESS_TOKEN?.trim() || null,
+      providerTimeoutMs: readInteger(source, 'PUSH_PROVIDER_TIMEOUT_MS', 10_000, 1_000, 30_000),
+      pollIntervalMs: readInteger(source, 'PUSH_POLL_INTERVAL_MS', 2_000, 250, 60_000),
+      batchSize: readInteger(source, 'PUSH_BATCH_SIZE', 50, 1, 100),
+      receiptBatchSize: readInteger(source, 'PUSH_RECEIPT_BATCH_SIZE', 100, 1, 1_000),
+      receiptInitialDelayMs: readInteger(
+        source,
+        'PUSH_RECEIPT_INITIAL_DELAY_MS',
+        900_000,
+        60_000,
+        3_600_000
+      ),
+      receiptRetryDelayMs: readInteger(
+        source,
+        'PUSH_RECEIPT_RETRY_DELAY_MS',
+        900_000,
+        60_000,
+        3_600_000
+      ),
+      claimTtlSeconds: readInteger(source, 'PUSH_CLAIM_TTL_SECONDS', 60, 5, 600),
+      maximumAttempts: readInteger(source, 'PUSH_MAXIMUM_ATTEMPTS', 8, 1, 100),
+      retryBaseDelayMs: readInteger(source, 'PUSH_RETRY_BASE_DELAY_MS', 1_000, 100, 60_000),
+    },
     requestFlow: {
       minimumAmount: minimumRequestAmount,
       maximumAmount: maximumRequestAmount,
@@ -933,6 +1080,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         30,
         86_400
       ),
+    },
+    calls: {
+      enabled: callProvider === 'LIVEKIT',
+      liveKitUrl,
+      liveKitApiKey,
+      liveKitApiSecret,
+      accessTokenTtlSeconds: readInteger(source, 'CALL_ACCESS_TOKEN_TTL_SECONDS', 600, 60, 3600),
+      ringingTimeoutSeconds: readInteger(source, 'CALL_RINGING_TIMEOUT_SECONDS', 45, 15, 180),
+      maximumDurationSeconds: readInteger(source, 'CALL_MAXIMUM_DURATION_SECONDS', 7_200, 300, 28_800),
+      mutationsPerMinute: readInteger(source, 'CALL_MUTATIONS_PER_MINUTE', 12, 1, 120),
     },
     appointments: {
       durationMinutes: readRequiredInteger(source, 'APPOINTMENT_DURATION_MINUTES', 15, 240),

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { File } from 'expo-file-system';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   ActivityIndicator,
   StatusBar,
@@ -27,7 +27,7 @@ import { AppMorphIcon } from '../../components/common/AppMorphIcon';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 import { IconSize, IconStroke } from '../../theme/icons';
-import { BorderRadius, Shadow, Spacing } from '../../theme/spacing';
+import { BorderRadius, Spacing } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
 import { DirectoryModality } from '../../models/Psychologist';
 import {
@@ -69,17 +69,18 @@ const VERIFICATION_SECTIONS: readonly { readonly key: VerificationSection; reado
 ];
 
 interface SelectedEvidence {
-  readonly file: File;
+  readonly fileUri: string;
+  readonly fileSize: number;
   readonly fileName: string;
   readonly contentType: 'application/pdf' | 'image/jpeg' | 'image/png';
   readonly licenseId: string;
 }
 
 function evidenceContentType(
-  file: File,
+  file: DocumentPicker.DocumentPickerAsset,
   accepted: readonly string[]
 ): SelectedEvidence['contentType'] | null {
-  const reported = file.type.split(';', 1)[0].trim().toLowerCase();
+  const reported = file.mimeType?.split(';', 1)[0].trim().toLowerCase() ?? '';
   if (reported && accepted.includes(reported)) return reported as SelectedEvidence['contentType'];
   const extension = file.name.toLowerCase().split('.').pop();
   const inferred = extension === 'pdf'
@@ -98,7 +99,10 @@ const EVIDENCE_FILE_EXTENSIONS: Readonly<Record<SelectedEvidence['contentType'],
   'image/png': '.png',
 };
 
-function evidenceFileName(file: File, contentType: SelectedEvidence['contentType']): string {
+function evidenceFileName(
+  file: DocumentPicker.DocumentPickerAsset,
+  contentType: SelectedEvidence['contentType']
+): string {
   const extension = EVIDENCE_FILE_EXTENSIONS[contentType];
   const sanitized = file.name
     .replace(/[\\/\u0000-\u001F\u007F]/g, '_')
@@ -242,19 +246,21 @@ export const VerificationScreen: React.FC = () => {
   };
 
   const handleSelectEvidence = async (licenseId: string) => {
-    if (evidencePolicy.mode !== 'LOCAL_QA') return;
-    const result = await File.pickFileAsync({
-      mimeTypes: [...evidencePolicy.acceptedContentTypes],
-      multipleFiles: false,
+    if (evidencePolicy.mode !== 'DIRECT') return;
+    const result = await DocumentPicker.getDocumentAsync({
+      type: [...evidencePolicy.acceptedContentTypes],
+      multiple: false,
+      copyToCacheDirectory: true,
     });
     if (result.canceled) return;
-    const file = result.result;
+    const file = result.assets[0];
+    if (!file) return;
     const contentType = evidenceContentType(file, evidencePolicy.acceptedContentTypes);
     if (!contentType) {
       showAlert('Archivo no permitido', 'Selecciona un archivo PDF, JPEG o PNG.');
       return;
     }
-    if (!file.exists || file.size < 1) {
+    if (typeof file.size !== 'number' || file.size < 1) {
       showAlert('No pudimos leer el archivo', 'Selecciona nuevamente el documento desde el explorador de archivos.');
       return;
     }
@@ -266,7 +272,8 @@ export const VerificationScreen: React.FC = () => {
       return;
     }
     setSelectedEvidence({
-      file,
+      fileUri: file.uri,
+      fileSize: file.size,
       fileName: evidenceFileName(file, contentType),
       contentType,
       licenseId,
@@ -274,10 +281,10 @@ export const VerificationScreen: React.FC = () => {
   };
 
   const handleSubmitEvidence = async () => {
-    if (!selectedEvidence || evidencePolicy.mode !== 'LOCAL_QA') return;
+    if (!selectedEvidence || evidencePolicy.mode !== 'DIRECT') return;
     setIsUploadingEvidence(true);
     try {
-      const selectedSize = selectedEvidence.file.size;
+      const selectedSize = selectedEvidence.fileSize;
       if (selectedSize < 1 || selectedSize > evidencePolicy.maximumBytes) {
         throw new Error(`El tamaño máximo es ${formatFileSize(evidencePolicy.maximumBytes)}.`);
       }
@@ -285,7 +292,7 @@ export const VerificationScreen: React.FC = () => {
         licenseId: selectedEvidence.licenseId,
         fileName: selectedEvidence.fileName,
         contentType: selectedEvidence.contentType,
-        file: selectedEvidence.file,
+        fileUri: selectedEvidence.fileUri,
       });
       setProfile(updated);
       setSelectedEvidence(null);
@@ -324,7 +331,7 @@ export const VerificationScreen: React.FC = () => {
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.detail}>{detail}</Text>
 
-        <View style={styles.accountCard}>
+        <View style={styles.accountSection}>
           <Text style={styles.accountLabel}>Cuenta profesional</Text>
           <Text style={styles.accountName}>{userProfile?.displayName}</Text>
           <Text style={styles.accountEmail}>{userProfile?.email}</Text>
@@ -341,7 +348,7 @@ export const VerificationScreen: React.FC = () => {
           ))}
         </View>
 
-        <View style={styles.progressCard}>
+        <View style={styles.progressSection}>
           <View style={styles.sectionHeadingRow}>
             <View style={styles.sectionIcon}>
               <ListChecks size={22} color={Colors.primary} strokeWidth={1.9} />
@@ -349,7 +356,7 @@ export const VerificationScreen: React.FC = () => {
             <View style={styles.sectionHeadingCopy}>
               <Text style={styles.formTitle}>Requisitos para habilitar el panel</Text>
               <Text style={styles.helperText}>
-                El acceso profesional se activa automáticamente cuando un administrador aprueba la evidencia y el perfil cumple los requisitos.
+                Completa estos pasos para habilitar tu panel.
               </Text>
             </View>
           </View>
@@ -407,8 +414,8 @@ export const VerificationScreen: React.FC = () => {
               })}
             </ScrollView>
 
-            {activeSetupSection === 'EVIDENCE' ? (evidencePolicy.mode === 'LOCAL_QA' ? (
-              <View style={styles.formCard}>
+            {activeSetupSection === 'EVIDENCE' ? (evidencePolicy.mode === 'DIRECT' ? (
+              <View style={styles.formSection}>
                 <View style={styles.sectionHeadingRow}>
                   <View style={styles.sectionIcon}>
                     <LockKeyhole size={22} color={Colors.primary} strokeWidth={1.9} />
@@ -416,7 +423,7 @@ export const VerificationScreen: React.FC = () => {
                   <View style={styles.sectionHeadingCopy}>
                     <Text style={styles.formTitle}>Evidencia profesional</Text>
                     <Text style={styles.helperText}>
-                      Flujo privado de QA local. Acepta PDF, JPEG o PNG y no publica el archivo.
+                      Acepta PDF, JPEG o PNG. El archivo permanece privado.
                     </Text>
                   </View>
                 </View>
@@ -427,7 +434,7 @@ export const VerificationScreen: React.FC = () => {
                     ? selectedEvidence
                     : null;
                   return (
-                    <View key={license.id} style={styles.evidenceLicenseCard}>
+                    <View key={license.id} style={styles.evidenceLicenseSection}>
                       <Text style={styles.accountLabel}>{license.authority} · {license.number}</Text>
                       {!canSubmit ? (
                         <View style={styles.statusRow}>
@@ -454,7 +461,7 @@ export const VerificationScreen: React.FC = () => {
                                   {selectedForLicense.fileName}
                                 </Text>
                                 <Text style={styles.helperText}>
-                                  {formatFileSize(selectedForLicense.file.size)}
+                                  {formatFileSize(selectedForLicense.fileSize)}
                                 </Text>
                               </View>
                             </View>
@@ -483,7 +490,7 @@ export const VerificationScreen: React.FC = () => {
                 })}
               </View>
             ) : (
-              <View style={styles.formCard}>
+              <View style={styles.formSection}>
                 <View style={styles.sectionHeadingRow}>
                   <View style={styles.sectionIcon}>
                     <LockKeyhole size={22} color={Colors.warning} strokeWidth={1.9} />
@@ -498,7 +505,7 @@ export const VerificationScreen: React.FC = () => {
               </View>
             )) : null}
 
-            {activeSetupSection === 'BIO' ? <View style={styles.formCard}>
+            {activeSetupSection === 'BIO' ? <View style={styles.formSection}>
               <Text style={styles.formTitle}>Presentación profesional</Text>
               <TextInput
                 style={[styles.input, styles.bioInput]}
@@ -536,7 +543,7 @@ export const VerificationScreen: React.FC = () => {
               </TouchableOpacity>
             </View> : null}
 
-            {activeSetupSection === 'SPECIALTY' ? <View style={styles.formCard}>
+            {activeSetupSection === 'SPECIALTY' ? <View style={styles.formSection}>
               <Text style={styles.formTitle}>Especialidad principal</Text>
               <View style={styles.chipGroup}>
                 {specialties.map((specialty) => (
@@ -573,7 +580,7 @@ export const VerificationScreen: React.FC = () => {
               </TouchableOpacity>
             </View> : null}
 
-            {activeSetupSection === 'MODALITY' ? <View style={styles.formCard}>
+            {activeSetupSection === 'MODALITY' ? <View style={styles.formSection}>
               <Text style={styles.formTitle}>Modalidad y tarifa</Text>
               <View style={styles.chipGroup}>
                 {modalities.map((item) => (
@@ -620,7 +627,7 @@ export const VerificationScreen: React.FC = () => {
               </TouchableOpacity>
             </View> : null}
 
-            {activeSetupSection === 'AVAILABILITY' ? <View style={styles.formCard}>
+            {activeSetupSection === 'AVAILABILITY' ? <View style={styles.formSection}>
               <Text style={styles.formTitle}>Disponibilidad semanal básica</Text>
               <Text style={styles.helperText}>Zona horaria: {timezone}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipGroup}>
@@ -752,16 +759,14 @@ const styles = StyleSheet.create({
     maxWidth: 520,
     lineHeight: 23,
   },
-  accountCard: {
+  accountSection: {
     width: '100%',
     maxWidth: 460,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingVertical: Spacing.base,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.divider,
     gap: Spacing.xs,
-    ...Shadow.sm,
   },
   accountLabel: {
     ...Typography.caption,
@@ -793,27 +798,21 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Colors.error,
   },
-  formCard: {
+  formSection: {
     width: '100%',
     maxWidth: 600,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingVertical: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
     gap: Spacing.md,
-    ...Shadow.sm,
   },
-  progressCard: {
+  progressSection: {
     width: '100%',
     maxWidth: 600,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingVertical: Spacing.base,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
     gap: Spacing.md,
-    ...Shadow.sm,
   },
   progressRow: {
     minHeight: 44,
@@ -877,7 +876,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.xs,
   },
-  evidenceLicenseCard: {
+  evidenceLicenseSection: {
     paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
@@ -908,9 +907,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.borderSubtle,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.divider,
   },
   selectedFileCopy: {
     flex: 1,

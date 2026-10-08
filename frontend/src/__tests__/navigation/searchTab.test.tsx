@@ -1,9 +1,10 @@
 import React from 'react';
-import { fireEvent } from '@testing-library/react-native';
 import { SearchTabScreen } from '../../screens/patient/SearchTabScreen';
 import { useRequestStore } from '../../store/useRequestStore';
 import { renderWithStackNavigation } from '../helpers/renderWithNavigation';
 import { Text, View } from 'react-native';
+import { act, fireEvent } from '@testing-library/react-native';
+import * as RequestRepository from '../../repositories/RequestRepository';
 
 const MockRadarScreen = () => (
   <View>
@@ -13,6 +14,17 @@ const MockRadarScreen = () => (
 
 describe('SearchTabScreen', () => {
   beforeEach(() => {
+    jest.spyOn(RequestRepository, 'getServiceRequestPolicy').mockResolvedValue({
+      minimumAmount: '100',
+      maximumAmount: '10000',
+      supportedCurrencies: ['NIO'],
+      immediateTtlMinutes: 30,
+      scheduledLeadMinutes: 60,
+      maximumScheduleDays: 30,
+      maximumDescriptionLength: 500,
+      maximumPrimaryNeedLength: 160,
+      maximumOfferMessageLength: 500,
+    });
     useRequestStore.setState({
       activeRequest: null,
       activeRequestId: null,
@@ -23,7 +35,7 @@ describe('SearchTabScreen', () => {
   });
 
   it('renderiza RequestWizardScreen cuando no hay solicitud activa', async () => {
-    const { getByText } = await renderWithStackNavigation({
+    const { getByLabelText, getByText, queryByText } = await renderWithStackNavigation({
       screens: [
         { name: 'Search', component: SearchTabScreen },
       ],
@@ -31,9 +43,51 @@ describe('SearchTabScreen', () => {
     });
 
     expect(getByText('¿Cómo podemos ayudarte?')).toBeTruthy();
+    expect(getByText('Añadir contexto')).toBeTruthy();
+    expect(queryByText('Ansiedad y estrés')).toBeNull();
+    expect(queryByText('Depresión y tristeza')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Añadir contexto'));
+    });
+    expect(getByLabelText('Contexto de la solicitud')).toBeTruthy();
   });
 
-  it('renderiza ActiveSearchSummary cuando la solicitud está en estado pending', async () => {
+  it('solicita únicamente el monto manual en el paso de presupuesto', async () => {
+    const { findByText, getByLabelText, getByText, queryByText } =
+      await renderWithStackNavigation({
+        screens: [{ name: 'Search', component: SearchTabScreen }],
+        initialRouteName: 'Search',
+      });
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Añadir contexto'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        getByLabelText('Contexto de la solicitud'),
+        'Necesito apoyo para manejar el estrés.'
+      );
+    });
+    await act(async () => {
+      fireEvent.press(getByText('Continuar'));
+    });
+    expect(await findByText('¿Cómo deseas recibir tu sesión?')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('Continuar'));
+    });
+    expect(await findByText('¿Cuándo necesitas la atención?')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('Continuar'));
+    });
+    expect(await findByText('¿Cuál es tu presupuesto sugerido?')).toBeTruthy();
+    expect(getByLabelText('Monto del presupuesto')).toBeTruthy();
+    expect(queryByText('MONTOS SUGERIDOS')).toBeNull();
+  });
+
+  it('abre el Radar directamente cuando existe una solicitud pendiente', async () => {
     useRequestStore.setState({
       activeRequest: {
         id: 'req-123',
@@ -50,7 +104,7 @@ describe('SearchTabScreen', () => {
       incomingOffers: [],
     });
 
-    const { getByText, queryByText } = await renderWithStackNavigation({
+    const { findByText, queryByText } = await renderWithStackNavigation({
       screens: [
         { name: 'Search', component: SearchTabScreen },
         { name: 'Radar', component: MockRadarScreen },
@@ -58,12 +112,12 @@ describe('SearchTabScreen', () => {
       initialRouteName: 'Search',
     });
 
-    expect(getByText('Búsqueda en curso')).toBeTruthy();
-    expect(getByText('Manejo de ansiedad')).toBeTruthy();
+    expect(await findByText('Radar Screen Content')).toBeTruthy();
+    expect(queryByText('Búsqueda en curso')).toBeNull();
     expect(queryByText('¿Cómo podemos ayudarte?')).toBeNull();
   });
 
-  it('navega hacia Radar al presionar el botón de ver búsqueda', async () => {
+  it('abre el Radar directamente cuando ya hay ofertas', async () => {
     useRequestStore.setState({
       activeRequest: {
         id: 'req-123',
@@ -92,7 +146,7 @@ describe('SearchTabScreen', () => {
       ],
     });
 
-    const { getByText, findByText } = await renderWithStackNavigation({
+    const { findByText, queryByText } = await renderWithStackNavigation({
       screens: [
         { name: 'Search', component: SearchTabScreen },
         { name: 'Radar', component: MockRadarScreen },
@@ -100,11 +154,7 @@ describe('SearchTabScreen', () => {
       initialRouteName: 'Search',
     });
 
-    expect(getByText('1 oferta(s) esperando tu decisión')).toBeTruthy();
-
-    const openRadarButton = getByText('Ver ofertas (1)');
-    await fireEvent.press(openRadarButton);
-
     expect(await findByText('Radar Screen Content')).toBeTruthy();
+    expect(queryByText('Ver ofertas (1)')).toBeNull();
   });
 });

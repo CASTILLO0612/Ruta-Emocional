@@ -94,12 +94,48 @@ test('MENTA HTTP flow authenticates, persists encrypted turns and returns a safe
     assert.equal(turn.data.userMessage, userMessage);
     assert.match(turn.data.assistantMessage, /no puedo responder ahora/i);
 
+    const streamResponse = await fetch(
+      `${api}/menta/conversations/${conversation.data.id}/turns/stream`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          clientMessageId: randomUUID(),
+          message: '¿Cuándo es mi próxima cita?',
+        }),
+      }
+    );
+    assert.equal(streamResponse.status, 200);
+    assert.match(streamResponse.headers.get('content-type') ?? '', /text\/event-stream/);
+    const stream = await streamResponse.text();
+    assert.match(stream, /event: status/);
+    assert.match(stream, /event: delta/);
+    assert.match(stream, /event: completed/);
+
     const stored = await prisma.mentaTurn.findFirstOrThrow({
       where: { conversationId: conversation.data.id },
       select: { userContentEncrypted: true, assistantContentEncrypted: true },
     });
     assert.equal(stored.userContentEncrypted.includes(userMessage), false);
     assert.equal(stored.assistantContentEncrypted?.includes(turn.data.assistantMessage), false);
+
+    const restartResponse = await fetch(
+      `${api}/menta/conversations/${conversation.data.id}/restart`,
+      { method: 'POST', headers }
+    );
+    assert.equal(restartResponse.status, 201);
+    const restarted = await json<{ data: { id: string; turns: unknown[] } }>(restartResponse);
+    assert.notEqual(restarted.data.id, conversation.data.id);
+    assert.deepEqual(restarted.data.turns, []);
+
+    const closed = await prisma.mentaConversation.findUniqueOrThrow({
+      where: { id: conversation.data.id },
+      select: { closedAt: true },
+    });
+    assert.ok(closed.closedAt);
+    assert.equal(await prisma.mentaTurn.count({
+      where: { conversationId: conversation.data.id },
+    }), 2);
   } finally {
     if (userId) {
       const conversations = await prisma.mentaConversation.findMany({

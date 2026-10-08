@@ -12,15 +12,18 @@ import {
   signInWithGoogle as signInWithGoogleRequest,
   signOutAllSessions,
   signOutUser,
+  removeCurrentUserPhoto,
+  updateCurrentUserProfile,
+  uploadCurrentUserPhoto,
 } from '../services/AuthService';
 import { ApiError } from '../services/apiClient';
 import { presentUserError } from '../utils/userFacingError';
 import { useRequestStore } from './useRequestStore';
+import { deactivateCurrentPushDevice } from '../services/pushNotifications';
 
 export interface UserProfile extends CurrentUser {
   readonly role: UserRole;
   readonly photoURL?: string;
-  readonly phone?: string;
   readonly specialty?: string;
   readonly bio?: string;
 }
@@ -40,6 +43,9 @@ interface AuthState {
   ) => Promise<void>;
   registerAccount: (input: RegisterUserInput) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (displayName: string, phone: string | null) => Promise<void>;
+  replaceProfilePhoto: (uri: string, contentType: 'image/jpeg' | 'image/png' | 'image/webp') => Promise<void>;
+  removeProfilePhoto: () => Promise<void>;
   signOut: () => Promise<void>;
   signOutAll: () => Promise<void>;
   setUserProfile: (profile: UserProfile) => void;
@@ -72,7 +78,7 @@ function toUserProfile(user: CurrentUser, previous?: UserProfile | null): UserPr
     ...user,
     role,
     photoURL: user.photoUrl ?? undefined,
-    phone: previous?.phone,
+    phone: user.phone ?? undefined,
     specialty: previous?.specialty,
     bio: previous?.bio,
   };
@@ -198,10 +204,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
+  updateProfile: async (displayName, phone) => {
+    const user = await updateCurrentUserProfile({ displayName, phone });
+    const profile = toUserProfile(user, get().userProfile);
+    set({ userProfile: profile, role: profile.role, isAuthenticated: true });
+  },
+
+  replaceProfilePhoto: async (uri, contentType) => {
+    const user = await uploadCurrentUserPhoto({ uri, contentType });
+    const profile = toUserProfile(user, get().userProfile);
+    set({ userProfile: profile, role: profile.role, isAuthenticated: true });
+  },
+
+  removeProfilePhoto: async () => {
+    const user = await removeCurrentUserPhoto();
+    const profile = toUserProfile(user, get().userProfile);
+    set({ userProfile: profile, role: profile.role, isAuthenticated: true });
+  },
+
   signOut: async () => {
     const userId = get().userProfile?.id;
     const clearRequestSession = useRequestStore.getState().clearSession(userId);
     try {
+      await deactivateCurrentPushDevice().catch(() => undefined);
       await signOutUser();
     } finally {
       await clearRequestSession;
@@ -213,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const userId = get().userProfile?.id;
     const clearRequestSession = useRequestStore.getState().clearSession(userId);
     try {
+      await deactivateCurrentPushDevice().catch(() => undefined);
       await signOutAllSessions();
     } finally {
       await clearRequestSession;

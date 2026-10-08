@@ -50,8 +50,39 @@ export interface AppointmentView {
   readonly timezone: string;
   readonly status: AppointmentStatusValue;
   readonly cancellationReason: string | null;
+  readonly review: AppointmentReviewView | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface AppointmentReviewView {
+  readonly id: string;
+  readonly rating: number;
+  readonly comment: string | null;
+  readonly createdAt: string;
+}
+
+export interface ReceivedReviewView extends AppointmentReviewView {
+  readonly appointmentId: string;
+  readonly patient: {
+    readonly displayName: string;
+    readonly photoUrl: string | null;
+  };
+}
+
+export interface ReviewCursor {
+  readonly createdAt: Date;
+  readonly id: string;
+}
+
+export interface ReviewPageQuery {
+  readonly limit: number;
+  readonly cursor?: ReviewCursor;
+}
+
+export interface ReviewPage {
+  readonly items: readonly ReceivedReviewView[];
+  readonly nextCursor: string | null;
 }
 
 export interface AppointmentCursor {
@@ -73,6 +104,13 @@ export interface AppointmentPage {
 export function encodeAppointmentCursor(cursor: AppointmentCursor): string {
   return Buffer.from(JSON.stringify({
     startsAt: cursor.startsAt.toISOString(),
+    id: cursor.id,
+  }), 'utf8').toString('base64url');
+}
+
+export function encodeReviewCursor(cursor: ReviewCursor): string {
+  return Buffer.from(JSON.stringify({
+    createdAt: cursor.createdAt.toISOString(),
     id: cursor.id,
   }), 'utf8').toString('base64url');
 }

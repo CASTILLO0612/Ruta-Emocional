@@ -39,3 +39,8 @@ prueba recibida por la guardia.
 La selección final depende del hosting. Se aceptan OpenTelemetry/collector y un
 backend administrado, o el stack nativo de la nube, siempre que cumpla
 residencia, control de acceso, redacción y retención aprobadas.
+
+La medición HTTP reproducible y sus umbrales se describen en
+[`performance-validation.md`](performance-validation.md). Esta prueba permite
+detectar regresiones antes de justificar caché, réplicas o infraestructura
+adicional.

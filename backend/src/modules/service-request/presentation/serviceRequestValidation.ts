@@ -324,3 +324,18 @@ export function parseEligiblePageQuery(
   }
   return parsed;
 }
+
+export function parseOfferPageQuery(
+  query: Record<string, unknown>,
+  policy: AppConfig['requestFlow']
+): RequestPageQuery {
+  const parsed = parsePageQuery(query, policy);
+  if (parsed.status) {
+    throw AppError.validation([{
+      field: 'status',
+      code: 'UNSUPPORTED_OFFER_FILTER',
+      message: 'El historial de ofertas no admite este filtro.',
+    }]);
+  }
+  return parsed;
+}

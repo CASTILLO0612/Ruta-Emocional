@@ -117,6 +117,11 @@ export class ServiceRequestService {
     return this.repository.listRequestOffers(actor.user.id, requestId);
   }
 
+  listOwnOffers(actor: AuthenticatedActor, query: RequestPageQuery) {
+    this.assertCapability(actor, 'offer:manage:self');
+    return this.repository.listOwnOffers(actor.user.id, query);
+  }
+
   withdrawOffer(
     actor: AuthenticatedActor,
     requestId: string,

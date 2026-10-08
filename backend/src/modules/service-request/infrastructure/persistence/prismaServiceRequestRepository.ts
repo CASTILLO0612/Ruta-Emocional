@@ -18,6 +18,7 @@ import {
   AcceptanceResult,
   EligibleServiceRequestView,
   encodeRequestCursor,
+  OwnServiceOfferView,
   PersistedServiceRequestInput,
   ProfessionalOfferSummary,
   RequestPageQuery,
@@ -43,7 +44,17 @@ const requestWithAcceptance = {
 } satisfies Prisma.ServiceRequestInclude;
 
 const offerViewInclude = {
-  request: { select: { currencyCode: true } },
+  request: {
+    select: {
+      currencyCode: true,
+      modality: true,
+      primaryNeed: true,
+      proposedBudget: true,
+      status: true,
+      scheduledFor: true,
+      expiresAt: true,
+    },
+  },
   psychologistProfile: {
     select: {
       id: true,
@@ -580,6 +591,52 @@ export class PrismaServiceRequestRepository implements ServiceRequestRepository 
       include: offerViewInclude,
     });
     return this.offerViews(this.prisma, offers);
+  }
+
+  async listOwnOffers(
+    userId: string,
+    query: RequestPageQuery
+  ): Promise<ServiceRequestPage<OwnServiceOfferView>> {
+    const rows = await this.prisma.offer.findMany({
+      where: {
+        psychologistProfile: { userId },
+        ...(query.cursor ? {
+          OR: [
+            { createdAt: { lt: query.cursor.createdAt } },
+            { createdAt: query.cursor.createdAt, id: { lt: query.cursor.id } },
+          ],
+        } : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+      include: offerViewInclude,
+    });
+    const hasNext = rows.length > query.limit;
+    const pageRows = hasNext ? rows.slice(0, query.limit) : rows;
+    const offers = await this.offerViews(this.prisma, pageRows);
+    const last = pageRows.at(-1);
+    return {
+      items: offers.map((offer, index) => {
+        const request = pageRows[index].request;
+        return {
+          offer,
+          request: {
+            modality: request.modality,
+            primaryNeed: request.primaryNeed,
+            proposedBudget: {
+              amount: request.proposedBudget.toFixed(2),
+              currency: request.currencyCode,
+            },
+            status: request.status,
+            scheduledFor: request.scheduledFor?.toISOString() ?? null,
+            expiresAt: request.expiresAt.toISOString(),
+          },
+        };
+      }),
+      nextCursor: hasNext && last
+        ? encodeRequestCursor({ createdAt: last.createdAt, id: last.id })
+        : null,
+    };
   }
 
   async withdrawOwnOffer(

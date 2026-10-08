@@ -46,7 +46,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22.13.0
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -135,9 +135,9 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
   frontend:
-    name: Frontend type safety
+    name: Frontend quality and bundles
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -157,9 +157,28 @@ jobs:
         working-directory: frontend
         run: npm run typecheck
 
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test -- --runInBand
+
+      - name: Validate visual system
+        working-directory: frontend
+        run: npm run validate:design
+
       - name: Validate native production configuration
         working-directory: frontend
         run: npm run validate:native-config
+
+      - name: Validate delivery documentation
+        run: node scripts/validateDeliveryDocumentation.mjs
+
+      - name: Export web bundle
+        working-directory: frontend
+        run: npx expo export --platform web --output-dir "${{ runner.temp }}/ruta-emocional-web"
+
+      - name: Export Android bundle
+        working-directory: frontend
+        run: npx expo export --platform android --output-dir "${{ runner.temp }}/ruta-emocional-android"
 
       - name: Audit production dependencies
         working-directory: frontend

@@ -11,8 +11,8 @@ import { Colors } from '../../theme/colors';
 import { Shadow } from '../../theme/spacing';
 import { FontFamily, Typography } from '../../theme/typography';
 import { OPEN_STREET_MAP_ATTRIBUTION } from '../../config/mapProvider';
-
-export const PROVIDER_DEFAULT = 'default';
+import { getDirectoryMapConfig } from '../../config/runtimeConfig';
+import { buildOpenStreetMapEmbedUrl } from '../../utils/openStreetMapEmbed';
 
 interface MarkerProps {
   coordinate?: { latitude: number; longitude: number };
@@ -151,40 +151,29 @@ interface MapViewProps {
   showsMyLocationButton?: boolean;
   scrollEnabled?: boolean;
   zoomEnabled?: boolean;
+  rotateEnabled?: boolean;
+  tiltEnabled?: boolean;
   mapType?: string;
   routeStart?: { latitude: number; longitude: number };
   routeEnd?: { latitude: number; longitude: number };
 }
 
 const CustomMapView: React.FC<MapViewProps> = (props) => {
-  const lat = props.initialRegion?.latitude ?? 12.1328;
-  const lng = props.initialRegion?.longitude ?? -86.2904;
-  const latitudeDelta = props.initialRegion?.latitudeDelta ?? 0.04;
-  const longitudeDelta = props.initialRegion?.longitudeDelta ?? 0.04;
-  const routeCoordinates = props.routeStart && props.routeEnd
-    ? [props.routeStart, props.routeEnd]
-    : null;
-  const minimumLatitude = routeCoordinates
-    ? Math.min(...routeCoordinates.map(({ latitude }) => latitude))
-    : lat - latitudeDelta / 2;
-  const maximumLatitude = routeCoordinates
-    ? Math.max(...routeCoordinates.map(({ latitude }) => latitude))
-    : lat + latitudeDelta / 2;
-  const minimumLongitude = routeCoordinates
-    ? Math.min(...routeCoordinates.map(({ longitude }) => longitude))
-    : lng - longitudeDelta / 2;
-  const maximumLongitude = routeCoordinates
-    ? Math.max(...routeCoordinates.map(({ longitude }) => longitude))
-    : lng + longitudeDelta / 2;
-  const padding = routeCoordinates ? 0.01 : 0;
-  const boundingBox = [
-    minimumLongitude - padding,
-    minimumLatitude - padding,
-    maximumLongitude + padding,
-    maximumLatitude + padding,
-  ].join(',');
-  const marker = encodeURIComponent(`${lat},${lng}`);
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(boundingBox)}&layer=mapnik&marker=${marker}`;
+  const fallback = getDirectoryMapConfig();
+  const lat = props.initialRegion?.latitude ?? fallback.defaultLatitude;
+  const lng = props.initialRegion?.longitude ?? fallback.defaultLongitude;
+  const latitudeDelta = props.initialRegion?.latitudeDelta ?? fallback.latitudeDelta;
+  const longitudeDelta = props.initialRegion?.longitudeDelta ?? fallback.longitudeDelta;
+  const mapUrl = buildOpenStreetMapEmbedUrl({
+    region: {
+      latitude: lat,
+      longitude: lng,
+      latitudeDelta,
+      longitudeDelta,
+    },
+    ...(props.routeStart ? { routeStart: props.routeStart } : {}),
+    ...(props.routeEnd ? { routeEnd: props.routeEnd } : {}),
+  });
 
   const childrenWithCoords = React.Children.map(props.children, (child) => {
     if (React.isValidElement<MapAwareProps>(child)) {
@@ -200,7 +189,7 @@ const CustomMapView: React.FC<MapViewProps> = (props) => {
   });
 
   return (
-    <View style={[styles.container, props.style]}>
+    <View testID="custom-map-view" style={[styles.container, props.style]}>
       <View style={StyleSheet.absoluteFill}>
         {React.createElement('iframe', {
           src: mapUrl,

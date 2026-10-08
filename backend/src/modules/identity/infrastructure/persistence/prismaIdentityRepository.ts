@@ -9,6 +9,8 @@ import {
   RegisterPatientData,
   RegisterPsychologistData,
   RegistrationSessionData,
+  UpdateOwnPhotoData,
+  UpdateOwnProfileData,
 } from '../../application/ports';
 import {
   AccountStatus,
@@ -47,6 +49,7 @@ function mapUser(row: IdentityUserRow): IdentityUser {
     displayName: row.displayName,
     passwordHash: row.passwordHash,
     photoUrl: row.photoUrl,
+    phone: row.phone,
     status: row.status as AccountStatus,
     roles,
     patientProfileId: row.patientProfile?.id ?? null,
@@ -317,6 +320,59 @@ export class PrismaIdentityRepository implements IdentityRepository {
 
   async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  }
+
+  async updateOwnProfile(userId: string, data: UpdateOwnProfileData): Promise<IdentityUser> {
+    const row = await this.prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.update({
+        where: { id: userId },
+        data: { displayName: data.displayName, phone: data.phone },
+        include: identityUserInclude,
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: userId,
+          action: 'identity.profile_updated',
+          resourceType: 'user',
+          resourceId: userId,
+          requestId: data.requestId,
+          ipAddress: data.ipAddress,
+          metadata: { fields: ['displayName', 'phone'] },
+        },
+      });
+      return user;
+    });
+    return mapUser(row);
+  }
+
+  async updateOwnPhoto(
+    userId: string,
+    data: UpdateOwnPhotoData
+  ): Promise<{ readonly user: IdentityUser; readonly previousPhotoUrl: string | null }> {
+    const result = await this.prisma.$transaction(async (transaction) => {
+      const current = await transaction.user.findUnique({
+        where: { id: userId },
+        select: { photoUrl: true },
+      });
+      if (!current) throw AppError.notFound('USER_NOT_FOUND');
+      const user = await transaction.user.update({
+        where: { id: userId },
+        data: { photoUrl: data.photoUrl },
+        include: identityUserInclude,
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: userId,
+          action: data.photoUrl ? 'identity.profile_photo_updated' : 'identity.profile_photo_removed',
+          resourceType: 'user',
+          resourceId: userId,
+          requestId: data.requestId,
+          ipAddress: data.ipAddress,
+        },
+      });
+      return { user, previousPhotoUrl: current.photoUrl };
+    });
+    return { user: mapUser(result.user), previousPhotoUrl: result.previousPhotoUrl };
   }
 
   async createSession(data: CreateSessionData): Promise<void> {

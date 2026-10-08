@@ -51,6 +51,18 @@ const PasswordVisibilityButton: React.FC<{
   </TouchableOpacity>
 );
 
+const returnToPreviousOrLogin = (navigation: AuthNavigation): void => {
+  if (navigation.canGoBack()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation.reset({
+    index: 0,
+    routes: [{ name: 'Login' }],
+  });
+};
+
 export const ForgotPasswordScreen: React.FC = () => {
   const navigation = useNavigation<AuthNavigation>();
   const { toastConfig, showToast, hideToast } = useToast();
@@ -89,7 +101,7 @@ export const ForgotPasswordScreen: React.FC = () => {
         subtitle={unavailable
           ? 'El envío de recuperación aún no está configurado en este entorno.'
           : 'Si la cuenta existe, preparamos una forma segura de recuperar el acceso.'}
-        onBack={() => navigation.goBack()}
+        onBack={() => returnToPreviousOrLogin(navigation)}
         footer={<AuthLegalLinks navigation={navigation} />}
       >
         <View style={[styles.statusPanel, unavailable && styles.statusPanelWarning]} accessible>
@@ -135,7 +147,7 @@ export const ForgotPasswordScreen: React.FC = () => {
     <AuthShell
       title="Recuperar acceso"
       subtitle="Escribe el correo asociado a tu cuenta."
-      onBack={() => navigation.goBack()}
+      onBack={() => returnToPreviousOrLogin(navigation)}
       footer={<AuthLegalLinks navigation={navigation} />}
       overlay={<Toast {...toastConfig} onHide={hideToast} />}
     >

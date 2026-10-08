@@ -335,6 +335,22 @@ test('service request HTTP flow enforces ownership, idempotency, one winner and 
       'a request with an own offer is no longer actionable'
     );
 
+    const ownOffersResponse = await fetch(`${baseUrl}/offers/me?limit=10`, {
+      headers: authenticatedHeaders(firstProfessional.accessToken),
+    });
+    assert.equal(ownOffersResponse.status, 200);
+    const ownOffers = await readJson<{
+      readonly data: readonly {
+        readonly offer: { readonly id: string; readonly status: string };
+        readonly request: { readonly modality: string; readonly proposedBudget: { readonly amount: string } };
+      }[];
+    }>(ownOffersResponse);
+    const listedOwnOffer = ownOffers.data.find(({ offer }) => offer.id === offerIds[0]);
+    assert.ok(listedOwnOffer);
+    assert.equal(listedOwnOffer.offer.status, 'PENDING');
+    assert.equal(listedOwnOffer.request.modality, 'CHAT');
+    assert.equal(listedOwnOffer.request.proposedBudget.amount, '500.00');
+
     const duplicateOffer = await fetch(
       `${baseUrl}/service-requests/${createdRequest.data.id}/offers`,
       {
@@ -514,7 +530,10 @@ test('service request HTTP flow enforces ownership, idempotency, one winner and 
         publishPsychologistVerificationUpdated: async () => undefined,
         publishAppointmentUpdated: async () => undefined,
         publishAppointmentReminder: async () => undefined,
+        publishCallIncoming: async () => undefined,
+        publishCallUpdated: async () => undefined,
       },
+      { enqueue: async () => undefined } as never,
       createLogger('test'),
       config.messaging
     );

@@ -20,8 +20,10 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useRequestStore } from '../store/useRequestStore';
 import { HomeScreen } from '../screens/patient/HomeScreen';
 import { SearchTabScreen } from '../screens/patient/SearchTabScreen';
+import { ProfessionalDirectoryScreen } from '../screens/patient/ProfessionalDirectoryScreen';
 import { RadarScreen } from '../screens/patient/RadarScreen';
 import { AcceptedOfferScreen } from '../screens/patient/AcceptedOfferScreen';
+import { PatientNavigationScreen } from '../screens/patient/PatientNavigationScreen';
 import { MentaAgentScreen } from '../screens/shared/MentaAgentScreen';
 import { DashboardScreen } from '../screens/psychologist/DashboardScreen';
 import { VerificationScreen } from '../screens/psychologist/VerificationScreen';
@@ -32,6 +34,8 @@ import { AgendaScreen } from '../screens/shared/AgendaScreen';
 import { PsychologistProfileScreen } from '../screens/shared/PsychologistProfileScreen';
 import { InboxScreen } from '../screens/shared/InboxScreen';
 import { ConversationScreen } from '../screens/shared/ConversationScreen';
+import { CallSessionScreen } from '../screens/shared/CallSessionScreen';
+import { LegalNoticesScreen } from '../screens/shared/LegalNoticesScreen';
 import type {
   AppStackParamList,
   PatientTabParamList,
@@ -195,6 +199,7 @@ export const AppNavigator: React.FC = () => {
         <>
           <Stack.Screen name="PsychologistMain" component={PsychologistTabs} />
           <Stack.Screen name="Consultation" component={ConversationScreen} />
+          <Stack.Screen name="CallSession" component={CallSessionScreen} />
           <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
           <Stack.Screen name="Inbox" component={InboxScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
@@ -206,13 +211,17 @@ export const AppNavigator: React.FC = () => {
           <Stack.Screen name="PatientMain" component={PatientTabs} />
           <Stack.Screen name="Radar" component={RadarScreen} />
           <Stack.Screen name="AcceptedOffer" component={AcceptedOfferScreen} />
+          <Stack.Screen name="TurnByTurnNavigation" component={PatientNavigationScreen} />
           <Stack.Screen name="Consultation" component={ConversationScreen} />
+          <Stack.Screen name="CallSession" component={CallSessionScreen} />
           <Stack.Screen name="MentaAgent" component={MentaAgentScreen} />
           <Stack.Screen name="Inbox" component={InboxScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="PsychologistProfile" component={PsychologistProfileScreen} />
+          <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryScreen} />
         </>
       )}
+      <Stack.Screen name="LegalNotices" component={LegalNoticesScreen} />
     </Stack.Navigator>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { AppButton } from '../common/AppButton';
+import { StarRating } from '../common/StarRating';
 import { AppointmentModalityIcon } from './AppointmentModalityIcon';
 import type {
   Appointment,
@@ -36,6 +37,7 @@ interface AppointmentCardProps {
   readonly isBusy: boolean;
   readonly onPrimaryAction: (appointment: Appointment, action: AppointmentAction) => void;
   readonly onOpenOptions: (appointment: Appointment) => void;
+  readonly onReview?: (appointment: Appointment) => void;
 }
 
 export const AppointmentCard: React.FC<AppointmentCardProps> = ({
@@ -44,11 +46,16 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   isBusy,
   onPrimaryAction,
   onOpenOptions,
+  onReview,
 }) => {
   const { fontScale, width } = useWindowDimensions();
   const shouldStackActions = shouldStackInteractiveContent(width, fontScale);
   const statusColors = STATUS_COLORS[appointment.status];
   const actionPlan = getAppointmentActionPlan(appointment, role);
+  const canReview = role === 'patient'
+    && appointment.status === 'COMPLETED'
+    && !appointment.review
+    && Boolean(onReview);
 
   return (
     <View style={styles.card}>
@@ -90,7 +97,14 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         </View>
       ) : null}
 
-      {actionPlan.primary || actionPlan.secondary.length > 0 ? (
+      {role === 'patient' && appointment.review ? (
+        <View style={styles.reviewSummary}>
+          <Text style={styles.reviewLabel}>Tu calificación</Text>
+          <StarRating rating={appointment.review.rating} showValue={false} size={18} />
+        </View>
+      ) : null}
+
+      {actionPlan.primary || actionPlan.secondary.length > 0 || canReview ? (
         <View style={[styles.actions, shouldStackActions && styles.actionsStacked]}>
           {actionPlan.secondary.length > 0 ? (
             <AppButton
@@ -115,6 +129,16 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               size="sm"
               isLoading={isBusy}
               onPress={() => onPrimaryAction(appointment, actionPlan.primary!)}
+              style={shouldStackActions ? styles.actionStacked : styles.primaryAction}
+            />
+          ) : null}
+          {canReview ? (
+            <AppButton
+              label="Calificar atención"
+              variant="outline"
+              size="sm"
+              disabled={isBusy}
+              onPress={() => onReview?.(appointment)}
               style={shouldStackActions ? styles.actionStacked : styles.primaryAction}
             />
           ) : null}
@@ -201,6 +225,10 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Colors.textSecondary,
   },
+  reviewSummary: {
+    marginLeft: 56, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+  },
+  reviewLabel: { ...Typography.caption, color: Colors.textSecondary },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

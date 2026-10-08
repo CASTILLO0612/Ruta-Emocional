@@ -265,7 +265,16 @@ export const useRequestStore = create<RequestState>((set, get) => {
       const unsubscribe = listenToRequest(
         requestId,
         (request) => {
-          if (generation === sessionGeneration) set({ activeRequest: request });
+          if (generation !== sessionGeneration) return;
+
+          if (request.status === 'pending' || request.status === 'bidding') {
+            set({ activeRequest: request });
+            return;
+          }
+
+          const ownerId = get().sessionUserId ?? undefined;
+          clearRequestState();
+          void clearPersistedRequest(ownerId);
         },
         (error) => {
           if (generation === sessionGeneration) set({ error: errorMessage(error) });

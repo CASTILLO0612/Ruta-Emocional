@@ -89,14 +89,14 @@ export function prioritizeHomeSections(inputs: HomeStateInputs): HomeSection[] {
     sections.push({
       id: 'menta_suggestion',
       type: 'MENTA_SUGGESTION',
-      text: 'Tienes una oferta pendiente. Puedes revisarla o consultarle a MENTA qué aspectos considerar.',
+      text: 'Compara la propuesta pendiente y revisa los aspectos importantes antes de decidir.',
       targetRoute: 'Radar',
     });
   } else if (inputs.nextAppointment) {
     sections.push({
       id: 'menta_suggestion',
       type: 'MENTA_SUGGESTION',
-      text: 'MENTA puede ayudarte a preparar tu próxima consulta.',
+      text: 'Prepara tu próxima consulta con una guía personalizada.',
       targetRoute: 'MentaAgent',
     });
   }

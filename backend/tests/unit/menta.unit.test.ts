@@ -75,6 +75,24 @@ class MemoryConversationRepository implements MentaConversationRepository {
     return this.conversation;
   }
 
+  async restartConversation(
+    user: string,
+    conversationId: string,
+    scope: MentaScope,
+    consentVersion: string,
+    _audit: MentaAuditContext
+  ) {
+    await this.requireOwnedConversation(user, conversationId);
+    this.conversation = {
+      id: randomUUID(),
+      scope,
+      consentVersion,
+      consentedAt: new Date().toISOString(),
+      turns: [],
+    };
+    return this.conversation;
+  }
+
   async startTurn(
     _user: string,
     _conversationId: string,
@@ -236,6 +254,39 @@ test('MENTA rejects a scope that does not belong to the authenticated role', () 
   );
 });
 
+test('MENTA restarts an owned conversation without carrying its previous turns', async () => {
+  const conversations = new MemoryConversationRepository();
+  const config = enabledConfig();
+  const service = new MentaService(
+    conversations,
+    new RecordingContextGateway(),
+    new ToolCallingProvider(),
+    config.menta,
+    config.triage
+  );
+  const current = await service.openConversation(patientActor, 'PATIENT', true, audit);
+  conversations.conversation = {
+    ...current,
+    turns: [{
+      id: randomUUID(),
+      clientMessageId: randomUUID(),
+      userMessage: 'Mensaje anterior',
+      assistantMessage: 'Respuesta anterior',
+      providerOutcome: 'SUCCEEDED',
+      modelName: 'test-model',
+      toolsUsed: [],
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    }],
+  };
+
+  const restarted = await service.restartConversation(patientActor, current.id, audit);
+
+  assert.notEqual(restarted.id, current.id);
+  assert.deepEqual(restarted.turns, []);
+  assert.equal(restarted.scope, 'PATIENT');
+});
+
 test('Gemini adapter executes a no-argument tool in stateless mode without leaking its compatibility field', async () => {
   const payloads: Record<string, unknown>[] = [];
   let call = 0;
@@ -390,6 +441,47 @@ test('Ollama adapter confines conversation history to its configured local conte
   assert.ok(history.reduce((total, message) => total + message.content.length, 0) <= 40);
   assert.equal(history.some((message) => message.content.includes('b')), true);
   assert.equal(history.some((message) => message.content.includes('a')), false);
+});
+
+test('Ollama adapter forwards native response fragments while the local model is generating', async () => {
+  const payloads: Record<string, unknown>[] = [];
+  const fetchImplementation: typeof fetch = async (_input, init) => {
+    payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    const body = [
+      JSON.stringify({ model: 'local-test', message: { role: 'assistant', content: 'Respuesta ' } }),
+      JSON.stringify({ model: 'local-test', message: { role: 'assistant', content: 'en curso.' }, done: true }),
+    ].join('\n');
+    return new Response(`${body}\n`, {
+      status: 200,
+      headers: { 'content-type': 'application/x-ndjson' },
+    });
+  };
+  const provider = new OllamaMentaAgentProvider({
+    baseUrl: 'http://127.0.0.1:11434',
+    model: 'local-test',
+    timeoutMs: 1_000,
+    maximumToolRounds: 1,
+    keepAlive: '10m',
+    maximumHistoryCharacters: 2_000,
+    maximumOutputTokens: 96,
+    toolCallingEnabled: false,
+    fetchImplementation,
+  });
+  const deltas: string[] = [];
+
+  const response = await provider.generateReply({
+    systemInstruction: 'Responde de forma breve.',
+    history: [],
+    message: 'Hola.',
+    tools: [],
+    executeTool: async () => ({ data: {}, resourceType: 'none', resourceCount: 0 }),
+  }, {
+    onTextDelta: (delta) => deltas.push(delta),
+  });
+
+  assert.equal(payloads[0].stream, true);
+  assert.deepEqual(deltas, ['Respuesta ', 'en curso.']);
+  assert.equal(response.text, 'Respuesta en curso.');
 });
 
 test('MENTA streaming preserves the validated response while separating readable tokens', () => {

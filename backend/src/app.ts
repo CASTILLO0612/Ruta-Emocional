@@ -18,6 +18,9 @@ import { createAppointmentRouter } from './modules/appointment/presentation/appo
 import { createClinicalRecordRouter } from './modules/clinical-record/presentation/clinicalRecordRoutes';
 import { createTriageRouter } from './modules/triage/presentation/triageRoutes';
 import { createMentaRouter } from './modules/menta/presentation/mentaRoutes';
+import { createNotificationRouter } from './modules/notification/presentation/notificationRoutes';
+import { createPasswordResetLandingRouter } from './modules/identity/presentation/passwordResetLandingPage';
+import { createCallRouter } from './modules/call/presentation/callRoutes';
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -80,7 +83,10 @@ export function createApp(dependencies: AppDependencies): Express {
                'appointment.created',
                'appointment.updated',
                'appointment.rescheduled',
-               'appointment.reminder_due'
+               'appointment.reminder_due',
+               'call.started',
+               'call.accepted',
+               'call.finished'
              )
                AND "dead_lettered_at" IS NOT NULL
           ) AS "deadLettered",
@@ -94,7 +100,10 @@ export function createApp(dependencies: AppDependencies): Express {
                'appointment.created',
                'appointment.updated',
                'appointment.rescheduled',
-               'appointment.reminder_due'
+               'appointment.reminder_due',
+               'call.started',
+               'call.accepted',
+               'call.finished'
              )
                AND "published_at" IS NULL
                AND "dead_lettered_at" IS NULL
@@ -136,9 +145,11 @@ export function createApp(dependencies: AppDependencies): Express {
     response.json({ status: 'ok', service: 'ruta-emocional-api' });
   });
 
+  app.use(createPasswordResetLandingRouter());
+
   app.use(
     '/api/v1/auth',
-    createIdentityRouter(services.identity, config.passwordRecovery)
+    createIdentityRouter(services.identity, config.passwordRecovery, config.media)
   );
   app.use(
     '/api/v1',
@@ -146,7 +157,7 @@ export function createApp(dependencies: AppDependencies): Express {
       services.identity,
       services.professionalDirectory,
       config.professionalDirectory,
-      config.localQa
+      config.media
     )
   );
   app.use(
@@ -177,6 +188,11 @@ export function createApp(dependencies: AppDependencies): Express {
     '/api/v1',
     createMentaRouter(services.identity, services.menta, config.menta)
   );
+  app.use(
+    '/api/v1',
+    createNotificationRouter(services.identity, services.notifications)
+  );
+  app.use('/api/v1', createCallRouter(services.identity, services.calls, config.calls));
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));
   return app;

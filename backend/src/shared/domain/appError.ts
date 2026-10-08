@@ -36,6 +36,10 @@ export class AppError extends Error {
     return new AppError(409, code, 'La operación entra en conflicto con el estado actual', message);
   }
 
+  static unavailable(code: string, message: string): AppError {
+    return new AppError(503, code, 'Servicio temporalmente no disponible', message);
+  }
+
   static validation(errors: readonly FieldError[]): AppError {
     return new AppError(
       422,

@@ -15,6 +15,8 @@ import {
   parseAppointmentPageQuery,
   parseAppointmentUuid,
   parseCreateAppointment,
+  parseCreateReview,
+  parseReviewPageQuery,
   parseReschedule,
   parseSlotQuery,
   parseTransition,
@@ -80,6 +82,20 @@ export function createAppointmentRouter(
     });
   }));
 
+  router.get('/psychologists/me/reviews', authenticate, asyncHandler(async (
+    request: AuthenticatedRequest,
+    response
+  ) => {
+    const page = await service.listReceivedReviews(
+      getActor(request),
+      parseReviewPageQuery(request.query as Record<string, unknown>, policy)
+    );
+    response.json({
+      data: page.items,
+      meta: { requestId: getRequestId(response), nextCursor: page.nextCursor },
+    });
+  }));
+
   router.post('/appointments', authenticate, mutationLimiter, asyncHandler(async (
     request: AuthenticatedRequest,
     response
@@ -122,6 +138,22 @@ export function createAppointmentRouter(
       parseAppointmentIdempotencyKey(request.header('idempotency-key')),
       auditContext(request, response)
     ), response));
+  }));
+
+  router.post('/appointments/:appointmentId/review', authenticate, mutationLimiter, asyncHandler(async (
+    request: AuthenticatedRequest,
+    response
+  ) => {
+    const appointmentId = parseAppointmentUuid(request.params.appointmentId, 'appointmentId');
+    const body = parseCreateReview(request.body);
+    const review = await service.createReview(
+      getActor(request),
+      appointmentId,
+      body.rating,
+      body.comment,
+      auditContext(request, response)
+    );
+    response.status(201).json(envelope(review, response));
   }));
 
   return router;

@@ -14,7 +14,7 @@ export type LocalQaEvidenceContentType = typeof LOCAL_QA_EVIDENCE_CONTENT_TYPES[
 export type EvidenceUploadPolicy =
   | { readonly mode: 'DISABLED' }
   | {
-      readonly mode: 'LOCAL_QA';
+      readonly mode: 'DIRECT';
       readonly maximumBytes: number;
       readonly acceptedContentTypes: readonly LocalQaEvidenceContentType[];
     };

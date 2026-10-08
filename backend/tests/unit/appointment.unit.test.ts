@@ -7,6 +7,8 @@ import {
   parseAppointmentPageQuery,
   parseCreateAppointment,
   parseReschedule,
+  parseCreateReview,
+  parseReviewPageQuery,
   parseSlotQuery,
   parseTransition,
 } from '../../src/modules/appointment/presentation/appointmentValidation';
@@ -81,4 +83,16 @@ test('reschedule and idempotency parsing fail closed', () => {
   assert.equal(parseReschedule({ startsAt }).startsAt.toISOString(), startsAt);
   assert.throws(() => parseAppointmentIdempotencyKey('retry-1'), AppError);
   assert.throws(() => parseReschedule({ startsAt, endsAt: startsAt }), AppError);
+});
+
+test('appointment reviews accept bounded ratings and reject forged fields', () => {
+  assert.deepEqual(parseCreateReview({ rating: 5, comment: 'Atención clara y respetuosa.' }), {
+    rating: 5,
+    comment: 'Atención clara y respetuosa.',
+  });
+  assert.deepEqual(parseCreateReview({ rating: 4, comment: '   ' }), { rating: 4, comment: null });
+  assert.throws(() => parseCreateReview({ rating: 0 }), AppError);
+  assert.throws(() => parseCreateReview({ rating: 6, psychologistId: randomUUID() }), AppError);
+  assert.deepEqual(parseReviewPageQuery({ limit: '10' }, policy), { limit: 10 });
+  assert.throws(() => parseReviewPageQuery({ limit: '500' }, policy), AppError);
 });

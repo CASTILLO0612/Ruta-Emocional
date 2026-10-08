@@ -11,6 +11,7 @@ import {
   AppointmentSlot,
   AppointmentTransition,
   createAppointment,
+  createAppointmentReview,
   fetchAppointmentPolicy,
   fetchAppointmentRelationships,
   fetchAppointments,
@@ -50,6 +51,8 @@ export function useAppointmentAgenda() {
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [optionsAppointment, setOptionsAppointment] = useState<Appointment | null>(null);
   const [mutationId, setMutationId] = useState<string | null>(null);
+  const [reviewAppointment, setReviewAppointment] = useState<Appointment | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const selectedRelationship = useMemo(
     () => relationships.find(({ id }) => id === selectedRelationshipId) ?? null,
@@ -262,6 +265,38 @@ export function useAppointmentAgenda() {
     }
   }, [runTransition]);
 
+  const openReview = useCallback((appointment: Appointment) => {
+    setReviewError(null);
+    setReviewAppointment(appointment);
+  }, []);
+
+  const closeReview = useCallback(() => {
+    if (mutationId !== null) return;
+    setReviewAppointment(null);
+    setReviewError(null);
+  }, [mutationId]);
+
+  const submitReview = useCallback(async (
+    appointment: Appointment,
+    rating: number,
+    comment: string | null
+  ) => {
+    setMutationId(appointment.id);
+    setReviewError(null);
+    try {
+      await createAppointmentReview(appointment.id, rating, comment);
+      setReviewAppointment(null);
+      await loadAgenda();
+    } catch (reviewFailure) {
+      setReviewError(presentUserError(
+        reviewFailure,
+        'No pudimos enviar tu opinión. Inténtalo nuevamente.'
+      ));
+    } finally {
+      setMutationId(null);
+    }
+  }, [loadAgenda]);
+
   return {
     relationships,
     policy,
@@ -280,6 +315,14 @@ export function useAppointmentAgenda() {
     handleOptionsReschedule,
     handleCancel,
     mutationId,
+    review: {
+      appointment: reviewAppointment,
+      error: reviewError,
+      isSubmitting: Boolean(reviewAppointment && mutationId === reviewAppointment.id),
+      onOpen: openReview,
+      onClose: closeReview,
+      onSubmit: submitReview,
+    },
     schedule: {
       visible: isScheduleOpen,
       rescheduling,

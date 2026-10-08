@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { BackHandler, View, Text, StyleSheet, Image } from 'react-native';
+import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import {
   CheckCircle2,
   Calendar,
@@ -15,7 +15,7 @@ import {
 
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { Spacing, BorderRadius, Shadow } from '../../theme/spacing';
+import { Spacing } from '../../theme/spacing';
 import { IconSize, IconStroke } from '../../theme/icons';
 import { AppHeader } from '../../components/shared/AppHeader';
 import { ScreenContainer } from '../../components/shared/ScreenContainer';
@@ -33,6 +33,24 @@ export const AcceptedOfferScreen: React.FC = () => {
   const route = useRoute<AcceptedOfferRoute>();
   const navigation = useNavigation<AppNavigation>();
   const summary = route.params;
+
+  const returnToHome = React.useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'PatientMain', params: { screen: 'Home' } }],
+    });
+  }, [navigation]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        returnToHome();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [returnToHome])
+  );
 
   const decision = resolveAcceptedOfferDecision({
     modality: summary.modality,
@@ -79,9 +97,21 @@ export const AcceptedOfferScreen: React.FC = () => {
     }
   };
 
+  const startTurnByTurnNavigation = () => {
+    if (!summary.inPersonDestination) return;
+    navigation.navigate('TurnByTurnNavigation', {
+      destination: summary.inPersonDestination,
+    });
+  };
+
   return (
     <View style={styles.container}>
-      <AppHeader title="Confirmación" showBrand={false} />
+      <AppHeader
+        title="Confirmación"
+        showBrand={false}
+        showBack
+        onBack={returnToHome}
+      />
       <ScreenContainer edges={['bottom', 'left', 'right']} contentStyle={styles.content}>
         <View style={styles.successIconContainer}>
           <CheckCircle2
@@ -100,7 +130,7 @@ export const AcceptedOfferScreen: React.FC = () => {
               : 'Revisa los detalles y coordina la atención con el profesional.'}
         </Text>
 
-        <View style={styles.summaryCard}>
+        <View style={styles.summarySection}>
           <View style={styles.profileRow}>
             {summary.psychologistPhotoURL ? (
               <Image
@@ -138,7 +168,7 @@ export const AcceptedOfferScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={styles.detailsBox}>
+          <View style={styles.detailsSection}>
             <View style={styles.detailItem}>
               <Text style={[Typography.caption, styles.detailLabel]}>
                 MODALIDAD
@@ -216,7 +246,7 @@ export const AcceptedOfferScreen: React.FC = () => {
             <>
               <AppButton
                 label="Cómo llegar"
-                onPress={() => void handleNavigation('GOOGLE_MAPS')}
+                onPress={startTurnByTurnNavigation}
                 variant="primary"
                 size="lg"
                 fullWidth
@@ -295,20 +325,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.xl,
   },
-  summaryCard: {
+  summarySection: {
     width: '100%',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     marginBottom: Spacing.xl,
-    ...Shadow.md,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.divider,
   },
   avatar: {
     width: 56,
@@ -343,11 +370,11 @@ const styles = StyleSheet.create({
   ratingText: {
     color: Colors.textTertiary,
   },
-  detailsBox: {
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
+  detailsSection: {
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
   detailItem: {},
   detailLabel: {

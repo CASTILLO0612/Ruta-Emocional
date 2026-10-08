@@ -58,6 +58,11 @@ for (const file of await sourceFiles(sourceRoot)) {
     false,
     `Expose checked, not selected, for radio controls: ${relativeFile}`
   );
+  assert.equal(
+    /(^|\n)\s*\/\/|\/\*/m.test(contents),
+    false,
+    `Keep product source self-explanatory and free of inline comments: ${relativeFile}`
+  );
 
   for (const match of contents.matchAll(/accessibilityRole=["'](radio|checkbox|tab)["']/g)) {
     const role = match[1];

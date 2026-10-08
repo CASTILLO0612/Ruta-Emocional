@@ -47,7 +47,7 @@ export function createProfessionalDirectoryRouter(
   identity: IdentityService,
   service: ProfessionalDirectoryService,
   config: AppConfig['professionalDirectory'],
-  localQaConfig: AppConfig['localQa']
+  evidenceConfig: Pick<AppConfig['media'], 'evidenceMaximumBytes' | 'evidenceUploadsPerMinute'>
 ): Router {
   const router = Router();
   const authenticate = requireAuthentication(identity);
@@ -59,11 +59,11 @@ export function createProfessionalDirectoryRouter(
   });
   const localQaUploadLimiter = createRateLimiter({
     windowMs: 60_000,
-    maximum: localQaConfig.evidenceUploadsPerMinute,
+    maximum: evidenceConfig.evidenceUploadsPerMinute,
     key: (request) => getActor(request as AuthenticatedRequest).user.id,
   });
   const localQaEvidenceBody = express.raw({
-    limit: localQaConfig.evidenceMaximumBytes,
+    limit: evidenceConfig.evidenceMaximumBytes,
     type: [...LOCAL_QA_EVIDENCE_CONTENT_TYPES],
   });
 
@@ -197,6 +197,29 @@ export function createProfessionalDirectoryRouter(
   });
 
   router.put(
+    '/psychologists/me/verification-evidence/:licenseId',
+    authenticate,
+    onboarding,
+    localQaUploadLimiter,
+    localQaEvidenceBody,
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const licenseId = parseUuid(request.params.licenseId, 'licenseId');
+      const file = parseLocalQaEvidenceUpload({
+        body: request.body,
+        contentType: request.header('content-type'),
+        encodedFileName: request.header('x-evidence-file-name'),
+        maximumBytes: evidenceConfig.evidenceMaximumBytes,
+      });
+      const profile = await service.submitLocalQaVerificationEvidence(
+        getActor(request),
+        { ...file, licenseId },
+        auditContext(request, response)
+      );
+      response.status(201).json(envelope(profile, response));
+    })
+  );
+
+  router.put(
     '/psychologists/me/verification-evidence/local/:licenseId',
     authenticate,
     onboarding,
@@ -208,7 +231,7 @@ export function createProfessionalDirectoryRouter(
         body: request.body,
         contentType: request.header('content-type'),
         encodedFileName: request.header('x-evidence-file-name'),
-        maximumBytes: localQaConfig.evidenceMaximumBytes,
+        maximumBytes: evidenceConfig.evidenceMaximumBytes,
       });
       const profile = await service.submitLocalQaVerificationEvidence(
         getActor(request),
